@@ -1,0 +1,45 @@
+{
+  // Exclude directories from file watching to prevent OOM errors
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.expo/**": true,
+    "**/.expo-shared/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.cache/**": true,
+    "**/android/**": true,
+    "**/ios/**": true
+  },
+  
+  // Exclude directories from search
+  "search.exclude": {
+    "**/.expo": true,
+    "**/.expo-shared": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/android": true,
+    "**/ios": true,
+    "**/.git": true
+  },
+  
+  // Exclude directories from file tree
+  "files.exclude": {
+    "**/.expo": true,
+    "**/.expo-shared": true
+  },
+  
+  // TypeScript memory optimization
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  
+  // Disable auto-save to reduce file operations
+  "files.autoSave": "onFocusChange",
+  
+  // Reduce number of worker threads
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents"
+  }
+}

@@ -4,13 +4,18 @@ import { supabase } from '../config/supabase';
 import type { ApiResponse } from '../types';
 
 // Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Wrapped in try-catch to prevent errors in Expo Go
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (error) {
+  console.log('Push notifications not available in Expo Go - this is expected');
+}
 
 export const notificationService = {
   /**
@@ -18,6 +23,11 @@ export const notificationService = {
    */
   async requestPermissions(): Promise<ApiResponse<boolean>> {
     try {
+      // Check if running in Expo Go
+      if (!Notifications.getPermissionsAsync) {
+        return { error: 'Push notifications not available in Expo Go' };
+      }
+
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -32,7 +42,8 @@ export const notificationService = {
 
       return { data: true };
     } catch (error: any) {
-      return { error: error.message || 'Failed to request permissions' };
+      console.log('Notification permission error:', error.message);
+      return { error: 'Push notifications not available in Expo Go' };
     }
   },
 
@@ -68,7 +79,8 @@ export const notificationService = {
 
       return { data: token };
     } catch (error: any) {
-      return { error: error.message || 'Failed to register for push notifications' };
+      console.log('Push notification registration error:', error.message);
+      return { error: 'Push notifications not available in Expo Go' };
     }
   },
 

@@ -1,0 +1,421 @@
+import { supabase } from '../config/supabase';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import type { User, ApiResponse, UserRole } from '../types';
+import { profileService, StudentProfile, TeacherProfile } from './profileService';
+
+// Required for expo-web-browser to properly close after auth
+WebBrowser.maybeCompleteAuthSession();
+
+// Combined profile type for auth responses
+export type AuthProfile = (StudentProfile | TeacherProfile) & { role: UserRole };
+
+// Use the native deep link scheme for OAuth redirects
+// This avoids localhost issues on physical devices
+const getRedirectUrl = (): string => {
+  // For Expo Go, we need to use the Expo URL scheme
+  // This will be intercepted by the app after OAuth completes
+  const redirectUrl = Linking.createURL('auth/callback');
+  console.log('Using redirect URL:', redirectUrl);
+  return redirectUrl;
+};
+
+export const authService = {
+  /**
+   * Sign in with email and password
+   */
+  async signIn(email: string, password: string): Promise<ApiResponse<AuthProfile>> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Check which profile table the user is in
+      const roleResult = await profileService.getUserRole(data.user.id);
+      
+      if (roleResult.error || !roleResult.data?.role || !roleResult.data?.profile) {
+        throw new Error('User profile not found. Please sign up first.');
+      }
+
+      // Update last login based on role
+      if (roleResult.data.role === 'student') {
+        await profileService.updateStudentLastLogin(data.user.id);
+      } else {
+        await profileService.updateTeacherLastLogin(data.user.id);
+      }
+
+      return { data: { ...roleResult.data.profile, role: roleResult.data.role } as AuthProfile };
+    } catch (error: any) {
+      return { error: error.message || 'Sign in failed' };
+    }
+  },
+
+  /**
+   * Sign in with email magic link (passwordless)
+   */
+  async signInWithMagicLink(email: string, role: UserRole): Promise<ApiResponse<null>> {
+    try {
+      const redirectUrl = getRedirectUrl();
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            role: role, // Store role for later use when creating profile
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      return { data: null };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to send magic link' };
+    }
+  },
+
+  /**
+   * Sign in with Google OAuth
+   */
+  async signInWithGoogle(role: UserRole): Promise<ApiResponse<User | null>> {
+    try {
+      const redirectUrl = getRedirectUrl();
+      console.log('Starting Google OAuth with redirect:', redirectUrl);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          skipBrowserRedirect: false, // Let Supabase handle the redirect
+        },
+      });
+
+      if (error) {
+        console.error('OAuth setup error:', error);
+        throw error;
+      }
+
+      if (data?.url) {
+        console.log('Opening OAuth URL in browser...');
+        
+        // Open the OAuth URL in the browser with proper return URL
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        console.log('Browser result:', result);
+
+        // If the browser was closed or cancelled
+        if (result.type === 'cancel' || result.type === 'dismiss') {
+          return { error: 'Authentication cancelled' };
+        }
+
+        // The session will be automatically set by Supabase when redirected back
+        // Wait a moment for the session to be established
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Get the current session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !sessionData.session) {
+          console.error('Session error:', sessionError);
+          return { error: 'Failed to establish session after authentication' };
+        }
+
+        console.log('Session established for user:', sessionData.session.user.email);
+
+        // Check if user profile exists or create one
+        const userId = sessionData.session.user.id;
+        const roleResult = await profileService.getUserRole(userId);
+
+        if (roleResult.data?.profile) {
+          // User exists, update last login
+          if (roleResult.data.role === 'student') {
+            await profileService.updateStudentLastLogin(userId);
+          } else {
+            await profileService.updateTeacherLastLogin(userId);
+          }
+          return { data: { ...roleResult.data.profile, role: roleResult.data.role } as AuthProfile };
+        } else {
+          // Create new user profile
+          const googleUser = sessionData.session.user;
+          const fullName = googleUser.user_metadata?.full_name || '';
+          const nameParts = fullName.split(' ');
+
+          const newProfile = {
+            user_id: userId,
+            email: googleUser.email || '',
+            role: role,
+            first_name: nameParts[0] || '',
+            last_name: nameParts.slice(1).join(' ') || '',
+            profile_photo_url: googleUser.user_metadata?.avatar_url || null,
+          };
+
+          if (role === 'student') {
+            const { data: createdProfile, error: createError } = await profileService.createStudentProfile(newProfile);
+            if (createError) throw new Error(createError);
+            return { data: { ...createdProfile, role: 'student' } as AuthProfile };
+          } else {
+            const { data: createdProfile, error: createError } = await profileService.createTeacherProfile(newProfile);
+            if (createError) throw new Error(createError);
+            return { data: { ...createdProfile, role: 'teacher' } as AuthProfile };
+          }
+        }
+      }
+
+      return { error: 'No OAuth URL received' };
+    } catch (error: any) {
+      console.error('Google OAuth error:', error);
+      return { error: error.message || 'Google sign in failed' };
+    }
+  },
+          data.url,
+          redirectUrl
+        );
+
+        console.log('Browser result type:', result.type);
+
+        if (result.type === 'success' && result.url) {
+          console.log('Received callback URL:', result.url);
+          
+          // Parse the URL to extract tokens - handle both hash and query params
+          let accessToken: string | null = null;
+          let refreshToken: string | null = null;
+
+          // Try to extract from hash fragment first (e.g., #access_token=...)
+          if (result.url.includes('#')) {
+            const hashFragment = result.url.split('#')[1];
+            if (hashFragment) {
+              const hashParams = new URLSearchParams(hashFragment);
+              accessToken = hashParams.get('access_token');
+              refreshToken = hashParams.get('refresh_token');
+            }
+          }
+
+          // If not in hash, try query params (e.g., ?access_token=...)
+          if (!accessToken && result.url.includes('?')) {
+            const queryString = result.url.split('?')[1]?.split('#')[0];
+            if (queryString) {
+              const queryParams = new URLSearchParams(queryString);
+              accessToken = queryParams.get('access_token');
+              refreshToken = queryParams.get('refresh_token');
+            }
+          }
+
+          console.log('Extracted tokens - Access token exists:', !!accessToken, 'Refresh token exists:', !!refreshToken);
+
+          if (accessToken) {
+            // Set the session with the tokens
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            if (sessionError) {
+              console.error('Session error:', sessionError);
+              throw sessionError;
+            }
+
+            console.log('Session set successfully, user:', sessionData.user?.email);
+
+            if (sessionData.user) {
+              // Check if user profile exists
+              const { data: existingUser, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', sessionData.user.id)
+                .single();
+
+              if (existingUser) {
+                console.log('Existing user found, updating last login');
+                // Update last login
+                await supabase
+                  .from('users')
+                  .update({ last_login: new Date().toISOString() })
+                  .eq('id', sessionData.user.id);
+
+                return { data: existingUser };
+              } else {
+                console.log('Creating new user profile...');
+                // Create new user profile from Google data
+                const googleUser = sessionData.user;
+                const fullName = googleUser.user_metadata?.full_name || '';
+                const nameParts = fullName.split(' ');
+                
+                const newUser = {
+                  id: googleUser.id,
+                  email: googleUser.email || '',
+                  role: role,
+                  first_name: nameParts[0] || '',
+                  last_name: nameParts.slice(1).join(' ') || '',
+                  profile_photo_url: googleUser.user_metadata?.avatar_url || null,
+                };
+
+                const { data: createdUser, error: createError } = await supabase
+                  .from('users')
+                  .insert(newUser)
+                  .select()
+                  .single();
+
+                if (createError) {
+                  console.error('Error creating user:', createError);
+                  throw createError;
+                }
+
+                console.log('New user created successfully');
+                return { data: createdUser };
+              }
+            }
+          } else {
+            console.log('No access token found in callback URL');
+            // The browser session was successful but no token - user may have cancelled
+            return { data: null };
+          }
+        } else if (result.type === 'cancel' || result.type === 'dismiss') {
+          console.log('User cancelled the authentication');
+          return { data: null };
+        }
+
+        return { data: null };
+      }
+
+      return { error: 'Failed to get OAuth URL' };
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      return { error: error.message || 'Google sign in failed' };
+    }
+  },
+
+  /**
+   * Sign up new user - creates auth user and profile in appropriate table
+   */
+  async signUp(
+    email: string,
+    password: string,
+    userData: Partial<User>
+  ): Promise<ApiResponse<AuthProfile>> {
+    try {
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: userData.role || 'student',
+          },
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('User creation failed');
+
+      const role = userData.role || 'student';
+
+      // Create profile in the appropriate table based on role
+      if (role === 'student') {
+        const result = await profileService.createStudentProfile(authData.user.id, {
+          email,
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          student_id: userData.student_id,
+          phone: userData.phone,
+          department: userData.department,
+          year_level: userData.year_level,
+          profile_photo_url: userData.profile_photo_url,
+        });
+
+        if (result.error) throw new Error(result.error);
+        return { data: { ...result.data!, role: 'student' } };
+      } else if (role === 'teacher') {
+        const result = await profileService.createTeacherProfile(authData.user.id, {
+          email,
+          first_name: userData.first_name || '',
+          last_name: userData.last_name || '',
+          phone: userData.phone,
+          department: userData.department,
+          profile_photo_url: userData.profile_photo_url,
+          expertise_tags: userData.expertise_tags,
+          bio: userData.bio,
+        });
+
+        if (result.error) throw new Error(result.error);
+        return { data: { ...result.data!, role: 'teacher' } };
+      }
+
+      throw new Error('Invalid role specified');
+    } catch (error: any) {
+      return { error: error.message || 'Sign up failed' };
+    }
+  },
+
+  /**
+   * Sign out current user
+   */
+  async signOut(): Promise<ApiResponse<null>> {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      return { data: null };
+    } catch (error: any) {
+      return { error: error.message || 'Sign out failed' };
+    }
+  },
+
+  /**
+   * Get current user session
+   */
+  async getCurrentUser(): Promise<ApiResponse<AuthProfile>> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return { error: 'No active session' };
+      }
+
+      // Check which profile table the user is in
+      const roleResult = await profileService.getUserRole(session.user.id);
+      
+      if (roleResult.error || !roleResult.data?.role || !roleResult.data?.profile) {
+        return { error: 'User profile not found' };
+      }
+
+      return { data: { ...roleResult.data.profile, role: roleResult.data.role } as AuthProfile };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to get current user' };
+    }
+  },
+
+  /**
+   * Update user profile - routes to correct table based on role
+   */
+  async updateProfile(
+    userId: string, 
+    role: UserRole,
+    updates: Partial<StudentProfile | TeacherProfile>
+  ): Promise<ApiResponse<AuthProfile>> {
+    try {
+      if (role === 'student') {
+        const result = await profileService.updateStudentProfile(userId, updates);
+        if (result.error) throw new Error(result.error);
+        return { data: { ...result.data!, role: 'student' } };
+      } else if (role === 'teacher') {
+        const result = await profileService.updateTeacherProfile(userId, updates);
+        if (result.error) throw new Error(result.error);
+        return { data: { ...result.data!, role: 'teacher' } };
+      }
+      
+      throw new Error('Invalid role');
+    } catch (error: any) {
+      return { error: error.message || 'Profile update failed' };
+    }
+  },
+};

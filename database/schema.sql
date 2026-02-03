@@ -13,58 +13,82 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- =============================================
 
 -- User role types
-CREATE TYPE user_role AS ENUM ('student', 'teacher', 'admin');
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('student', 'teacher', 'admin');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Consultation request status
-CREATE TYPE consultation_status AS ENUM (
-  'pending',           -- Initial submission
-  'ai_processing',     -- AI analyzing documents
-  'awaiting_teacher',  -- Ready for teacher review
-  'accepted',          -- Teacher accepted
-  'declined',          -- Teacher declined
-  'completed',         -- Consultation finished
-  'cancelled'          -- Cancelled by student
-);
+DO $$ BEGIN
+  CREATE TYPE consultation_status AS ENUM (
+    'pending',           -- Initial submission
+    'ai_processing',     -- AI analyzing documents
+    'awaiting_teacher',  -- Ready for teacher review
+    'accepted',          -- Teacher accepted
+    'declined',          -- Teacher declined
+    'completed',         -- Consultation finished
+    'cancelled'          -- Cancelled by student
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Consultation topic categories
-CREATE TYPE consultation_topic AS ENUM (
-  'academic',
-  'career',
-  'personal',
-  'administrative',
-  'research',
-  'mental_health'
-);
+DO $$ BEGIN
+  CREATE TYPE consultation_topic AS ENUM (
+    'academic',
+    'career',
+    'personal',
+    'administrative',
+    'research',
+    'mental_health'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Urgency levels
-CREATE TYPE urgency_level AS ENUM ('normal', 'urgent');
+DO $$ BEGIN
+  CREATE TYPE urgency_level AS ENUM ('normal', 'urgent');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Notification types
-CREATE TYPE notification_type AS ENUM (
-  'request_submitted',
-  'request_accepted',
-  'request_declined',
-  'consultation_reminder',
-  'new_message',
-  'classroom_announcement',
-  'attachment_bin_created',
-  'document_uploaded',
-  'ai_brief_ready'
-);
+DO $$ BEGIN
+  CREATE TYPE notification_type AS ENUM (
+    'request_submitted',
+    'request_accepted',
+    'request_declined',
+    'consultation_reminder',
+    'new_message',
+    'classroom_announcement',
+    'attachment_bin_created',
+    'document_uploaded',
+    'ai_brief_ready'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Message types
-CREATE TYPE message_type AS ENUM (
-  'consultation_chat',
-  'announcement_reply',
-  'teacher_inquiry'
-);
+DO $$ BEGIN
+  CREATE TYPE message_type AS ENUM (
+    'consultation_chat',
+    'announcement_reply',
+    'teacher_inquiry'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- =============================================
 -- CORE TABLES
 -- =============================================
 
 -- Users Table (Students, Teachers, Admins)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
@@ -97,7 +121,7 @@ CREATE TABLE users (
 );
 
 -- Consultation Requests Table
-CREATE TABLE consultation_requests (
+CREATE TABLE IF NOT EXISTS consultation_requests (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   
   -- Participants
@@ -137,7 +161,7 @@ CREATE TABLE consultation_requests (
 );
 
 -- AI Smart Briefs Table
-CREATE TABLE ai_smart_briefs (
+CREATE TABLE IF NOT EXISTS ai_smart_briefs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   consultation_request_id UUID UNIQUE REFERENCES consultation_requests(id) ON DELETE CASCADE,
   
@@ -160,31 +184,8 @@ CREATE TABLE ai_smart_briefs (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Uploaded Documents Table
-CREATE TABLE uploaded_documents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  consultation_request_id UUID REFERENCES consultation_requests(id) ON DELETE CASCADE,
-  attachment_bin_id UUID REFERENCES attachment_bins(id) ON DELETE CASCADE,
-  
-  -- File details
-  file_name VARCHAR(255) NOT NULL,
-  file_type VARCHAR(10) NOT NULL, -- 'pdf', 'docx'
-  file_size_bytes BIGINT NOT NULL,
-  storage_path TEXT NOT NULL, -- Supabase storage path
-  
-  -- AI extraction
-  extracted_text TEXT,
-  text_extraction_success BOOLEAN DEFAULT false,
-  extraction_error TEXT,
-  
-  -- Metadata
-  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  is_deleted BOOLEAN DEFAULT false
-);
-
 -- Classrooms Table
-CREATE TABLE classrooms (
+CREATE TABLE IF NOT EXISTS classrooms (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   
@@ -203,7 +204,7 @@ CREATE TABLE classrooms (
 );
 
 -- Classroom Memberships Table
-CREATE TABLE classroom_memberships (
+CREATE TABLE IF NOT EXISTS classroom_memberships (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
   student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -216,7 +217,7 @@ CREATE TABLE classroom_memberships (
 );
 
 -- Announcements Table
-CREATE TABLE announcements (
+CREATE TABLE IF NOT EXISTS announcements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
   teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -232,7 +233,7 @@ CREATE TABLE announcements (
 );
 
 -- Attachment Bins Table (for pre-consultation document collection)
-CREATE TABLE attachment_bins (
+CREATE TABLE IF NOT EXISTS attachment_bins (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   classroom_id UUID NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
   teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -255,8 +256,31 @@ CREATE TABLE attachment_bins (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Uploaded Documents Table
+CREATE TABLE IF NOT EXISTS uploaded_documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  consultation_request_id UUID REFERENCES consultation_requests(id) ON DELETE CASCADE,
+  attachment_bin_id UUID REFERENCES attachment_bins(id) ON DELETE CASCADE,
+  
+  -- File details
+  file_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(10) NOT NULL, -- 'pdf', 'docx'
+  file_size_bytes BIGINT NOT NULL,
+  storage_path TEXT NOT NULL, -- Supabase storage path
+  
+  -- AI extraction
+  extracted_text TEXT,
+  text_extraction_success BOOLEAN DEFAULT false,
+  extraction_error TEXT,
+  
+  -- Metadata
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_deleted BOOLEAN DEFAULT false
+);
+
 -- Messages Table (Unified messaging system)
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   
   -- Participants
@@ -282,7 +306,7 @@ CREATE TABLE messages (
 );
 
 -- Notifications Table
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   
@@ -308,7 +332,7 @@ CREATE TABLE notifications (
 );
 
 -- Push Notification Tokens Table (for Expo Push Notifications)
-CREATE TABLE push_tokens (
+CREATE TABLE IF NOT EXISTS push_tokens (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
@@ -322,7 +346,7 @@ CREATE TABLE push_tokens (
 );
 
 -- Consultation History Archive Table
-CREATE TABLE consultation_history (
+CREATE TABLE IF NOT EXISTS consultation_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   consultation_request_id UUID NOT NULL REFERENCES consultation_requests(id) ON DELETE CASCADE,
   
@@ -341,38 +365,38 @@ CREATE TABLE consultation_history (
 -- =============================================
 
 -- Users
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_department ON users(department);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
 
 -- Consultation Requests
-CREATE INDEX idx_consultation_student ON consultation_requests(student_id);
-CREATE INDEX idx_consultation_teacher ON consultation_requests(teacher_id);
-CREATE INDEX idx_consultation_status ON consultation_requests(status);
-CREATE INDEX idx_consultation_scheduled_time ON consultation_requests(scheduled_start_time);
+CREATE INDEX IF NOT EXISTS idx_consultation_student ON consultation_requests(student_id);
+CREATE INDEX IF NOT EXISTS idx_consultation_teacher ON consultation_requests(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_consultation_status ON consultation_requests(status);
+CREATE INDEX IF NOT EXISTS idx_consultation_scheduled_time ON consultation_requests(scheduled_start_time);
 
 -- Documents
-CREATE INDEX idx_documents_consultation ON uploaded_documents(consultation_request_id);
-CREATE INDEX idx_documents_attachment_bin ON uploaded_documents(attachment_bin_id);
+CREATE INDEX IF NOT EXISTS idx_documents_consultation ON uploaded_documents(consultation_request_id);
+CREATE INDEX IF NOT EXISTS idx_documents_attachment_bin ON uploaded_documents(attachment_bin_id);
 
 -- Classrooms
-CREATE INDEX idx_classroom_teacher ON classrooms(teacher_id);
-CREATE INDEX idx_classroom_invite_code ON classrooms(invite_code);
+CREATE INDEX IF NOT EXISTS idx_classroom_teacher ON classrooms(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_classroom_invite_code ON classrooms(invite_code);
 
 -- Memberships
-CREATE INDEX idx_membership_classroom ON classroom_memberships(classroom_id);
-CREATE INDEX idx_membership_student ON classroom_memberships(student_id);
+CREATE INDEX IF NOT EXISTS idx_membership_classroom ON classroom_memberships(classroom_id);
+CREATE INDEX IF NOT EXISTS idx_membership_student ON classroom_memberships(student_id);
 
 -- Messages
-CREATE INDEX idx_messages_sender ON messages(sender_id);
-CREATE INDEX idx_messages_recipient ON messages(recipient_id);
-CREATE INDEX idx_messages_consultation ON messages(consultation_request_id);
-CREATE INDEX idx_messages_created ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_messages_consultation ON messages(consultation_request_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 
 -- Notifications
-CREATE INDEX idx_notifications_user ON notifications(user_id);
-CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = false;
-CREATE INDEX idx_notifications_created ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at DESC);
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -391,6 +415,27 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consultation_history ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own profile" ON users;
+DROP POLICY IF EXISTS "Users can view teacher profiles" ON users;
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+DROP POLICY IF EXISTS "Students view own consultation requests" ON consultation_requests;
+DROP POLICY IF EXISTS "Teachers view assigned consultation requests" ON consultation_requests;
+DROP POLICY IF EXISTS "Students create consultation requests" ON consultation_requests;
+DROP POLICY IF EXISTS "Teachers update assigned requests" ON consultation_requests;
+DROP POLICY IF EXISTS "Teachers view AI briefs for their consultations" ON ai_smart_briefs;
+DROP POLICY IF EXISTS "Users view own messages" ON messages;
+DROP POLICY IF EXISTS "Users send messages" ON messages;
+DROP POLICY IF EXISTS "Users mark messages as read" ON messages;
+DROP POLICY IF EXISTS "Users view own notifications" ON notifications;
+DROP POLICY IF EXISTS "Users mark own notifications as read" ON notifications;
+DROP POLICY IF EXISTS "Teachers manage own classrooms" ON classrooms;
+DROP POLICY IF EXISTS "Students view classrooms they joined" ON classrooms;
+DROP POLICY IF EXISTS "Students view own memberships" ON classroom_memberships;
+DROP POLICY IF EXISTS "Students join classrooms" ON classroom_memberships;
+DROP POLICY IF EXISTS "Teachers create announcements" ON announcements;
+DROP POLICY IF EXISTS "Classroom members view announcements" ON announcements;
 
 -- Users: Can view own profile and teacher profiles
 CREATE POLICY "Users can view own profile" ON users
@@ -489,6 +534,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing triggers if they exist
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+DROP TRIGGER IF EXISTS update_consultation_requests_updated_at ON consultation_requests;
+DROP TRIGGER IF EXISTS update_ai_smart_briefs_updated_at ON ai_smart_briefs;
+DROP TRIGGER IF EXISTS update_classrooms_updated_at ON classrooms;
+DROP TRIGGER IF EXISTS classroom_invite_code_trigger ON classrooms;
+
 -- Apply updated_at trigger to relevant tables
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -525,6 +577,7 @@ BEGIN
     NEW.invite_code := generate_invite_code();
     -- Ensure uniqueness
     WHILE EXISTS (SELECT 1 FROM classrooms WHERE invite_code = NEW.invite_code) LOOP
+-- Create invite code trigger
       NEW.invite_code := generate_invite_code();
     END LOOP;
   END IF;
@@ -540,7 +593,7 @@ CREATE TRIGGER classroom_invite_code_trigger BEFORE INSERT ON classrooms
 -- =============================================
 
 -- View: Consultation Request Summary by Department
-CREATE VIEW consultation_requests_by_department AS
+CREATE OR REPLACE VIEW consultation_requests_by_department AS
 SELECT 
   u.department,
   COUNT(*) as total_requests,
@@ -554,7 +607,7 @@ WHERE u.role = 'teacher'
 GROUP BY u.department;
 
 -- View: Popular Consultation Topics
-CREATE VIEW popular_consultation_topics AS
+CREATE OR REPLACE VIEW popular_consultation_topics AS
 SELECT 
   topic,
   COUNT(*) as request_count,
@@ -565,7 +618,7 @@ GROUP BY topic
 ORDER BY request_count DESC;
 
 -- View: Teacher Performance Metrics
-CREATE VIEW teacher_performance_metrics AS
+CREATE OR REPLACE VIEW teacher_performance_metrics AS
 SELECT 
   u.id as teacher_id,
   u.first_name || ' ' || u.last_name as teacher_name,
@@ -592,24 +645,39 @@ GROUP BY u.id, u.first_name, u.last_name, u.department;
 -- SEED DATA FOR DEMO
 -- =============================================
 
--- Insert Demo Admin
+-- Insert Demo Admin (skip if already exists)
 INSERT INTO users (email, password_hash, role, first_name, last_name, department) VALUES
-('admin@university.edu', crypt('admin123', gen_salt('bf')), 'admin', 'System', 'Administrator', 'IT Services');
+('admin@university.edu', crypt('admin123', gen_salt('bf')), 'admin', 'System', 'Administrator', 'IT Services')
+ON CONFLICT (email) DO NOTHING;
 
--- Insert Demo Teachers
+-- Insert Demo Teachers (skip if already exists)
 INSERT INTO users (email, password_hash, role, first_name, last_name, department, expertise_tags, office_hours, bio) VALUES
 ('prof.santos@university.edu', crypt('teacher123', gen_salt('bf')), 'teacher', 'Maria', 'Santos', 'Computer Science', 
-  ARRAY['Research', 'Career', 'Academic'], 'Mon-Wed 2-4 PM', 'Assistant Professor specializing in AI and Machine Learning'),
-('dr.chen@university.edu', crypt('teacher123', gen_salt('bf')), 'teacher', 'David', 'Chen', 'Mathematics', 
-  ARRAY['Academic', 'Research'], 'Tue-Thu 10-12 PM', 'Associate Professor in Applied Mathematics'),
-('prof.williams@university.edu', crypt('teacher123', gen_salt('bf')), 'teacher', 'Sarah', 'Williams', 'Psychology', 
-  ARRAY['Mental Health', 'Personal', 'Career'], 'Mon-Fri 1-3 PM', 'Clinical Psychologist and Career Counselor');
+  ARRAY['Research', 'Career', 'Academic'], 'Mon-Wed 2-4 PM', 'Assistant Professor specializing in AI and Machine Learning')
+ON CONFLICT (email) DO NOTHING;
 
--- Insert Demo Students
+INSERT INTO users (email, password_hash, role, first_name, last_name, department, expertise_tags, office_hours, bio) VALUES
+('dr.chen@university.edu', crypt('teacher123', gen_salt('bf')), 'teacher', 'David', 'Chen', 'Mathematics', 
+  ARRAY['Academic', 'Research'], 'Tue-Thu 10-12 PM', 'Associate Professor in Applied Mathematics')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, role, first_name, last_name, department, expertise_tags, office_hours, bio) VALUES
+('prof.williams@university.edu', crypt('teacher123', gen_salt('bf')), 'teacher', 'Sarah', 'Williams', 'Psychology', 
+  ARRAY['Mental Health', 'Personal', 'Career'], 'Mon-Fri 1-3 PM', 'Clinical Psychologist and Career Counselor')
+ON CONFLICT (email) DO NOTHING;
+
+-- Insert Demo Students (skip if already exists)
 INSERT INTO users (email, password_hash, role, first_name, last_name, department, student_id, year_level) VALUES
-('john.doe@student.edu', crypt('student123', gen_salt('bf')), 'student', 'John', 'Doe', 'Computer Science', 'CS-2024-001', 3),
-('jane.smith@student.edu', crypt('student123', gen_salt('bf')), 'student', 'Jane', 'Smith', 'Computer Science', 'CS-2024-002', 2),
-('mike.johnson@student.edu', crypt('student123', gen_salt('bf')), 'student', 'Mike', 'Johnson', 'Mathematics', 'MATH-2024-003', 4);
+('john.doe@student.edu', crypt('student123', gen_salt('bf')), 'student', 'John', 'Doe', 'Computer Science', 'CS-2024-001', 3)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, role, first_name, last_name, department, student_id, year_level) VALUES
+('jane.smith@student.edu', crypt('student123', gen_salt('bf')), 'student', 'Jane', 'Smith', 'Computer Science', 'CS-2024-002', 2)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (email, password_hash, role, first_name, last_name, department, student_id, year_level) VALUES
+('mike.johnson@student.edu', crypt('student123', gen_salt('bf')), 'student', 'Mike', 'Johnson', 'Mathematics', 'MATH-2024-003', 4)
+ON CONFLICT (email) DO NOTHING;
 
 -- Note: In production, use proper password hashing on the application layer
 -- The above uses PostgreSQL's crypt function for demonstration

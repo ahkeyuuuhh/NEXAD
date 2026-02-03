@@ -1,26 +1,14 @@
-/**
- * NEXAD - AI-Enhanced Consultation System
- * Main App Entry Point
- */
-import 'react-native-gesture-handler'; // MUST be at the very top
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as Linking from 'expo-linking';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { DEV_CONFIG } from './src/config/devMode';
-import { supabase } from './src/config/supabase';
 
-// Auth Screens
-import WelcomeScreen from './src/screens/auth/WelcomeScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import SignUpScreen from './src/screens/auth/SignUpScreen';
 import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
-
-// App Screens
 import StudentDashboard from './src/screens/student/StudentDashboard';
 
 function HomeScreen() {
@@ -45,13 +33,9 @@ const Stack = createStackNavigator();
 
 function AuthStack() {
   return (
-    <Stack.Navigator 
-      screenOptions={{ headerShown: false }}
-      initialRouteName="Welcome"
-    >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
     </Stack.Navigator>
   );
@@ -79,97 +63,16 @@ function AppStack() {
   );
 }
 
-// Deep linking configuration for OAuth callbacks
-const linking: LinkingOptions<any> = {
-  prefixes: [
-    'nexad://',
-    'exp://192.168.1.1:8081/--/', // Expo Go deep link (adjust IP as needed)
-    Linking.createURL('/'),
-  ],
-  config: {
-    screens: {
-      Welcome: 'welcome',
-      Login: 'login',
-      SignUp: 'signup',
-      RoleSelection: 'role',
-    },
-  },
-  // Handle the auth callback URL
-  async getInitialURL() {
-    const url = await Linking.getInitialURL();
-    console.log('Initial URL:', url);
-    if (url) {
-      await handleAuthCallback(url);
-    }
-    return url;
-  },
-  subscribe(listener) {
-    const subscription = Linking.addEventListener('url', async ({ url }) => {
-      console.log('Received deep link:', url);
-      await handleAuthCallback(url);
-      listener(url);
-    });
-    return () => subscription.remove();
-  },
-};
-
-// Handle auth callback URLs from OAuth
-async function handleAuthCallback(url: string) {
-  if (url.includes('auth/callback') || url.includes('access_token')) {
-    console.log('Processing auth callback...');
-    try {
-      // Extract tokens from the URL
-      let accessToken: string | null = null;
-      let refreshToken: string | null = null;
-
-      // Try hash fragment first
-      if (url.includes('#')) {
-        const hashFragment = url.split('#')[1];
-        if (hashFragment) {
-          const hashParams = new URLSearchParams(hashFragment);
-          accessToken = hashParams.get('access_token');
-          refreshToken = hashParams.get('refresh_token');
-        }
-      }
-
-      // Try query params
-      if (!accessToken && url.includes('?')) {
-        const queryString = url.split('?')[1]?.split('#')[0];
-        if (queryString) {
-          const queryParams = new URLSearchParams(queryString);
-          accessToken = queryParams.get('access_token');
-          refreshToken = queryParams.get('refresh_token');
-        }
-      }
-
-      if (accessToken) {
-        console.log('Setting session from deep link...');
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-        });
-        if (error) {
-          console.error('Error setting session:', error);
-        } else {
-          console.log('Session set successfully from deep link');
-        }
-      }
-    } catch (error) {
-      console.error('Error handling auth callback:', error);
-    }
-  }
-}
-
 function Navigation() {
   const { user, loading } = useAuth();
 
-  // DEV MODE: Skip authentication for testing
+  // 🔥 DEV MODE: Skip authentication for testing
   if (DEV_CONFIG.SKIP_AUTH) {
     console.log('🚀 DEV MODE ACTIVE: Skipping authentication');
     console.log('Mock User:', DEV_CONFIG.MOCK_USER);
     
     return (
-      <NavigationContainer linking={linking}>
+      <NavigationContainer>
         <Stack.Navigator>
           {DEV_CONFIG.MOCK_USER.role === 'student' ? (
             <Stack.Screen 
@@ -207,7 +110,7 @@ function Navigation() {
   }
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer>
       {user ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );
@@ -215,20 +118,15 @@ function Navigation() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={styles.gestureRoot}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <Navigation />
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Navigation />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  gestureRoot: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

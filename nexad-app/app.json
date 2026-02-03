@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "scheme": "nexad",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -31,12 +31,28 @@
         "WRITE_EXTERNAL_STORAGE",
         "NOTIFICATIONS"
       ],
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "nexad",
+              "host": "auth",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
+    },
+    "updates": {
+      "enabled": false,
+      "fallbackToCacheTimeout": 0
     },
     "plugins": [
       "expo-document-picker",
@@ -47,7 +63,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#ffffff"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
