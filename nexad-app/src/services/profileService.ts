@@ -63,13 +63,26 @@ export const profileService = {
   // =============================================
 
   /**
-   * Create a new student profile
+   * Create a new student profile (or return existing one)
    */
   async createStudentProfile(
     userId: string,
     data: Partial<StudentProfile>
   ): Promise<ApiResponse<StudentProfile>> {
     try {
+      // First check if profile already exists
+      const { data: existingProfile } = await supabase
+        .from('student_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingProfile) {
+        console.log('Student profile already exists, returning existing');
+        return { data: existingProfile };
+      }
+
+      // Create new profile
       const { data: profile, error } = await supabase
         .from('student_profiles')
         .insert({
@@ -89,7 +102,21 @@ export const profileService = {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If duplicate key error, try to fetch the existing profile
+        if (error.code === '23505') {
+          console.log('Duplicate key - fetching existing profile');
+          const { data: retryProfile } = await supabase
+            .from('student_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (retryProfile) {
+            return { data: retryProfile };
+          }
+        }
+        throw error;
+      }
       return { data: profile };
     } catch (error: any) {
       console.error('Error creating student profile:', error);
@@ -106,9 +133,12 @@ export const profileService = {
         .from('student_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        return { error: 'Profile not found' };
+      }
       return { data };
     } catch (error: any) {
       console.error('Error fetching student profile:', error);
@@ -161,13 +191,26 @@ export const profileService = {
   // =============================================
 
   /**
-   * Create a new teacher profile
+   * Create a new teacher profile (or return existing one)
    */
   async createTeacherProfile(
     userId: string,
     data: Partial<TeacherProfile>
   ): Promise<ApiResponse<TeacherProfile>> {
     try {
+      // First check if profile already exists
+      const { data: existingProfile } = await supabase
+        .from('teacher_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingProfile) {
+        console.log('Teacher profile already exists, returning existing');
+        return { data: existingProfile };
+      }
+
+      // Create new profile
       const { data: profile, error } = await supabase
         .from('teacher_profiles')
         .insert({
@@ -193,7 +236,21 @@ export const profileService = {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // If duplicate key error, try to fetch the existing profile
+        if (error.code === '23505') {
+          console.log('Duplicate key - fetching existing teacher profile');
+          const { data: retryProfile } = await supabase
+            .from('teacher_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (retryProfile) {
+            return { data: retryProfile };
+          }
+        }
+        throw error;
+      }
       return { data: profile };
     } catch (error: any) {
       console.error('Error creating teacher profile:', error);
@@ -210,9 +267,12 @@ export const profileService = {
         .from('teacher_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        return { error: 'Profile not found' };
+      }
       return { data };
     } catch (error: any) {
       console.error('Error fetching teacher profile:', error);
@@ -310,23 +370,33 @@ export const profileService = {
    */
   async getUserRole(userId: string): Promise<ApiResponse<{ role: 'student' | 'teacher' | null; profile: StudentProfile | TeacherProfile | null }>> {
     try {
-      // Check student profile first
-      const { data: studentProfile } = await supabase
+      // Check student profile first (use maybeSingle to avoid error on no rows)
+      const { data: studentProfile, error: studentError } = await supabase
         .from('student_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      // Only throw if it's a real error, not just "no rows"
+      if (studentError && studentError.code !== 'PGRST116') {
+        console.error('Error checking student profile:', studentError);
+      }
 
       if (studentProfile) {
         return { data: { role: 'student', profile: studentProfile } };
       }
 
       // Check teacher profile
-      const { data: teacherProfile } = await supabase
+      const { data: teacherProfile, error: teacherError } = await supabase
         .from('teacher_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      // Only throw if it's a real error, not just "no rows"
+      if (teacherError && teacherError.code !== 'PGRST116') {
+        console.error('Error checking teacher profile:', teacherError);
+      }
 
       if (teacherProfile) {
         return { data: { role: 'teacher', profile: teacherProfile } };

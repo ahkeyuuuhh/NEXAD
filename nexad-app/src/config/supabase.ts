@@ -18,6 +18,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Helper to forcefully clear corrupted session data from AsyncStorage
+export const clearSupabaseSession = async (): Promise<void> => {
+  try {
+    // Get all keys from AsyncStorage
+    const keys = await AsyncStorage.getAllKeys();
+    // Find and remove all Supabase-related keys
+    const supabaseKeys = keys.filter(key => 
+      key.includes('supabase') || 
+      key.includes('sb-') ||
+      key.includes('auth-token')
+    );
+    if (supabaseKeys.length > 0) {
+      await AsyncStorage.multiRemove(supabaseKeys);
+      console.log('Cleared Supabase session keys:', supabaseKeys);
+    }
+  } catch (error) {
+    console.error('Error clearing Supabase session:', error);
+  }
+};
+
 // Database types will be generated from Supabase CLI
 export type Database = {
   public: {

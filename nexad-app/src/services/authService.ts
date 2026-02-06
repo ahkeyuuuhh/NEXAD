@@ -1,6 +1,9 @@
-import { supabase } from '../config/supabase';
+import { supabase, clearSupabaseSession } from '../config/supabase';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
+import { getQueryParams } from 'expo-auth-session/build/QueryParams';
+import { Platform } from 'react-native';
 import type { User, ApiResponse, UserRole } from '../types';
 import { profileService, StudentProfile, TeacherProfile } from './profileService';
 
@@ -15,12 +18,21 @@ let pendingOAuthRole: UserRole | null = null;
 
 export const getPendingOAuthRole = () => pendingOAuthRole;
 export const clearPendingOAuthRole = () => { pendingOAuthRole = null; };
+export const setPendingOAuthRole = (role: UserRole) => { pendingOAuthRole = role; };
 
-// Get the current redirect URL dynamically
+/**
+ * Get the redirect URL for OAuth.
+ * In a development build, the custom scheme 'nexad://' is registered natively,
+ * so we use it directly. This avoids the exp:// URL matching issues in Expo Go.
+ */
 const getRedirectUrl = (): string => {
-  const redirectUrl = Linking.createURL('auth/callback');
-  console.log('Using redirect URL:', redirectUrl);
-  return redirectUrl;
+  // For dev builds: use the native custom scheme directly
+  const url = makeRedirectUri({
+    scheme: 'nexad',
+    path: 'auth/callback',
+  });
+  console.log('🔵 [OAuth] Redirect URL:', url);
+  return url;
 };
 
 export const authService = {
@@ -83,101 +95,150 @@ export const authService = {
 
   /**
    * Sign in with Google OAuth
-   * This opens the browser and returns immediately.
-   * The auth state listener in AuthContext will handle the rest.
+   * Uses the official Supabase + Expo Go pattern:
+   * 1. Get OAuth URL from Supabase with skipBrowserRedirect
+   * 2. Open in-app browser with openAuthSessionAsync
+   * 3. Extract tokens from redirect URL using expo-auth-session QueryParams
+   * 4. Set session manually with supabase.auth.setSession
    */
   async signInWithGoogle(role: UserRole): Promise<ApiResponse<AuthProfile>> {
     try {
-      // Store the role for when auth completes
       pendingOAuthRole = role;
       
-      const redirectUrl = getRedirectUrl();
+      const redirectTo = getRedirectUrl();
       console.log('🔵 [OAuth] Starting Google OAuth');
-      console.log('🔵 [OAuth] Redirect URL:', redirectUrl);
-      console.log('🔵 [OAuth] Pending role:', role);
+      console.log('🔵 [OAuth] Redirect URL:', redirectTo);
+      console.log('🔵 [OAuth] Role:', role);
 
+      // Step 1: Get the OAuth URL from Supabase
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+          redirectTo,
           skipBrowserRedirect: true,
         },
       });
 
       if (error) {
-        console.error('🔴 [OAuth] Setup error:', error);
+        console.error('🔴 [OAuth] Supabase error:', error.message);
         pendingOAuthRole = null;
-        throw error;
+        return { error: error.message };
       }
 
       if (!data?.url) {
-        console.error('🔴 [OAuth] No OAuth URL received');
+        console.error('🔴 [OAuth] No OAuth URL');
         pendingOAuthRole = null;
-        return { error: 'No OAuth URL received' };
+        return { error: 'Failed to get Google sign-in URL' };
       }
 
       console.log('🔵 [OAuth] Opening browser...');
-      
-      // Open browser - don't wait for specific result
-      // The auth state listener will handle the session
+
+      // Step 2: Open browser — redirectTo is used as the URL prefix to match
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        redirectUrl
+        redirectTo,
+        { showInRecents: true }
       );
-
-      console.log('🟡 [OAuth] Browser closed with type:', result.type);
-
-      // Give time for the deep link to be processed
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Check if we got a session
-      const { data: sessionData } = await supabase.auth.getSession();
       
-      if (sessionData?.session) {
-        console.log('🟢 [OAuth] Session found for:', sessionData.session.user.email);
-        const userId = sessionData.session.user.id;
-        const authResult = await this.handleAuthenticatedUser(userId, role);
-        pendingOAuthRole = null;
-        return authResult;
+      console.log('🟡 [OAuth] Browser result type:', result.type);
+
+      // Step 3: Handle the result
+      if (result.type === 'success' && 'url' in result) {
+        console.log('🟢 [OAuth] Got redirect URL back from browser');
+        const session = await this.createSessionFromUrl(result.url);
+        if (session) {
+          console.log('🟢 [OAuth] Session created for:', session.user.email);
+          const authResult = await this.handleAuthenticatedUser(session.user.id, role);
+          pendingOAuthRole = null;
+          return authResult;
+        }
+        // Session extraction failed but browser said success
+        console.log('🔴 [OAuth] Could not extract session from URL');
       }
 
-      // If browser was explicitly cancelled by user
       if (result.type === 'cancel') {
-        console.log('🔴 [OAuth] User cancelled');
+        console.log('🟡 [OAuth] User cancelled');
         pendingOAuthRole = null;
-        return { error: 'Authentication cancelled by user' };
+        return { error: 'Sign in was cancelled' };
       }
 
-      // For 'dismiss' or 'success' without immediate session,
-      // the auth state listener might pick it up
-      console.log('🟡 [OAuth] Waiting for auth state change...');
+      // "dismiss" — browser closed without capturing redirect URL.
+      // This happens when the redirect URL scheme isn't caught by the browser.
+      // The deep link handler in App.tsx may have set the session instead.
+      console.log('🟡 [OAuth] Browser dismissed — polling for session...');
       
-      // Wait and check again
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const { data: retrySession } = await supabase.auth.getSession();
-      if (retrySession?.session) {
-        console.log('🟢 [OAuth] Session found on retry!');
-        const userId = retrySession.session.user.id;
-        const authResult = await this.handleAuthenticatedUser(userId, role);
-        pendingOAuthRole = null;
-        return authResult;
+      for (let attempt = 1; attempt <= 20; attempt++) {
+        await new Promise(r => setTimeout(r, 500));
+        
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('🟢 [OAuth] Session found after polling (attempt', attempt + ')');
+            const authResult = await this.handleAuthenticatedUser(session.user.id, role);
+            pendingOAuthRole = null;
+            return authResult;
+          }
+        } catch (e) {
+          // keep polling
+        }
+        
+        if (attempt % 5 === 0) {
+          console.log('🔵 [OAuth] Still polling... attempt', attempt);
+        }
       }
 
-      console.log('🔴 [OAuth] No session after waiting');
+      console.log('🔴 [OAuth] No session after 10s of polling');
       pendingOAuthRole = null;
       return { 
-        error: 'Authentication did not complete. Please ensure you completed the Google sign-in and try again.' 
+        error: `Google sign-in did not complete.\n\nMake sure this EXACT URL is in your Supabase Dashboard → Authentication → URL Configuration → Redirect URLs:\n\n${redirectTo}` 
       };
 
     } catch (error: any) {
-      console.error('🔴 [OAuth] Error:', error);
+      console.error('🔴 [OAuth] Exception:', error);
       pendingOAuthRole = null;
       return { error: error.message || 'Google sign in failed' };
+    }
+  },
+
+  /**
+   * Extract tokens from redirect URL and create a Supabase session.
+   * Uses expo-auth-session's QueryParams for reliable parsing of both
+   * hash fragments (#access_token=...) and query params (?access_token=...).
+   */
+  async createSessionFromUrl(url: string): Promise<{ user: any } | null> {
+    try {
+      console.log('🔵 [OAuth] Parsing tokens from URL...');
+      const { params, errorCode } = getQueryParams(url);
+      
+      if (errorCode) {
+        console.error('🔴 [OAuth] URL error code:', errorCode);
+        return null;
+      }
+
+      const { access_token, refresh_token } = params;
+      
+      if (!access_token) {
+        console.log('🔴 [OAuth] No access_token in URL params');
+        console.log('🔵 [OAuth] URL was:', url);
+        console.log('🔵 [OAuth] Parsed params:', Object.keys(params));
+        return null;
+      }
+
+      console.log('🔵 [OAuth] Setting session with tokens...');
+      const { data, error } = await supabase.auth.setSession({
+        access_token,
+        refresh_token: refresh_token || '',
+      });
+
+      if (error) {
+        console.error('🔴 [OAuth] setSession error:', error.message);
+        return null;
+      }
+
+      return data.session;
+    } catch (error) {
+      console.error('🔴 [OAuth] createSessionFromUrl error:', error);
+      return null;
     }
   },
 
@@ -185,43 +246,88 @@ export const authService = {
    * Helper to handle authenticated user after OAuth
    */
   async handleAuthenticatedUser(userId: string, role: UserRole): Promise<ApiResponse<AuthProfile>> {
+    console.log('🔵 [handleAuthenticatedUser] Processing user:', userId, 'with role:', role);
+    
     const roleResult = await profileService.getUserRole(userId);
 
     if (roleResult.data?.profile) {
+      console.log('🟢 [handleAuthenticatedUser] Found existing profile');
       if (roleResult.data.role === 'student') {
         await profileService.updateStudentLastLogin(userId);
       } else {
         await profileService.updateTeacherLastLogin(userId);
       }
       return { data: { ...roleResult.data.profile, role: roleResult.data.role } as AuthProfile };
+    }
+    
+    // No profile found - create one
+    console.log('🟡 [handleAuthenticatedUser] No profile found, creating new one');
+    
+    // Get user data from Supabase auth
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('🔴 [handleAuthenticatedUser] User data not found:', userError);
+      return { error: 'User data not found' };
+    }
+
+    const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+    const nameParts = fullName.split(' ');
+
+    const newProfile = {
+      email: user.email || '',
+      first_name: nameParts[0] || 'User',
+      last_name: nameParts.slice(1).join(' ') || '',
+      profile_photo_url: user.user_metadata?.avatar_url || null,
+    };
+
+    console.log('🔵 [handleAuthenticatedUser] Creating profile:', newProfile);
+
+    let createdProfile;
+    let createError: string | undefined;
+
+    if (role === 'student') {
+      const result = await profileService.createStudentProfile(userId, newProfile);
+      createdProfile = result.data;
+      createError = result.error;
     } else {
-      // Get user data from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser();
+      const result = await profileService.createTeacherProfile(userId, newProfile);
+      createdProfile = result.data;
+      createError = result.error;
+    }
+
+    if (createError) {
+      console.error('🔴 [handleAuthenticatedUser] Failed to create profile:', createError);
       
-      if (!user) {
-        return { error: 'User data not found' };
+      // Retry once - might be a race condition
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const retryResult = await profileService.getUserRole(userId);
+      if (retryResult.data?.profile) {
+        console.log('🟢 [handleAuthenticatedUser] Found profile on retry');
+        return { data: { ...retryResult.data.profile, role: retryResult.data.role } as AuthProfile };
       }
-
-      const fullName = user.user_metadata?.full_name || '';
-      const nameParts = fullName.split(' ');
-
-      const newProfile = {
+      
+      // Create fallback user object
+      console.log('🟡 [handleAuthenticatedUser] Using fallback user object');
+      const fallbackUser = {
+        id: '',
+        user_id: userId,
         email: user.email || '',
-        first_name: nameParts[0] || '',
+        first_name: nameParts[0] || 'User',
         last_name: nameParts.slice(1).join(' ') || '',
         profile_photo_url: user.user_metadata?.avatar_url || null,
-      };
-
-      if (role === 'student') {
-        const { data: createdProfile, error: createError } = await profileService.createStudentProfile(userId, newProfile);
-        if (createError) throw new Error(createError);
-        return { data: { ...createdProfile, role: 'student' } as AuthProfile };
-      } else {
-        const { data: createdProfile, error: createError } = await profileService.createTeacherProfile(userId, newProfile);
-        if (createError) throw new Error(createError);
-        return { data: { ...createdProfile, role: 'teacher' } as AuthProfile };
-      }
+        role: role,
+        notification_preferences: { email: true, push: true, sms: false },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_active: true,
+      } as AuthProfile;
+      
+      return { data: fallbackUser };
     }
+
+    console.log('🟢 [handleAuthenticatedUser] Profile created successfully');
+    return { data: { ...createdProfile, role } as AuthProfile };
   },
 
   /**
@@ -292,10 +398,17 @@ export const authService = {
   async signOut(): Promise<ApiResponse<null>> {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // Even if signOut fails, clear the local session data to prevent refresh token errors
+      await clearSupabaseSession();
+      if (error) {
+        console.error('Sign out error (session cleared anyway):', error);
+      }
       return { data: null };
     } catch (error: any) {
-      return { error: error.message || 'Sign out failed' };
+      // Force clear session even on error
+      await clearSupabaseSession();
+      console.error('Sign out exception (session cleared anyway):', error);
+      return { data: null }; // Return success since we cleared the session
     }
   },
 

@@ -1,0 +1,51 @@
+﻿{
+  "id": "b49b75d4-6d3e-41c3-b8aa-1217e3a82aac",
+  "status": "ERRORED",
+  "platform": "ANDROID",
+  "error": {
+    "errorCode": "UNKNOWN_ERROR",
+    "message": "Unknown error. See logs of the Prebuild build phase for more information."
+  },
+  "artifacts": {},
+  "fingerprint": {
+    "id": "019c32cf-67e7-740e-a9c6-709ffe319f22",
+    "hash": "d7890b4285323484d33bbd805206f31d11818f4a"
+  },
+  "initiatingActor": {
+    "id": "e162d82f-b7b4-4d58-b0ad-f8ea81e9e005",
+    "displayName": "ahkeyuuuhh"
+  },
+  "logFiles": [
+    "https://job-logs.eascdn.net/production/b49b75d4-6d3e-41c3-b8aa-1217e3a82aac/1770378979546-aa4341d8-2f25-4b2e-855e-cd13fa3e19c5.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260206%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260206T115855Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=3bbef847adc4509936c9cd26b40623fc7ca76b25229becc50f6f30ebec5880577df71f3cd565446f6eb647d685316b32470dabe42d7c8c469da79770dc2bec03fe9466c41d4e48a9f4df4797ec9326a013badc011a9aea81fed1db14fbd223cc0463365a20b2f21e67f508440b5ca91f0a21a12c1e2361b7bb9681c46593a9a61d53b42de057bc0c4d0b741d99d978c5389bc7d9a58403748333f2042215d93d652e040107de032391584b42c51e04c9192ed5a118f76c10eab04b5f735c091e9362d49aefdecd20151c6be062ac6076c81ee59f1d398fc367a1454ff88241f2cbed0a3e6529f01a14fa0d308820a53a039dd60222de0524ccae42c8e1af7d6d",
+    "https://job-logs.eascdn.net/production/b49b75d4-6d3e-41c3-b8aa-1217e3a82aac/1770378982135-1e9baa52-7e69-4211-92e6-19d61fecc11f.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260206%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260206T115855Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=103c3338f8f6fa948839a149bc2c693f96cd412a0e262889977490325f414b7d16d0a50db4434aecc600ffd667b251906e0c074f9b9ee191232ce0a1f420c8418a0155a5cb88fe1f5f51ffa68d44ee793cd1d986add08a46525f26fac74e1c36e9312c04cfb4adb07864471043f7de706a451efc796a1a76e687ac0cc8c7cf4f73f84bc2b62de3e6541b9b68a1a2c3dc23f4bc0db34fef0b6ce482e7d803c45db4aa8f7e77a2f0464d0a782279e17df867890abc1235f1fd01d175360dd2bca1ee63dca685f883c59237f520359f223458c66916666ecc665c8ab01aa678bb0b3f273a014878d120e1190e61d3a920f267353773f1a07e6e54ee2a5d4a48d3c0",
+    "https://job-logs.eascdn.net/production/b49b75d4-6d3e-41c3-b8aa-1217e3a82aac/1770378982343-54beddd6-e704-499e-a399-32418b85df11.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260206%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260206T115855Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=61c5f877460ae4e111cf3368bffb24324cb9e206141f30444d579b12636721bc496f21b5a5cd6249fa088ce9552a4089e9ef78138d5dc9738d4906c98a41913ff025a4fed7d66c98164f589746d243d5a010ea06d7391914ca0d6f69c661e4d2e69205cc4df5b63ee5ab2a1428c0a6c27bc76d6ebc9b83f147feacdab80f6b7cc27a62582ea13172087197c53580a13165cf7a7bf1cb101f1793d1dfc8f41c46efbd9a860a7361dfaeca2e7a049ab129c3708275eebad96342870f600cf695fb27709450eac908cd8622dfcbf2c17dda5fec44678d66fab2c6ad343bd9a93b0eb8799b5aa3697c4a075a18ea2cb04c4c353649f071e697d9205dc74e2393d824",
+    "https://job-logs.eascdn.net/production/b49b75d4-6d3e-41c3-b8aa-1217e3a82aac/1770378982492-345ed5d2-c5f6-4050-9474-bcd65b6b69f9.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260206%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260206T115855Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=295971d847292b8ff0e79e9ece6fe81fe07158e7f97620da8eaa88ac849090f5329b4998960c2aed6b99de5e0e9d84467ee81a4485ba2323226950287bf647006f25901775384fdf9e6d7d9673f711776e588bf8c65e7ed883a9736b87c5c87308b890c57aa05e4ef4243cab05d761a6b6d17dd9982686657c5fb699f56580245a3f16812710d852c2375644242a06c985c033c35511439b90aafdd127d5d725dc4dcae5bcaab3eea5729103e024750bfb9bbab4815bf87571dfe34c2d95fa0f99b2368b79f1f5f93fd74d307a6291288e2b3a8b37111e2f74355b47ffd30af671b775bc8168ff967c7420568d1a6436f49a613cc7ec11a8b37ae4dc16eba38d"
+  ],
+  "project": {
+    "id": "99241254-043e-4876-8001-4be5a6079d81",
+    "name": "nexad",
+    "slug": "nexad",
+    "ownerAccount": {
+      "id": "827207f2-eb77-4b82-bcef-c07bf6aa3ca0",
+      "name": "ahkeyuuuhh"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "development",
+  "sdkVersion": "54.0.0",
+  "appVersion": "1.0.0",
+  "appBuildVersion": "1",
+  "gitCommitHash": "effc26dd2cc81fca2922e86d6a69c142a1ded888",
+  "gitCommitMessage": "DONE GOOGLE AUTHENTICATION",
+  "priority": "NORMAL_PLUS",
+  "createdAt": "2026-02-06T11:56:19.229Z",
+  "updatedAt": "2026-02-06T11:57:42.895Z",
+  "completedAt": "2026-02-06T11:57:33.210Z",
+  "expirationDate": "2026-02-20T11:56:19.288Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 207,
+    "buildQueueTime": 45383,
+    "buildDuration": 28058
+  }
+}

@@ -10,9 +10,14 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { getQueryParams } from 'expo-auth-session/build/QueryParams';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { DEV_CONFIG } from './src/config/devMode';
 import { supabase } from './src/config/supabase';
+
+// This MUST be called at the top level of the file that the redirect lands on
+WebBrowser.maybeCompleteAuthSession();
 
 // Auth Screens
 import WelcomeScreen from './src/screens/auth/WelcomeScreen';
@@ -83,7 +88,6 @@ function AppStack() {
 const linking: LinkingOptions<any> = {
   prefixes: [
     'nexad://',
-    'exp://192.168.1.1:8081/--/', // Expo Go deep link (adjust IP as needed)
     Linking.createURL('/'),
   ],
   config: {
@@ -97,15 +101,15 @@ const linking: LinkingOptions<any> = {
   // Handle the auth callback URL
   async getInitialURL() {
     const url = await Linking.getInitialURL();
-    console.log('Initial URL:', url);
     if (url) {
+      console.log('🔵 [DeepLink] Initial URL:', url);
       await handleAuthCallback(url);
     }
     return url;
   },
   subscribe(listener) {
     const subscription = Linking.addEventListener('url', async ({ url }) => {
-      console.log('Received deep link:', url);
+      console.log('🔵 [DeepLink] Received URL:', url);
       await handleAuthCallback(url);
       listener(url);
     });
@@ -113,55 +117,67 @@ const linking: LinkingOptions<any> = {
   },
 };
 
-// Handle auth callback URLs from OAuth
+/**
+ * Handle auth callback URLs from OAuth.
+ * Uses getQueryParams from expo-auth-session for reliable token extraction
+ * from both hash fragments and query parameters.
+ */
 async function handleAuthCallback(url: string) {
-  if (url.includes('auth/callback') || url.includes('access_token')) {
-    console.log('Processing auth callback...');
-    try {
-      // Extract tokens from the URL
-      let accessToken: string | null = null;
-      let refreshToken: string | null = null;
-
-      // Try hash fragment first
-      if (url.includes('#')) {
-        const hashFragment = url.split('#')[1];
-        if (hashFragment) {
-          const hashParams = new URLSearchParams(hashFragment);
-          accessToken = hashParams.get('access_token');
-          refreshToken = hashParams.get('refresh_token');
-        }
-      }
-
-      // Try query params
-      if (!accessToken && url.includes('?')) {
-        const queryString = url.split('?')[1]?.split('#')[0];
-        if (queryString) {
-          const queryParams = new URLSearchParams(queryString);
-          accessToken = queryParams.get('access_token');
-          refreshToken = queryParams.get('refresh_token');
-        }
-      }
-
-      if (accessToken) {
-        console.log('Setting session from deep link...');
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken || '',
-        });
-        if (error) {
-          console.error('Error setting session:', error);
-        } else {
-          console.log('Session set successfully from deep link');
-        }
-      }
-    } catch (error) {
-      console.error('Error handling auth callback:', error);
+  try {
+    // Check if this URL contains auth tokens
+    if (!url.includes('access_token') && !url.includes('error')) {
+      return;
     }
+
+    console.log('🔵 [DeepLink] Processing auth callback...');
+    const { params, errorCode } = getQueryParams(url);
+
+    if (errorCode) {
+      console.error('🔴 [DeepLink] Error code from OAuth:', errorCode);
+      return;
+    }
+
+    const { access_token, refresh_token } = params;
+
+    if (access_token) {
+      console.log('🔵 [DeepLink] Setting session from deep link tokens...');
+      const { error } = await supabase.auth.setSession({
+        access_token,
+        refresh_token: refresh_token || '',
+      });
+      if (error) {
+        console.error('🔴 [DeepLink] setSession error:', error.message);
+      } else {
+        console.log('🟢 [DeepLink] Session set successfully!');
+      }
+    } else {
+      console.log('🟡 [DeepLink] No access_token in URL params');
+    }
+  } catch (error) {
+    console.error('🔴 [DeepLink] Error handling auth callback:', error);
   }
 }
 
 function Navigation() {
   const { user, loading } = useAuth();
+
+  // Log the redirect URL on mount so user can verify it's in Supabase
+  useEffect(() => {
+    try {
+      const { makeRedirectUri } = require('expo-auth-session');
+      const redirectUrl = makeRedirectUri();
+      console.log('========================================');
+      console.log('🔵 NEXAD REDIRECT URL (add to Supabase):');
+      console.log(redirectUrl);
+      console.log('========================================');
+    } catch (e) {
+      const url = Linking.createURL('');
+      console.log('========================================');
+      console.log('🔵 NEXAD REDIRECT URL (add to Supabase):');
+      console.log(url);
+      console.log('========================================');
+    }
+  }, []);
 
   // DEV MODE: Skip authentication for testing
   if (DEV_CONFIG.SKIP_AUTH) {
@@ -202,6 +218,14 @@ function Navigation() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
         <Text style={styles.loadingText}>Loading...</Text>
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('🟡 User tapped to skip loading');
+          }}
+          style={{ marginTop: 24, padding: 12 }}
+        >
+          <Text style={{ color: '#9ca3af', fontSize: 12 }}>If stuck, restart the app</Text>
+        </TouchableOpacity>
       </View>
     );
   }
