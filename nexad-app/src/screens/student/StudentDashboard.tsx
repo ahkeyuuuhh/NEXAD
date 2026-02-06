@@ -96,7 +96,7 @@ export default function StudentDashboard({ navigation, route }: any) {
   };
 
   const handleRequestConsultation = () => {
-    Alert.alert('Coming Soon', 'Request Consultation feature will be available soon!');
+    navigation.navigate('FindTeacher');
   };
 
   const getGreeting = () => {
@@ -185,11 +185,28 @@ export default function StudentDashboard({ navigation, route }: any) {
           <Text style={styles.ctaArrow}>→</Text>
         </TouchableOpacity>
 
+        {/* CALENDAR VIEW */}
+        <TouchableOpacity 
+          style={styles.calendarCard} 
+          onPress={() => navigation.navigate('StudentConsultations')}
+        >
+          <View style={styles.calendarContent}>
+            <Text style={styles.calendarIcon}>📅</Text>
+            <View style={styles.calendarTextContainer}>
+              <Text style={styles.calendarTitle}>My Consultations Calendar</Text>
+              <Text style={styles.calendarSubtitle}>View all scheduled consultations</Text>
+            </View>
+          </View>
+          <Text style={styles.calendarArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* APPOINTMENTS */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
-            <TouchableOpacity><Text style={styles.viewAllText}>View All</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('StudentConsultations')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
           </View>
           {dashboardData.upcomingConsultations.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -367,6 +384,13 @@ const styles = StyleSheet.create({
   ctaTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
   ctaSubtitle: { fontSize: 13, color: '#6b7280', marginTop: 2 },
   ctaArrow: { fontSize: 24, color: '#6B4EFF', fontWeight: '700' },
+  calendarCard: { backgroundColor: '#fff', marginHorizontal: 20, marginBottom: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  calendarContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  calendarIcon: { fontSize: 32, marginRight: 12 },
+  calendarTextContainer: { flex: 1 },
+  calendarTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  calendarSubtitle: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  calendarArrow: { fontSize: 24, color: '#3b82f6', fontWeight: '700' },
   section: { marginBottom: 20, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },

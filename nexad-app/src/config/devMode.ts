@@ -12,7 +12,7 @@ export const DEV_CONFIG = {
   MOCK_USER: {
     id: 'dev-student-001',
     email: 'student@test.com',
-    role: 'student' as const,
+    role: 'student' as 'student' | 'teacher' | 'admin',
     first_name: 'Test',
     last_name: 'Student',
     created_at: new Date().toISOString(),

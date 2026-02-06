@@ -18,10 +18,7 @@ export const classroomService = {
           name,
           description,
         })
-        .select(`
-          *,
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -39,10 +36,7 @@ export const classroomService = {
     try {
       const { data, error } = await supabase
         .from('classrooms')
-        .select(`
-          *,
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .eq('teacher_id', teacherId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -62,12 +56,7 @@ export const classroomService = {
     try {
       const { data, error } = await supabase
         .from('classroom_memberships')
-        .select(`
-          classroom:classrooms(
-            *,
-            teacher:users!teacher_id(*)
-          )
-        `)
+        .select('classroom:classrooms(*)')
         .eq('student_id', studentId)
         .eq('is_active', true);
 
@@ -137,10 +126,7 @@ export const classroomService = {
     try {
       const { data, error } = await supabase
         .from('classrooms')
-        .select(`
-          *,
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .eq('id', classroomId)
         .single();
 

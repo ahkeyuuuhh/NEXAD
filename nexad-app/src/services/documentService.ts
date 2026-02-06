@@ -49,7 +49,7 @@ export const documentService = {
 
       // Read file as base64
       const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64' as any,
       });
 
       // Generate unique filename

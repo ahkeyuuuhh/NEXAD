@@ -16,11 +16,7 @@ export const consultationService = {
       const { data, error } = await supabase
         .from('consultation_requests')
         .insert(request)
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -45,11 +41,7 @@ export const consultationService = {
 
       const { data, error, count } = await supabase
         .from('consultation_requests')
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('student_id', studentId)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -85,11 +77,7 @@ export const consultationService = {
 
       let query = supabase
         .from('consultation_requests')
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('teacher_id', teacherId);
 
       if (status) {
@@ -138,11 +126,7 @@ export const consultationService = {
         .from('consultation_requests')
         .update(updateData)
         .eq('id', requestId)
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -160,11 +144,7 @@ export const consultationService = {
     try {
       const { data, error } = await supabase
         .from('consultation_requests')
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .eq('id', requestId)
         .single();
 
@@ -194,11 +174,7 @@ export const consultationService = {
           teacher_reviewed_at: new Date().toISOString(),
         })
         .eq('id', requestId)
-        .select(`
-          *,
-          student:users!student_id(*),
-          teacher:users!teacher_id(*)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -208,4 +184,26 @@ export const consultationService = {
       return { error: error.message || 'Failed to schedule consultation' };
     }
   },
+
+  /**
+   * Get approved consultations for a teacher
+   */
+  async getApprovedConsultations(teacherId: string): Promise<ConsultationRequest[]> {
+    try {
+      const { data, error } = await supabase
+        .from('consultation_requests')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .eq('status', 'accepted')
+        .order('scheduled_start_time', { ascending: true });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching approved consultations:', error);
+      return [];
+    }
+  },
 };
+

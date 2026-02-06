@@ -27,6 +27,13 @@ import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
 
 // App Screens
 import StudentDashboard from './src/screens/student/StudentDashboard';
+import TeacherDashboard from './src/screens/teacher/TeacherDashboard';
+import FindTeacherScreen from './src/screens/student/FindTeacherScreen';
+import ConsultationRequestScreen from './src/screens/student/ConsultationRequestScreen';
+import RequestManagementScreen from './src/screens/teacher/RequestManagementScreen';
+import RequestApprovalScreen from './src/screens/teacher/RequestApprovalScreen';
+import TeacherConsultationsScreen from './src/screens/teacher/TeacherConsultationsScreen';
+import StudentConsultationsScreen from './src/screens/student/StudentConsultationsScreen';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -65,21 +72,60 @@ function AuthStack() {
 function AppStack() {
   const { user } = useAuth();
   
+  // Determine initial route based on user role
+  const initialRoute = user?.role === 'student' 
+    ? 'StudentDashboard' 
+    : user?.role === 'teacher' 
+    ? 'TeacherDashboard' 
+    : 'Home';
+  
   return (
-    <Stack.Navigator>
-      {user?.role === 'student' ? (
-        <Stack.Screen 
-          name="StudentDashboard" 
-          component={StudentDashboard} 
-          options={{ title: 'NEXAD - Dashboard' }} 
-        />
-      ) : (
-        <Stack.Screen 
-          name="Home" 
-          component={HomeScreen} 
-          options={{ title: 'NEXAD' }} 
-        />
-      )}
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+      <Stack.Screen 
+        name="StudentDashboard" 
+        component={StudentDashboard} 
+        options={{ title: 'NEXAD - Student Dashboard' }} 
+      />
+      <Stack.Screen 
+        name="TeacherDashboard" 
+        component={TeacherDashboard} 
+        options={{ title: 'NEXAD - Teacher Dashboard' }} 
+      />
+      <Stack.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{ title: 'NEXAD' }} 
+      />
+      <Stack.Screen 
+        name="FindTeacher" 
+        component={FindTeacherScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="ConsultationRequest" 
+        component={ConsultationRequestScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="RequestManagement" 
+        component={RequestManagementScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="RequestApproval" 
+        component={RequestApprovalScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="TeacherConsultations" 
+        component={TeacherConsultationsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="StudentConsultations" 
+        component={StudentConsultationsScreen} 
+        options={{ headerShown: false }} 
+      />
     </Stack.Navigator>
   );
 }

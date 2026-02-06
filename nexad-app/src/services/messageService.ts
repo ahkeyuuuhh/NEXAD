@@ -65,36 +65,12 @@ export const messageService = {
 
       const { data, error, count } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:student_profiles!sender_id(id, first_name, last_name, profile_photo_url),
-          recipient:student_profiles!recipient_id(id, first_name, last_name, profile_photo_url)
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (error) {
-        // Fallback to simple query without joins if profiles don't match
-        const { data: simpleData, error: simpleError, count: simpleCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact' })
-          .eq('recipient_id', userId)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (simpleError) throw simpleError;
-
-        return {
-          data: {
-            data: simpleData || [],
-            total: simpleCount || 0,
-            page,
-            per_page: perPage,
-            total_pages: Math.ceil((simpleCount || 0) / perPage),
-          },
-        };
-      }
+      if (error) throw error;
 
       return {
         data: {

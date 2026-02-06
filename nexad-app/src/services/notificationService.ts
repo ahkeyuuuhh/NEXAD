@@ -11,7 +11,9 @@ try {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
-    }),
+      shouldShowBanner: true,
+      shouldShowList: true,
+    } as any),
   });
 } catch (error) {
   console.log('Push notifications not available in Expo Go - this is expected');
@@ -120,7 +122,7 @@ export const notificationService = {
           body,
           data,
         },
-        trigger: triggerDate,
+        trigger: { date: triggerDate } as any,
       });
 
       return { data: notificationId };
