@@ -205,5 +205,59 @@ export const consultationService = {
       return [];
     }
   },
+
+  /**
+   * Get all consultations for a teacher (including completed, cancelled, etc.)
+   */
+  async getAllTeacherConsultations(teacherId: string): Promise<ConsultationRequest[]> {
+    try {
+      const { data, error } = await supabase
+        .from('consultation_requests')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .in('status', ['accepted', 'completed', 'cancelled'])
+        .order('scheduled_start_time', { ascending: true });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching teacher consultations:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Check and mark missed consultations
+   * This should be called periodically to mark consultations as missed
+   * if they weren't completed or cancelled after their end time
+   */
+  async checkAndMarkMissedConsultations(teacherId: string): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Find accepted consultations that have passed their end time
+      const { data, error } = await supabase
+        .from('consultation_requests')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .eq('status', 'accepted')
+        .lt('scheduled_end_time', now);
+
+      if (error) throw error;
+
+      // Mark each as cancelled with a note that it was missed
+      if (data && data.length > 0) {
+        const updates = data.map(consultation =>
+          this.updateStatus(consultation.id, 'cancelled', {
+            // You might want to add a note field to track that this was auto-cancelled
+          })
+        );
+        await Promise.all(updates);
+      }
+    } catch (error: any) {
+      console.error('Error checking for missed consultations:', error);
+    }
+  },
 };
 

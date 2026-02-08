@@ -12,6 +12,8 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Calendar, DateData } from 'react-native-calendars';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { messageService, MessageWithSender } from '../../services/messageService';
@@ -23,12 +25,25 @@ import type { ConsultationRequest } from '../../types';
 const CONSULTATION_LIMIT = 5;
 const MESSAGE_LIMIT = 5;
 
+interface ConsultationWithStudent extends ConsultationRequest {
+  studentName: string;
+}
+
+interface MarkedDates {
+  [date: string]: {
+    marked: boolean;
+    dotColor: string;
+    selected?: boolean;
+    selectedColor?: string;
+  };
+}
+
 interface DashboardData {
-  pendingRequests: ConsultationRequest[];
+  pendingRequests: ConsultationWithStudent[];
   unreadMessages: MessageWithSender[];
   unreadNotificationCount: number;
   profile: TeacherProfile | null;
-  upcomingAppointments: ConsultationRequest[];
+  upcomingAppointments: ConsultationWithStudent[];
 }
 
 export default function TeacherDashboard({ navigation, route }: any) {
@@ -36,6 +51,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithStudent | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     pendingRequests: [],
     unreadMessages: [],
@@ -51,26 +70,85 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
-      const [pendingResult, messagesResult, notificationsResult, profileResult, appointmentsResult] = await Promise.all([
+      const [pendingResult, messagesResult, notificationsResult, profileResult] = await Promise.all([
         consultationService.getTeacherRequests(userId, 'pending', 1, CONSULTATION_LIMIT),
         messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
         notificationService.getUnreadCount(userId),
         profileService.getTeacherProfile(userId),
-        consultationService.getTeacherRequests(userId, 'accepted', 1, CONSULTATION_LIMIT),
       ]);
 
+      // Load pending requests with student names
+      const pendingRequests = pendingResult.data?.data || [];
+      const pendingWithNames = await Promise.all(
+        pendingRequests.map(async (request) => {
+          try {
+            const profileResponse = await profileService.getStudentProfile(request.student_id);
+            const profile = profileResponse.data;
+            return {
+              ...request,
+              studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+            };
+          } catch (error) {
+            return {
+              ...request,
+              studentName: 'Unknown Student',
+            };
+          }
+        })
+      );
+
+      // Load approved consultations with student names
+      const approved = await consultationService.getApprovedConsultations(userId);
+      const upcomingWithNames = await Promise.all(
+        approved.map(async (consultation) => {
+          try {
+            const profileResponse = await profileService.getStudentProfile(consultation.student_id);
+            const profile = profileResponse.data;
+            return {
+              ...consultation,
+              studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+            };
+          } catch (error) {
+            return {
+              ...consultation,
+              studentName: 'Unknown Student',
+            };
+          }
+        })
+      );
+
+      // Mark dates on calendar
+      const marks: MarkedDates = {};
+      upcomingWithNames.forEach(consultation => {
+        if (consultation.scheduled_start_time) {
+          const date = consultation.scheduled_start_time.split('T')[0];
+          marks[date] = {
+            marked: true,
+            dotColor: '#3b82f6',
+          };
+        }
+      });
+      setMarkedDates(marks);
+
       setDashboardData({
-        pendingRequests: pendingResult.data?.data || [],
+        pendingRequests: pendingWithNames,
         unreadMessages: messagesResult.data || [],
         unreadNotificationCount: notificationsResult.data || 0,
         profile: profileResult.data || null,
-        upcomingAppointments: appointmentsResult.data?.data || [],
+        upcomingAppointments: upcomingWithNames,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       Alert.alert('Error', 'Failed to load dashboard data.');
     }
   }, [userId]);
+
+  // Auto-refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [loadDashboardData])
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -85,6 +163,130 @@ export default function TeacherDashboard({ navigation, route }: any) {
     setIsRefreshing(true);
     await loadDashboardData();
     setIsRefreshing(false);
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch (error) {
+      return 'Invalid time';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const getConsultationsForDate = (date: string) => {
+    return dashboardData.upcomingAppointments.filter(consultation => {
+      if (!consultation.scheduled_start_time) return false;
+      const consultationDate = consultation.scheduled_start_time.split('T')[0];
+      return consultationDate === date;
+    });
+  };
+
+  const checkIfMissed = (consultation: ConsultationWithStudent): boolean => {
+    if (!consultation.scheduled_end_time) return false;
+    const endTime = new Date(consultation.scheduled_end_time);
+    const now = new Date();
+    return now > endTime && consultation.status === 'accepted';
+  };
+
+  const getStatusDisplay = (consultation: ConsultationWithStudent) => {
+    if (consultation.status === 'completed') {
+      return { text: 'Done', color: '#10b981', bgColor: '#dcfce7' };
+    }
+    if (consultation.status === 'cancelled') {
+      return { text: 'Cancelled', color: '#ef4444', bgColor: '#fee2e2' };
+    }
+    if (checkIfMissed(consultation)) {
+      return { text: 'Missed', color: '#f59e0b', bgColor: '#fef3c7' };
+    }
+    return { text: 'Scheduled', color: '#3b82f6', bgColor: '#dbeafe' };
+  };
+
+  const handleDayPress = (day: DateData) => {
+    const date = day.dateString;
+    const consultationsOnDate = getConsultationsForDate(date);
+    
+    if (consultationsOnDate.length > 0) {
+      // Show the first consultation for that date
+      setSelectedConsultation(consultationsOnDate[0]);
+      setShowDetailModal(true);
+    } else {
+      Alert.alert('No Consultations', 'No consultations scheduled for this date.');
+    }
+  };
+
+  const handleMarkAsCompleted = async (consultationId: string) => {
+    Alert.alert(
+      'Mark as Done',
+      'Are you sure you want to mark this consultation as completed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark as Done',
+          style: 'default',
+          onPress: async () => {
+            try {
+              const result = await consultationService.updateStatus(consultationId, 'completed');
+              if (result.error) {
+                Alert.alert('Error', result.error);
+                return;
+              }
+              Alert.alert('Success', 'Consultation marked as completed');
+              setShowDetailModal(false);
+              await loadDashboardData();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to update consultation status');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMarkAsCancelled = async (consultationId: string) => {
+    Alert.alert(
+      'Cancel Consultation',
+      'Are you sure you want to cancel this consultation?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await consultationService.updateStatus(consultationId, 'cancelled');
+              if (result.error) {
+                Alert.alert('Error', result.error);
+                return;
+              }
+              Alert.alert('Success', 'Consultation cancelled');
+              setShowDetailModal(false);
+              await loadDashboardData();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to cancel consultation');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSignOut = () => {
@@ -190,17 +392,50 @@ export default function TeacherDashboard({ navigation, route }: any) {
       >
         {/* Calendar View of Appointments */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>My Consultations Calendar</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My Consultations Calendar</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('TeacherConsultations')}>
+              <Text style={styles.viewAllText}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.calendarWrapper}>
+            <Calendar
+              markedDates={markedDates}
+              onDayPress={handleDayPress}
+              theme={{
+                backgroundColor: '#ffffff',
+                calendarBackground: '#ffffff',
+                textSectionTitleColor: '#1f2937',
+                selectedDayBackgroundColor: '#3b82f6',
+                selectedDayTextColor: '#ffffff',
+                todayTextColor: '#3b82f6',
+                dayTextColor: '#1f2937',
+                textDisabledColor: '#d1d5db',
+                dotColor: '#3b82f6',
+                selectedDotColor: '#ffffff',
+                arrowColor: '#3b82f6',
+                monthTextColor: '#1f2937',
+                textMonthFontWeight: 'bold',
+                textDayFontSize: 14,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 12,
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Quick Stats Card */}
+        <View style={styles.section}>
           <TouchableOpacity 
-            style={styles.calendarCard}
+            style={styles.statsCard}
             onPress={() => navigation.navigate('TeacherConsultations')}
           >
             <View style={styles.calendarCardContent}>
-              <Text style={styles.calendarIcon}>📅</Text>
+              <Text style={styles.calendarIcon}>📊</Text>
               <View style={styles.calendarInfo}>
-                <Text style={styles.calendarTitle}>View Calendar & Consultations</Text>
+                <Text style={styles.calendarTitle}>Quick Stats</Text>
                 <Text style={styles.calendarSubtext}>
-                  {dashboardData.upcomingAppointments.length} upcoming appointments
+                  {dashboardData.upcomingAppointments.length} upcoming • {dashboardData.pendingRequests.length} pending
                 </Text>
               </View>
               <Text style={styles.calendarArrow}>→</Text>
@@ -233,12 +468,12 @@ export default function TeacherDashboard({ navigation, route }: any) {
                 <View style={styles.requestCardHeader}>
                   <View style={styles.requestAvatar}>
                     <Text style={styles.requestAvatarText}>
-                      {request.student?.first_name?.[0] || 'S'}
+                      {request.studentName?.[0] || 'S'}
                     </Text>
                   </View>
                   <View style={styles.requestInfo}>
                     <Text style={styles.requestName}>
-                      {request.student?.first_name || 'Student'} {request.student?.last_name || 'Name'}
+                      {request.studentName}
                     </Text>
                     <Text style={styles.requestSubject} numberOfLines={2}>
                       {request.subject_line || 'No subject provided'}
@@ -248,11 +483,6 @@ export default function TeacherDashboard({ navigation, route }: any) {
                         ? new Date(request.preferred_time_slots[0].start).toLocaleDateString() 
                         : 'No date'}
                     </Text>
-                  </View>
-                </View>
-                <View style={styles.requestActions}>
-                  <View style={styles.tapToViewHint}>
-                    <Text style={styles.tapToViewText}>Tap to review →</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -317,9 +547,15 @@ export default function TeacherDashboard({ navigation, route }: any) {
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
+              navigation.navigate('ConsultationHistory');
+            }}>
+              <Text style={styles.menuItemText}>📋 Consultation History</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setShowSideMenu(false);
               Alert.alert('Coming Soon', 'All Requests');
             }}>
-              <Text style={styles.menuItemText}>📋 All Requests</Text>
+              <Text style={styles.menuItemText}>📝 All Requests</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
@@ -342,6 +578,100 @@ export default function TeacherDashboard({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Consultation Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.modalOverlay2}>
+          <View style={styles.modalContent2}>
+            {selectedConsultation && (
+              <>
+                <View style={styles.modalHeader2}>
+                  <Text style={styles.modalTitle2}>Consultation Details</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowDetailModal(false)}
+                    style={styles.closeButton2}
+                  >
+                    <Text style={styles.closeButtonText2}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.modalBody2}>
+                  <View style={styles.modalSection2}>
+                    <Text style={styles.modalLabel2}>Student</Text>
+                    <Text style={styles.modalValue2}>{selectedConsultation.studentName}</Text>
+                  </View>
+
+                  <View style={styles.modalSection2}>
+                    <Text style={styles.modalLabel2}>Subject</Text>
+                    <Text style={styles.modalValue2}>{selectedConsultation.subject_line}</Text>
+                  </View>
+
+                  {selectedConsultation.description && (
+                    <View style={styles.modalSection2}>
+                      <Text style={styles.modalLabel2}>Description</Text>
+                      <Text style={styles.modalValue2}>{selectedConsultation.description}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.modalSection2}>
+                    <Text style={styles.modalLabel2}>Date & Time</Text>
+                    <Text style={styles.modalValue2}>
+                      {formatDate(selectedConsultation.scheduled_start_time || '')}
+                    </Text>
+                    <Text style={styles.modalValue2}>
+                      {formatTime(selectedConsultation.scheduled_start_time || '')} - {formatTime(selectedConsultation.scheduled_end_time || '')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalSection2}>
+                    <Text style={styles.modalLabel2}>Current Status</Text>
+                    <View style={styles.modalStatusContainer2}>
+                      {(() => {
+                        const status = getStatusDisplay(selectedConsultation);
+                        return (
+                          <View style={[styles.modalStatusBadge2, { backgroundColor: status.bgColor }]}>
+                            <Text style={[styles.modalStatusText2, { color: status.color }]}>{status.text}</Text>
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  </View>
+
+                  {(selectedConsultation.status === 'accepted' || checkIfMissed(selectedConsultation)) && (
+                    <View style={styles.modalActions2}>
+                      <TouchableOpacity
+                        style={styles.modalActionButton2}
+                        onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
+                      >
+                        <Text style={styles.modalActionButtonText2}>✓ Mark as Done</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalActionButton2, styles.cancelButton2]}
+                        onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
+                      >
+                        <Text style={[styles.modalActionButtonText2, styles.cancelButtonText2]}>✕ Cancel Consultation</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {checkIfMissed(selectedConsultation) && (
+                    <View style={styles.missedNotice2}>
+                      <Text style={styles.missedNoticeText2}>
+                        ⚠️ This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -461,6 +791,26 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  statsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  calendarWrapper: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
   calendarCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -534,37 +884,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9ca3af',
   },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tapToViewHint: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  tapToViewText: {
-    fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '600',
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  approveButton: {
-    backgroundColor: '#10b981',
-  },
-  rejectButton: {
-    backgroundColor: '#ef4444',
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   messageCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -630,5 +949,110 @@ const styles = StyleSheet.create({
   signOutText: {
     color: '#ef4444',
     fontWeight: '600',
+  },
+  modalOverlay2: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent2: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader2: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle2: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  closeButton2: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText2: {
+    fontSize: 20,
+    color: '#6b7280',
+  },
+  modalBody2: {
+    padding: 20,
+  },
+  modalSection2: {
+    marginBottom: 20,
+  },
+  modalLabel2: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 6,
+  },
+  modalValue2: {
+    fontSize: 16,
+    color: '#1f2937',
+    lineHeight: 24,
+  },
+  modalStatusContainer2: {
+    flexDirection: 'row',
+  },
+  modalStatusBadge2: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  modalStatusText2: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalActions2: {
+    marginTop: 20,
+    gap: 12,
+  },
+  modalActionButton2: {
+    backgroundColor: '#10b981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  modalActionButtonText2: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton2: {
+    backgroundColor: '#ef4444',
+  },
+  cancelButtonText2: {
+    color: '#fff',
+  },
+  missedNotice2: {
+    backgroundColor: '#fef3c7',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+  },
+  missedNoticeText2: {
+    fontSize: 14,
+    color: '#92400e',
+    lineHeight: 20,
   },
 });

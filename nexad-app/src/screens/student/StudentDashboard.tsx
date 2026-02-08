@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { messageService, MessageWithSender } from '../../services/messageService';
@@ -23,8 +24,13 @@ import type { ConsultationRequest } from '../../types';
 const CONSULTATION_LIMIT = 5;
 const MESSAGE_LIMIT = 5;
 
+interface ConsultationWithTeacher extends ConsultationRequest {
+  teacherName: string;
+}
+
 interface DashboardData {
-  upcomingConsultations: ConsultationRequest[];
+  upcomingConsultations: ConsultationWithTeacher[];
+  pendingRequests: ConsultationWithTeacher[];
   unreadMessages: MessageWithSender[];
   unreadNotificationCount: number;
   profile: StudentProfile | null;
@@ -37,6 +43,7 @@ export default function StudentDashboard({ navigation, route }: any) {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     upcomingConsultations: [],
+    pendingRequests: [],
     unreadMessages: [],
     unreadNotificationCount: 0,
     profile: null,
@@ -44,19 +51,66 @@ export default function StudentDashboard({ navigation, route }: any) {
 
   const authContext = useAuth();
   const currentUser = authContext.user;
-  const userId = currentUser?.id;
+  const userId = currentUser?.user_id;
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
       const [consultationsResult, messagesResult, notificationsResult, profileResult] = await Promise.all([
-        consultationService.getStudentRequests(userId, 1, CONSULTATION_LIMIT),
+        consultationService.getStudentRequests(userId, 1, 100),
         messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
         notificationService.getUnreadCount(userId),
         profileService.getStudentProfile(userId),
       ]);
+
+      // Filter consultations by status
+      const allConsultations = consultationsResult.data?.data || [];
+      const approvedConsultations = allConsultations.filter(c => c.status === 'accepted');
+      const pendingConsultations = allConsultations.filter(c => c.status === 'pending' || c.status === 'awaiting_teacher');
+
+      // Load teacher names for approved consultations
+      const consultationsWithTeachers = await Promise.all(
+        approvedConsultations.slice(0, CONSULTATION_LIMIT).map(async (consultation) => {
+          try {
+            const teacherProfile = await profileService.getTeacherProfile(consultation.teacher_id);
+            return {
+              ...consultation,
+              teacherName: teacherProfile.data
+                ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
+                : 'Unknown Teacher',
+            };
+          } catch (error) {
+            return {
+              ...consultation,
+              teacherName: 'Unknown Teacher',
+            };
+          }
+        })
+      );
+
+      // Load teacher names for pending requests
+      const pendingWithTeachers = await Promise.all(
+        pendingConsultations.slice(0, CONSULTATION_LIMIT).map(async (consultation) => {
+          try {
+            const teacherProfile = await profileService.getTeacherProfile(consultation.teacher_id);
+            return {
+              ...consultation,
+              teacherName: teacherProfile.data
+                ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
+                : 'Unknown Teacher',
+            };
+          } catch (error) {
+            return {
+              ...consultation,
+              teacherName: 'Unknown Teacher',
+            };
+          }
+        })
+      );
+
       setDashboardData({
-        upcomingConsultations: consultationsResult.data?.data || [],
+        upcomingConsultations: consultationsWithTeachers,
+        pendingRequests: pendingWithTeachers,
         unreadMessages: messagesResult.data || [],
         unreadNotificationCount: notificationsResult.data || 0,
         profile: profileResult.data || null,
@@ -66,6 +120,13 @@ export default function StudentDashboard({ navigation, route }: any) {
       Alert.alert('Error', 'Failed to load dashboard data.');
     }
   }, [userId]);
+
+  // Auto-refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [loadDashboardData])
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -163,10 +224,11 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Text style={styles.reminderTitle}>Next Consultation</Text>
             </View>
             <Text style={styles.reminderTeacher}>
-              {dashboardData.upcomingConsultations[0].teacher?.first_name} {dashboardData.upcomingConsultations[0].teacher?.last_name}
+              {dashboardData.upcomingConsultations[0].teacherName}
             </Text>
             <Text style={styles.reminderTopic}>{dashboardData.upcomingConsultations[0].subject_line}</Text>
-            <Text style={styles.reminderTime}>📅 {formatDate(dashboardData.upcomingConsultations[0].scheduled_start_time)}</Text>
+            <Text style={styles.reminderDate}>📅 {formatDate(dashboardData.upcomingConsultations[0].scheduled_start_time)}</Text>
+            <Text style={styles.reminderTime}>🕐 {formatTime(dashboardData.upcomingConsultations[0].scheduled_start_time)}</Text>
             <TouchableOpacity style={styles.reminderButton}>
               <Text style={styles.reminderButtonText}>View Details</Text>
             </TouchableOpacity>
@@ -185,20 +247,32 @@ export default function StudentDashboard({ navigation, route }: any) {
           <Text style={styles.ctaArrow}>→</Text>
         </TouchableOpacity>
 
-        {/* CALENDAR VIEW */}
-        <TouchableOpacity 
-          style={styles.calendarCard} 
-          onPress={() => navigation.navigate('StudentConsultations')}
-        >
-          <View style={styles.calendarContent}>
-            <Text style={styles.calendarIcon}>📅</Text>
-            <View style={styles.calendarTextContainer}>
-              <Text style={styles.calendarTitle}>My Consultations Calendar</Text>
-              <Text style={styles.calendarSubtitle}>View all scheduled consultations</Text>
+        {/* PENDING REQUESTS */}
+        {dashboardData.pendingRequests.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Requests</Text>
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{dashboardData.pendingRequests.length}</Text>
+              </View>
             </View>
+            {dashboardData.pendingRequests.map((request) => (
+              <View key={request.id} style={styles.pendingCard}>
+                <View style={styles.pendingAvatar}>
+                  <Text style={styles.pendingAvatarText}>{request.teacherName.charAt(0)}</Text>
+                </View>
+                <View style={styles.pendingContent}>
+                  <Text style={styles.pendingTeacher}>{request.teacherName}</Text>
+                  <Text style={styles.pendingTopic} numberOfLines={1}>{request.subject_line}</Text>
+                  <Text style={styles.pendingTime}>Requested {formatTimeAgo(request.submitted_at)}</Text>
+                </View>
+                <View style={styles.pendingStatusBadge}>
+                  <Text style={styles.pendingStatusText}>⏳ Pending</Text>
+                </View>
+              </View>
+            ))}
           </View>
-          <Text style={styles.calendarArrow}>→</Text>
-        </TouchableOpacity>
+        )}
 
         {/* APPOINTMENTS */}
         <View style={styles.section}>
@@ -217,10 +291,10 @@ export default function StudentDashboard({ navigation, route }: any) {
             dashboardData.upcomingConsultations.slice(0, CONSULTATION_LIMIT).map((c) => (
               <TouchableOpacity key={c.id} style={styles.appointmentCard}>
                 <View style={styles.appointmentAvatar}>
-                  <Text style={styles.appointmentAvatarText}>{(c.teacher?.first_name || 'T').charAt(0)}</Text>
+                  <Text style={styles.appointmentAvatarText}>{c.teacherName.charAt(0)}</Text>
                 </View>
                 <View style={styles.appointmentContent}>
-                  <Text style={styles.appointmentTeacher}>{c.teacher?.first_name} {c.teacher?.last_name}</Text>
+                  <Text style={styles.appointmentTeacher}>{c.teacherName}</Text>
                   <Text style={styles.appointmentTopic} numberOfLines={1}>{c.subject_line}</Text>
                   <Text style={styles.appointmentTime}>{formatDate(c.scheduled_start_time)}</Text>
                 </View>
@@ -300,14 +374,18 @@ export default function StudentDashboard({ navigation, route }: any) {
               <TouchableOpacity onPress={() => setShowSideMenu(false)}><Text style={styles.closeIcon}>✕</Text></TouchableOpacity>
             </View>
             {[
-              { icon: '🏠', label: 'Dashboard' },
-              { icon: '📝', label: 'My Consultations' },
-              { icon: '💬', label: 'Messages' },
-              { icon: '🎓', label: 'My Classrooms' },
-              { icon: '📚', label: 'Resources' },
-              { icon: '📅', label: 'Schedule' },
+              { icon: '🏠', label: 'Dashboard', action: () => {} },
+              { icon: '📝', label: 'My Consultations', action: () => navigation.navigate('StudentConsultations') },
+              { icon: '📋', label: 'Consultation History', action: () => navigation.navigate('ConsultationHistory') },
+              { icon: '💬', label: 'Messages', action: () => {} },
+              { icon: '🎓', label: 'My Classrooms', action: () => {} },
+              { icon: '📚', label: 'Resources', action: () => {} },
+              { icon: '📅', label: 'Schedule', action: () => {} },
             ].map((item, i) => (
-              <TouchableOpacity key={i} style={styles.sideMenuItem}>
+              <TouchableOpacity key={i} style={styles.sideMenuItem} onPress={() => {
+                setShowSideMenu(false);
+                item.action();
+              }}>
                 <Text style={styles.sideMenuItemIcon}>{item.icon}</Text>
                 <Text style={styles.sideMenuItemText}>{item.label}</Text>
               </TouchableOpacity>
@@ -323,7 +401,14 @@ export default function StudentDashboard({ navigation, route }: any) {
 function formatDate(d?: string): string {
   if (!d) return 'TBD';
   try {
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  } catch { return 'TBD'; }
+}
+
+function formatTime(d?: string): string {
+  if (!d) return 'TBD';
+  try {
+    return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   } catch { return 'TBD'; }
 }
 
@@ -374,7 +459,8 @@ const styles = StyleSheet.create({
   reminderTitle: { color: '#fff', fontSize: 14, fontWeight: '600', opacity: 0.9 },
   reminderTeacher: { color: '#fff', fontSize: 18, fontWeight: '700' },
   reminderTopic: { color: '#fff', fontSize: 14, opacity: 0.9, marginTop: 4 },
-  reminderTime: { color: '#fff', fontSize: 13, marginTop: 8, opacity: 0.8 },
+  reminderDate: { color: '#fff', fontSize: 13, marginTop: 8, opacity: 0.8 },
+  reminderTime: { color: '#fff', fontSize: 13, marginTop: 4, opacity: 0.8 },
   reminderButton: { backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 10, borderRadius: 8, alignItems: 'center', marginTop: 12 },
   reminderButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   ctaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginBottom: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 2, borderColor: '#6B4EFF', borderStyle: 'dashed' },
@@ -438,4 +524,15 @@ const styles = StyleSheet.create({
   sideMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 8, marginBottom: 4 },
   sideMenuItemIcon: { fontSize: 22, marginRight: 16 },
   sideMenuItemText: { fontSize: 16, color: '#374151', fontWeight: '500' },
+  pendingBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  pendingBadgeText: { color: '#f59e0b', fontSize: 12, fontWeight: '700' },
+  pendingCard: { backgroundColor: '#fff', padding: 14, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#fbbf24' },
+  pendingAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fef3c7', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  pendingAvatarText: { fontSize: 18, fontWeight: '700', color: '#f59e0b' },
+  pendingContent: { flex: 1 },
+  pendingTeacher: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  pendingTopic: { fontSize: 13, color: '#6b7280', marginBottom: 4 },
+  pendingTime: { fontSize: 11, color: '#9ca3af' },
+  pendingStatusBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  pendingStatusText: { fontSize: 11, fontWeight: '600', color: '#f59e0b' },
 });

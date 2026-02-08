@@ -34,6 +34,8 @@ import RequestManagementScreen from './src/screens/teacher/RequestManagementScre
 import RequestApprovalScreen from './src/screens/teacher/RequestApprovalScreen';
 import TeacherConsultationsScreen from './src/screens/teacher/TeacherConsultationsScreen';
 import StudentConsultationsScreen from './src/screens/student/StudentConsultationsScreen';
+import TeacherConsultationHistoryScreen from './src/screens/teacher/ConsultationHistoryScreen';
+import StudentConsultationHistoryScreen from './src/screens/student/ConsultationHistoryScreen';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -124,6 +126,11 @@ function AppStack() {
       <Stack.Screen 
         name="StudentConsultations" 
         component={StudentConsultationsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="ConsultationHistory" 
+        component={user?.role === 'teacher' ? TeacherConsultationHistoryScreen : StudentConsultationHistoryScreen} 
         options={{ headerShown: false }} 
       />
     </Stack.Navigator>
