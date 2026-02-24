@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import type { AppNotification } from '../../hooks/useRealtimeNotifications';
 
 export default function NotificationsScreen({ navigation }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -28,6 +33,13 @@ export default function NotificationsScreen({ navigation }: any) {
     refresh,
   } = useRealtimeNotifications(userId);
 
+  // Auto-mark all notifications as read when this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      markAllAsReadHook();
+    }, [markAllAsReadHook])
+  );
+
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await refresh();
@@ -38,10 +50,23 @@ export default function NotificationsScreen({ navigation }: any) {
     await markAsRead(notificationId);
   }, [markAsRead]);
 
+  const handleNotificationPress = useCallback((notification: AppNotification) => {
+    setSelectedNotification(notification);
+    setShowDetailModal(true);
+    if (!notification.is_read) {
+      markAsRead(notification.id);
+    }
+  }, [markAsRead]);
+
   const handleMarkAllAsRead = useCallback(async () => {
     await markAllAsReadHook();
     Alert.alert('Success', 'All notifications marked as read');
   }, [markAllAsReadHook]);
+
+  const closeDetailModal = useCallback(() => {
+    setShowDetailModal(false);
+    setSelectedNotification(null);
+  }, []);
 
   const formatTimeAgo = (dateString: string) => {
     try {
@@ -198,7 +223,7 @@ export default function NotificationsScreen({ navigation }: any) {
                 styles.notificationCard,
                 !notification.is_read && styles.notificationCardUnread,
               ]}
-              onPress={() => handleMarkAsRead(notification.id)}
+              onPress={() => handleNotificationPress(notification)}
             >
               <View style={styles.notificationIcon}>
                 <Text style={styles.notificationIconText}>
@@ -226,6 +251,41 @@ export default function NotificationsScreen({ navigation }: any) {
           ))
         )}
       </ScrollView>
+
+      {/* Notification Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeDetailModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {selectedNotification && (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalIcon}>
+                    {getNotificationIcon(selectedNotification.type)}
+                  </Text>
+                  <Text style={styles.modalTitle}>{selectedNotification.title}</Text>
+                  <TouchableOpacity onPress={closeDetailModal} style={styles.modalCloseBtn}>
+                    <Text style={styles.modalCloseBtnText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalMessage}>{selectedNotification.message}</Text>
+                  <Text style={styles.modalTime}>
+                    {formatTimeAgo(selectedNotification.created_at)}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.modalDoneBtn} onPress={closeDetailModal}>
+                  <Text style={styles.modalDoneBtnText}>Done</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -400,5 +460,74 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  // ─── Detail Modal ───────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    paddingTop: 8,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    gap: 12,
+  },
+  modalIcon: {
+    fontSize: 28,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalCloseBtnText: {
+    fontSize: 18,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  modalBody: {
+    paddingVertical: 20,
+    gap: 8,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#374151',
+    lineHeight: 22,
+  },
+  modalTime: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  modalDoneBtn: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalDoneBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

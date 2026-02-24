@@ -66,7 +66,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const currentUser = authContext.user;
   const userId = currentUser?.user_id;
 
-  const { unreadCount: realtimeUnreadCount } = useRealtimeNotifications(userId);
+  const { unreadCount: realtimeUnreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(userId);
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -143,10 +143,12 @@ export default function TeacherDashboard({ navigation, route }: any) {
   }, [userId]);
 
   // Auto-refresh when screen comes into focus
+  // Also refresh the notification count so the badge clears after viewing notifications
   useFocusEffect(
     useCallback(() => {
       loadDashboardData();
-    }, [loadDashboardData])
+      refreshNotifCount();
+    }, [loadDashboardData, refreshNotifCount])
   );
 
   useEffect(() => {
@@ -250,14 +252,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
                 return;
               }
 
-              // Send notification to student
-              if (consultation) {
-                await notificationService.notifyConsultationCompleted(
-                  consultation.student_id,
-                  consultation.subject_line
-                );
-              }
-
+              // NOTE: DB trigger (notify_student_status_change) handles student notification.
               Alert.alert('Success', 'Consultation marked as completed');
               setShowDetailModal(false);
               await loadDashboardData();
@@ -288,15 +283,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
                 return;
               }
 
-              // Send notification to student
-              if (consultation) {
-                await notificationService.notifyConsultationCancelled(
-                  consultation.student_id,
-                  consultation.subject_line,
-                  'Teacher cancelled the consultation'
-                );
-              }
-
+              // NOTE: DB trigger (notify_student_status_change) handles student notification.
               Alert.alert('Success', 'Consultation cancelled');
               setShowDetailModal(false);
               await loadDashboardData();
@@ -330,19 +317,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
         return;
       }
 
-      // Notify the student that their request was accepted
-      const request = dashboardData.pendingRequests.find(r => r.id === requestId);
-      if (request) {
-        const teacherName = `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim() || 'Your teacher';
-        await notificationService.createNotification(
-          request.student_id,
-          'Consultation Request Accepted ✅',
-          `${teacherName} has accepted your consultation request about "${request.subject_line}". They will reach out to you with a schedule soon.`,
-          'request_accepted',
-          requestId
-        ).catch((err: any) => console.error('[Notif] Failed to notify student on approve:', err));
-      }
-
+      // NOTE: DB trigger (notify_student_status_change) handles student notification.
       Alert.alert('Success', 'Request approved');
       await loadDashboardData();
     } catch (error) {
@@ -364,17 +339,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
               return;
             }
 
-            // Notify the student that their request was declined
-            const request = dashboardData.pendingRequests.find(r => r.id === requestId);
-            if (request) {
-              const teacherName = `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim() || 'Your teacher';
-              await notificationService.notifyConsultationDeclined(
-                request.student_id,
-                teacherName,
-                request.subject_line
-              ).catch((err: any) => console.error('[Notif] Failed to notify student on reject:', err));
-            }
-
+            // NOTE: DB trigger (notify_student_status_change) handles student notification.
             Alert.alert('Success', 'Request rejected');
             await loadDashboardData();
           } catch (error) {

@@ -260,20 +260,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         return;
       }
 
-      // Send notification to student
-      const teacherProfile = await profileService.getTeacherProfile(userId!);
-      const teacherName = teacherProfile.data 
-        ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
-        : 'Your teacher';
-      
-      await notificationService.notifyConsultationApproved(
-        request.student_id,
-        teacherName,
-        request.subject_line,
-        startDateTime.toISOString(),
-        classroomNumber.trim()
-      );
-
+      // NOTE: DB trigger (notify_student_status_change) handles student notification.
       Alert.alert(
         'Request Approved',
         'The consultation request has been approved and scheduled.',
@@ -311,18 +298,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 return;
               }
 
-              // Send notification to student
-              const teacherProfile = await profileService.getTeacherProfile(userId!);
-              const teacherName = teacherProfile.data 
-                ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
-                : 'Your teacher';
-              
-              await notificationService.notifyConsultationDeclined(
-                request.student_id,
-                teacherName,
-                request.subject_line
-              );
-
+              // NOTE: DB trigger (notify_student_status_change) handles student notification.
               Alert.alert(
                 'Request Declined',
                 'The consultation request has been declined.',

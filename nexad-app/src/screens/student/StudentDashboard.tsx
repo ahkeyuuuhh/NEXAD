@@ -53,7 +53,7 @@ export default function StudentDashboard({ navigation, route }: any) {
   const currentUser = authContext.user;
   const userId = currentUser?.user_id;
 
-  const { unreadCount: realtimeUnreadCount } = useRealtimeNotifications(userId);
+  const { unreadCount: realtimeUnreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(userId);
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -122,10 +122,12 @@ export default function StudentDashboard({ navigation, route }: any) {
   }, [userId]);
 
   // Auto-refresh when screen comes into focus
+  // Also refresh the notification count so the badge clears after viewing notifications
   useFocusEffect(
     useCallback(() => {
       loadDashboardData();
-    }, [loadDashboardData])
+      refreshNotifCount();
+    }, [loadDashboardData, refreshNotifCount])
   );
 
   useEffect(() => {

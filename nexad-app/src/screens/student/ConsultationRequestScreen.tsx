@@ -278,19 +278,8 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         }
       }
 
-      // Send notification to teacher
-      
-      const notifResult = await notificationService.notifyNewConsultationRequest(
-        teacher.user_id,
-        studentName,
-        helpNeeded,
-        result.data?.id
-      );
-
-      if (notifResult.error) {
-        console.error('[Notif] Failed to notify teacher:', notifResult.error);
-        // Don't block the request submission, just log the error
-      }
+      // NOTE: DB trigger (notify_teacher_new_request) automatically notifies the teacher
+      // on INSERT into consultation_requests, so no manual notification call is needed here.
 
       Alert.alert(
         'Request Submitted',

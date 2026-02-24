@@ -13,24 +13,29 @@ export interface AppNotification {
   read_at?: string;
 }
 
+// Generate a stable instance ID once per module load – not per render
+let _instanceCounter = 0;
+
 /**
  * useRealtimeNotifications
  *
- * Subscribes to the `notifications` table for the current user using
- * Supabase Realtime (postgres_changes). Any INSERT/UPDATE/DELETE on a
- * row that belongs to this user is reflected instantly in state — no
- * polling required.
+ * Each call to this hook creates its OWN uniquely-named Supabase Realtime
+ * channel so that the dashboard and the NotificationsScreen can both
+ * subscribe simultaneously without overwriting each other.
  *
  * Features:
  * - Instant badge update when a new notification arrives
  * - Fires a local push notification for every new server-side INSERT
  * - markAsRead / markAllAsRead update the DB and state in one call
+ * - Dedup guard prevents a race-condition from adding the same row twice
  */
 export function useRealtimeNotifications(userId: string | undefined) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Unique ID for this hook instance so the channel name never collides
+  const instanceId = useRef<string>(`${++_instanceCounter}`);
   // Track whether we've finished the initial fetch so we don't fire
   // local push notifications for notifications that already existed.
   const initialLoadDone = useRef(false);
@@ -94,9 +99,9 @@ export function useRealtimeNotifications(userId: string | undefined) {
     // Load existing notifications first
     fetchNotifications();
 
-    // Build a unique channel name per user so multiple navigations don't
-    // create duplicate channels.
-    const channelName = `notif-user-${userId}`;
+    // Build a unique channel name per hook instance so that two simultaneous
+    // subscriptions (e.g. dashboard + NotificationsScreen) never conflict.
+    const channelName = `notif-user-${userId}-${instanceId.current}`;
 
     // Remove any stale channel from a previous render cycle
     if (channelRef.current) {
@@ -116,7 +121,11 @@ export function useRealtimeNotifications(userId: string | undefined) {
         },
         (payload) => {
           const newNotif = payload.new as AppNotification;
-          setNotifications(prev => [newNotif, ...prev]);
+          setNotifications(prev => {
+            // Dedup guard: ignore if we already have this notification
+            if (prev.some(n => n.id === newNotif.id)) return prev;
+            return [newNotif, ...prev];
+          });
           setUnreadCount(prev => prev + 1);
           // Only fire local push for truly new notifications (not the initial load)
           if (initialLoadDone.current) {

@@ -188,14 +188,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
                 return;
               }
 
-              // Send notification to student
-              if (consultation) {
-                await notificationService.notifyConsultationCompleted(
-                  consultation.student_id,
-                  consultation.subject_line
-                );
-              }
-
+              // NOTE: DB trigger (notify_student_status_change) handles student notification.
               Alert.alert('Success', 'Consultation marked as completed');
               setShowDetailModal(false);
               await loadConsultations();
@@ -226,15 +219,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
                 return;
               }
 
-              // Send notification to student
-              if (consultation) {
-                await notificationService.notifyConsultationCancelled(
-                  consultation.student_id,
-                  consultation.subject_line,
-                  'Teacher cancelled the consultation'
-                );
-              }
-
+              // NOTE: DB trigger (notify_student_status_change) handles student notification.
               Alert.alert('Success', 'Consultation cancelled');
               setShowDetailModal(false);
               await loadConsultations();
