@@ -3,8 +3,10 @@ import { Platform } from 'react-native';
 import { supabase } from '../config/supabase';
 import type { ApiResponse } from '../types';
 
-// Configure notification behavior
-// Wrapped in try-catch to prevent errors in Expo Go
+const EAS_PROJECT_ID = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'c58f8a0d-88ab-4e14-93b2-368c91253b52';
+const EXPO_PUSH_API = 'https://exp.host/--/api/v2/push/send';
+
+// Configure how notifications appear when the app is in the foreground
 try {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -25,11 +27,6 @@ export const notificationService = {
    */
   async requestPermissions(): Promise<ApiResponse<boolean>> {
     try {
-      // Check if running in Expo Go
-      if (!Notifications.getPermissionsAsync) {
-        return { error: 'Push notifications not available in Expo Go' };
-      }
-
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
@@ -45,44 +42,99 @@ export const notificationService = {
       return { data: true };
     } catch (error: any) {
       console.log('Notification permission error:', error.message);
-      return { error: 'Push notifications not available in Expo Go' };
+      return { error: error.message };
     }
   },
 
   /**
-   * Register device for push notifications
+   * Register this device's Expo push token to the database.
+   * Must be called after every login so the token is always fresh.
    */
   async registerForPushNotifications(userId: string): Promise<ApiResponse<string>> {
     try {
-      // Request permissions first
-      const permissionResult = await this.requestPermissions();
-      if (permissionResult.error) {
-        return { error: permissionResult.error };
+      const permResult = await this.requestPermissions();
+      if (permResult.error) {
+        console.log('[Push] Permission denied:', permResult.error);
+        return { error: permResult.error };
       }
 
-      // Get Expo push token
+      // getExpoPushTokenAsync requires the EAS project ID
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+        projectId: EAS_PROJECT_ID,
       });
-
       const token = tokenData.data;
+      console.log('[Push] Got push token:', token);
 
-      // Save token to database
-      const { error } = await supabase.from('push_tokens').upsert({
-        user_id: userId,
-        token,
-        device_name: Platform.OS,
-        device_os: Platform.OS,
-        last_used_at: new Date().toISOString(),
-        is_active: true,
-      });
+      // Upsert by token so re-logins or re-installs update the existing row
+      const { error } = await supabase.from('push_tokens').upsert(
+        {
+          user_id: userId,
+          token,
+          device_name: Platform.OS,
+          device_os: Platform.OS,
+          last_used_at: new Date().toISOString(),
+          is_active: true,
+        },
+        { onConflict: 'token' }
+      );
 
-      if (error) throw error;
+      if (error) {
+        console.log('[Push] DB upsert error:', error.message);
+        throw error;
+      }
 
+      console.log('[Push] Token saved to DB for user', userId);
       return { data: token };
     } catch (error: any) {
-      console.log('Push notification registration error:', error.message);
-      return { error: 'Push notifications not available in Expo Go' };
+      console.log('[Push] registerForPushNotifications error:', error.message);
+      return { error: error.message };
+    }
+  },
+
+  /**
+   * Send an Expo push notification to a specific user by looking up
+   * their registered token(s) from the database.
+   * This is what makes notifications work on OTHER devices.
+   */
+  async sendPushToUser(userId: string, title: string, body: string, data?: any): Promise<void> {
+    try {
+      const { data: tokens, error } = await supabase
+        .from('push_tokens')
+        .select('token')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .limit(5);
+
+      if (error || !tokens?.length) {
+        console.log('[Push] No active tokens for user', userId);
+        return;
+      }
+
+      const messages = tokens.map(({ token }: { token: string }) => ({
+        to: token,
+        title,
+        body,
+        data: data || {},
+        sound: 'default',
+        priority: 'high',
+        channelId: 'default',
+      }));
+
+      const response = await fetch(EXPO_PUSH_API, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
+
+      const result = await response.json();
+      console.log('[Push] Expo push API response:', JSON.stringify(result));
+    } catch (error: any) {
+      // Never throw — in-app Realtime will still catch it for foreground users
+      console.log('[Push] sendPushToUser failed:', error.message);
     }
   },
 
@@ -201,5 +253,117 @@ export const notificationService = {
     } catch (error: any) {
       return { error: error.message || 'Failed to get unread count' };
     }
+  },
+
+  /**
+   * Create a notification row in the database AND send an Expo push
+   * notification to the target user's device (works when app is closed/background).
+   * The Supabase Realtime subscription in useRealtimeNotifications also picks
+   * up the INSERT and fires a local notification when the app is in foreground.
+   */
+  async createNotification(
+    userId: string,
+    title: string,
+    message: string,
+    type: string = 'info',
+    relatedId?: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          title,
+          message,
+          type,
+          related_id: relatedId,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Send Expo push notification to the target user's device
+      // (fire-and-forget — don't let push failure block the DB write)
+      this.sendPushToUser(userId, title, message, { type, relatedId }).catch(() => {});
+
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to create notification' };
+    }
+  },
+
+  /**
+   * Create notification for consultation approval
+   */
+  async notifyConsultationApproved(
+    studentId: string,
+    teacherName: string,
+    subject: string,
+    scheduledTime: string,
+    classroomNumber?: string
+  ): Promise<ApiResponse<any>> {
+    const locationText = classroomNumber ? ` in Room ${classroomNumber}` : '';
+    const title = 'Consultation Approved! 🎉';
+    const message = `Your consultation request with ${teacherName} about "${subject}" has been approved${locationText}. Scheduled for ${new Date(scheduledTime).toLocaleString()}.`;
+    
+    return await this.createNotification(studentId, title, message, 'consultation_approved');
+  },
+
+  /**
+   * Create notification for consultation declined
+   */
+  async notifyConsultationDeclined(
+    studentId: string,
+    teacherName: string,
+    subject: string
+  ): Promise<ApiResponse<any>> {
+    const title = 'Request Declined';
+    const message = `${teacherName} has declined your consultation request about "${subject}". You can submit a new request with different time preferences.`;
+    
+    return await this.createNotification(studentId, title, message, 'consultation_declined');
+  },
+
+  /**
+   * Create notification for new consultation request
+   */
+  async notifyNewConsultationRequest(
+    teacherId: string,
+    studentName: string,
+    subject: string
+  ): Promise<ApiResponse<any>> {
+    const title = 'New Consultation Request 📝';
+    const message = `${studentName} has requested a consultation about "${subject}".`;
+    
+    return await this.createNotification(teacherId, title, message, 'consultation_request');
+  },
+
+  /**
+   * Create notification for consultation cancellation
+   */
+  async notifyConsultationCancelled(
+    userId: string,
+    subject: string,
+    reason: string = 'No reason provided'
+  ): Promise<ApiResponse<any>> {
+    const title = 'Consultation Cancelled ❌';
+    const message = `Your consultation about "${subject}" has been cancelled. ${reason}`;
+    
+    return await this.createNotification(userId, title, message, 'consultation_cancelled');
+  },
+
+  /**
+   * Create notification for consultation completion
+   */
+  async notifyConsultationCompleted(
+    userId: string,
+    subject: string
+  ): Promise<ApiResponse<any>> {
+    const title = 'Consultation Completed ✅';
+    const message = `Your consultation about "${subject}" has been marked as completed.`;
+    
+    return await this.createNotification(userId, title, message, 'consultation_completed');
   },
 };

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
+import { notificationService } from '../../services/notificationService';
 import { profileService } from '../../services/profileService';
 import type { ConsultationRequest } from '../../types';
 
@@ -180,11 +181,21 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           style: 'default',
           onPress: async () => {
             try {
+              const consultation = selectedConsultation;
               const result = await consultationService.updateStatus(consultationId, 'completed');
               if (result.error) {
                 Alert.alert('Error', result.error);
                 return;
               }
+
+              // Send notification to student
+              if (consultation) {
+                await notificationService.notifyConsultationCompleted(
+                  consultation.student_id,
+                  consultation.subject_line
+                );
+              }
+
               Alert.alert('Success', 'Consultation marked as completed');
               setShowDetailModal(false);
               await loadConsultations();
@@ -208,11 +219,22 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
+              const consultation = selectedConsultation;
               const result = await consultationService.updateStatus(consultationId, 'cancelled');
               if (result.error) {
                 Alert.alert('Error', result.error);
                 return;
               }
+
+              // Send notification to student
+              if (consultation) {
+                await notificationService.notifyConsultationCancelled(
+                  consultation.student_id,
+                  consultation.subject_line,
+                  'Teacher cancelled the consultation'
+                );
+              }
+
               Alert.alert('Success', 'Consultation cancelled');
               setShowDetailModal(false);
               await loadConsultations();

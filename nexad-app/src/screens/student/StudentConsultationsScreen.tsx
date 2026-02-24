@@ -31,10 +31,12 @@ interface MarkedDates {
 
 export default function StudentConsultationsScreen({ navigation }: any) {
   const [consultations, setConsultations] = useState<ConsultationWithTeacher[]>([]);
+  const [allConsultations, setAllConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
+  const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'pending'>('all');
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -43,14 +45,13 @@ export default function StudentConsultationsScreen({ navigation }: any) {
     if (!userId) return;
 
     try {
-      // Get all approved consultations for this student
+      // Get all consultations for this student
       const allConsultationsResult = await consultationService.getStudentRequests(userId, 1, 1000);
-      const allConsultations = allConsultationsResult.data?.data || [];
-      const approved = allConsultations.filter((c: ConsultationRequest) => c.status === 'accepted');
+      const allData = allConsultationsResult.data?.data || [];
       
       // Load teacher names for each consultation
       const consultationsWithNames = await Promise.all(
-        approved.map(async (consultation: ConsultationRequest) => {
+        allData.map(async (consultation: ConsultationRequest) => {
           try {
             const profileResponse = await profileService.getTeacherProfile(consultation.teacher_id);
             const profile = profileResponse.data;
@@ -68,11 +69,13 @@ export default function StudentConsultationsScreen({ navigation }: any) {
         })
       );
 
-      setConsultations(consultationsWithNames);
+      setAllConsultations(consultationsWithNames);
+      applyFilter(consultationsWithNames, filterStatus);
       
-      // Mark dates on calendar
+      // Mark dates on calendar (only for approved)
+      const approved = consultationsWithNames.filter((c: ConsultationWithTeacher) => c.status === 'accepted');
       const marks: MarkedDates = {};
-      consultationsWithNames.forEach((consultation: ConsultationWithTeacher) => {
+      approved.forEach((consultation: ConsultationWithTeacher) => {
         if (consultation.scheduled_start_time) {
           const date = consultation.scheduled_start_time.split('T')[0];
           marks[date] = {
@@ -92,9 +95,23 @@ export default function StudentConsultationsScreen({ navigation }: any) {
     }
   };
 
+  const applyFilter = (data: ConsultationWithTeacher[], status: 'all' | 'approved' | 'pending') => {
+    let filtered = data;
+    if (status === 'approved') {
+      filtered = data.filter(c => c.status === 'accepted');
+    } else if (status === 'pending') {
+      filtered = data.filter(c => c.status === 'pending' || c.status === 'awaiting_teacher');
+    }
+    setConsultations(filtered);
+  };
+
   useEffect(() => {
     loadConsultations();
   }, [userId]);
+
+  useEffect(() => {
+    applyFilter(allConsultations, filterStatus);
+  }, [filterStatus]);
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -190,6 +207,28 @@ export default function StudentConsultationsScreen({ navigation }: any) {
         <View style={styles.placeholder} />
       </View>
 
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterTab, filterStatus === 'all' && styles.filterTabActive]}
+          onPress={() => setFilterStatus('all')}
+        >
+          <Text style={[styles.filterTabText, filterStatus === 'all' && styles.filterTabTextActive]}>All</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, filterStatus === 'approved' && styles.filterTabActive]}
+          onPress={() => setFilterStatus('approved')}
+        >
+          <Text style={[styles.filterTabText, filterStatus === 'approved' && styles.filterTabTextActive]}>Approved</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, filterStatus === 'pending' && styles.filterTabActive]}
+          onPress={() => setFilterStatus('pending')}
+        >
+          <Text style={[styles.filterTabText, filterStatus === 'pending' && styles.filterTabTextActive]}>Pending</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
@@ -240,8 +279,10 @@ export default function StudentConsultationsScreen({ navigation }: any) {
                 <View key={consultation.id} style={styles.consultationCard}>
                   <View style={styles.consultationHeader}>
                     <Text style={styles.teacherName}>{consultation.teacherName}</Text>
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>Approved</Text>
+                    <View style={[styles.statusBadge, getStatusBadgeStyle(consultation.status)]}>
+                      <Text style={[styles.statusText, getStatusTextStyle(consultation.status)]}>
+                        {consultation.status === 'accepted' ? 'Approved' : consultation.status === 'pending' ? 'Pending' : consultation.status}
+                      </Text>
                     </View>
                   </View>
                   
@@ -298,8 +339,10 @@ export default function StudentConsultationsScreen({ navigation }: any) {
                 <View key={consultation.id} style={styles.consultationCard}>
                   <View style={styles.consultationHeader}>
                     <Text style={styles.teacherName}>{consultation.teacherName}</Text>
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>Approved</Text>
+                    <View style={[styles.statusBadge, getStatusBadgeStyle(consultation.status)]}>
+                      <Text style={[styles.statusText, getStatusTextStyle(consultation.status)]}>
+                        {consultation.status === 'accepted' ? 'Approved' : consultation.status === 'pending' ? 'Pending' : consultation.status}
+                      </Text>
                     </View>
                   </View>
                   
@@ -345,6 +388,34 @@ export default function StudentConsultationsScreen({ navigation }: any) {
   );
 }
 
+const getStatusBadgeStyle = (status: string) => {
+  switch (status) {
+    case 'accepted':
+      return { backgroundColor: '#dcfce7' };
+    case 'pending':
+    case 'awaiting_teacher':
+      return { backgroundColor: '#fef3c7' };
+    case 'declined':
+      return { backgroundColor: '#fee2e2' };
+    default:
+      return { backgroundColor: '#f3f4f6' };
+  }
+};
+
+const getStatusTextStyle = (status: string) => {
+  switch (status) {
+    case 'accepted':
+      return { color: '#16a34a' };
+    case 'pending':
+    case 'awaiting_teacher':
+      return { color: '#f59e0b' };
+    case 'declined':
+      return { color: '#dc2626' };
+    default:
+      return { color: '#6b7280' };
+  }
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -385,6 +456,32 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 60,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+  },
+  filterTabActive: {
+    backgroundColor: '#3b82f6',
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  filterTabTextActive: {
+    color: '#fff',
   },
   calendarContainer: {
     backgroundColor: '#fff',

@@ -19,6 +19,7 @@ import { consultationService } from '../../services/consultationService';
 import { messageService, MessageWithSender } from '../../services/messageService';
 import { notificationService } from '../../services/notificationService';
 import { profileService, TeacherProfile } from '../../services/profileService';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { ConsultationRequest } from '../../types';
 
 // Dashboard data limits
@@ -41,7 +42,6 @@ interface MarkedDates {
 interface DashboardData {
   pendingRequests: ConsultationWithStudent[];
   unreadMessages: MessageWithSender[];
-  unreadNotificationCount: number;
   profile: TeacherProfile | null;
   upcomingAppointments: ConsultationWithStudent[];
 }
@@ -58,7 +58,6 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     pendingRequests: [],
     unreadMessages: [],
-    unreadNotificationCount: 0,
     profile: null,
     upcomingAppointments: [],
   });
@@ -67,13 +66,14 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const currentUser = authContext.user;
   const userId = currentUser?.user_id;
 
+  const { unreadCount: realtimeUnreadCount } = useRealtimeNotifications(userId);
+
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
-      const [pendingResult, messagesResult, notificationsResult, profileResult] = await Promise.all([
+      const [pendingResult, messagesResult, profileResult] = await Promise.all([
         consultationService.getTeacherRequests(userId, 'pending', 1, CONSULTATION_LIMIT),
         messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
-        notificationService.getUnreadCount(userId),
         profileService.getTeacherProfile(userId),
       ]);
 
@@ -133,7 +133,6 @@ export default function TeacherDashboard({ navigation, route }: any) {
       setDashboardData({
         pendingRequests: pendingWithNames,
         unreadMessages: messagesResult.data || [],
-        unreadNotificationCount: notificationsResult.data || 0,
         profile: profileResult.data || null,
         upcomingAppointments: upcomingWithNames,
       });
@@ -244,11 +243,21 @@ export default function TeacherDashboard({ navigation, route }: any) {
           style: 'default',
           onPress: async () => {
             try {
+              const consultation = selectedConsultation;
               const result = await consultationService.updateStatus(consultationId, 'completed');
               if (result.error) {
                 Alert.alert('Error', result.error);
                 return;
               }
+
+              // Send notification to student
+              if (consultation) {
+                await notificationService.notifyConsultationCompleted(
+                  consultation.student_id,
+                  consultation.subject_line
+                );
+              }
+
               Alert.alert('Success', 'Consultation marked as completed');
               setShowDetailModal(false);
               await loadDashboardData();
@@ -272,11 +281,22 @@ export default function TeacherDashboard({ navigation, route }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
+              const consultation = selectedConsultation;
               const result = await consultationService.updateStatus(consultationId, 'cancelled');
               if (result.error) {
                 Alert.alert('Error', result.error);
                 return;
               }
+
+              // Send notification to student
+              if (consultation) {
+                await notificationService.notifyConsultationCancelled(
+                  consultation.student_id,
+                  consultation.subject_line,
+                  'Teacher cancelled the consultation'
+                );
+              }
+
               Alert.alert('Success', 'Consultation cancelled');
               setShowDetailModal(false);
               await loadDashboardData();
@@ -366,12 +386,12 @@ export default function TeacherDashboard({ navigation, route }: any) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => Alert.alert('Notifications', 'Feature coming soon!')}
+            onPress={() => navigation.navigate('Notifications')}
           >
             <Text style={styles.iconText}>🔔</Text>
-            {dashboardData.unreadNotificationCount > 0 && (
+            {realtimeUnreadCount > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{dashboardData.unreadNotificationCount}</Text>
+                <Text style={styles.badgeText}>{realtimeUnreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -447,8 +467,8 @@ export default function TeacherDashboard({ navigation, route }: any) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pending Requests</Text>
-            {dashboardData.pendingRequests.length > CONSULTATION_LIMIT && (
-              <TouchableOpacity onPress={() => navigation.navigate('RequestManagement')}>
+            {dashboardData.pendingRequests.length > 4 && (
+              <TouchableOpacity onPress={() => navigation.navigate('AllRequests')}>
                 <Text style={styles.viewAllText}>View All →</Text>
               </TouchableOpacity>
             )}
@@ -459,7 +479,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Text style={styles.emptyStateText}>No pending requests</Text>
             </View>
           ) : (
-            dashboardData.pendingRequests.map((request, index) => (
+            dashboardData.pendingRequests.slice(0, 4).map((request, index) => (
               <TouchableOpacity 
                 key={request.id} 
                 style={styles.requestCard}
@@ -533,35 +553,53 @@ export default function TeacherDashboard({ navigation, route }: any) {
         animationType="slide"
         onRequestClose={() => setShowSideMenu(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowSideMenu(false)}
-        >
+        <View style={styles.sideMenuContainer}>
+          <TouchableOpacity 
+            style={styles.sideMenuOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSideMenu(false)}
+          />
           <View style={styles.sideMenu}>
+            <View style={styles.sideMenuHeader}>
+              <Text style={styles.sideMenuTitle}>NEXAD</Text>
+              <TouchableOpacity onPress={() => setShowSideMenu(false)}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
-              Alert.alert('Coming Soon', 'My Schedule');
             }}>
-              <Text style={styles.menuItemText}>📅 My Schedule</Text>
+              <Text style={styles.menuItemText}>🏠 Dashboard</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
-              navigation.navigate('ConsultationHistory');
+              navigation.navigate('TeacherConsultations');
             }}>
-              <Text style={styles.menuItemText}>📋 Consultation History</Text>
+              <Text style={styles.menuItemText}>📅 My Consultations</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
-              Alert.alert('Coming Soon', 'All Requests');
+              navigation.navigate('AllRequests');
             }}>
               <Text style={styles.menuItemText}>📝 All Requests</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
-              Alert.alert('Coming Soon', 'Messages');
+              navigation.navigate('ClassroomHub');
             }}>
-              <Text style={styles.menuItemText}>💬 Messages</Text>
+              <Text style={styles.menuItemText}>🏫 Classroom Hub</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setShowSideMenu(false);
+              navigation.navigate('Notifications');
+            }}>
+              <Text style={styles.menuItemText}>🔔 Notifications</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setShowSideMenu(false);
+              navigation.navigate('ConsultationHistory');
+            }}>
+              <Text style={styles.menuItemText}>📋 History</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {
               setShowSideMenu(false);
@@ -577,7 +615,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Text style={[styles.menuItemText, styles.signOutText]}>🚪 Sign Out</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Consultation Detail Modal */}
@@ -918,17 +956,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
   },
-  modalOverlay: {
+  sideMenuContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sideMenuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
   },
   sideMenu: {
+    width: '75%',
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  sideMenuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  sideMenuTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#6B4EFF',
+  },
+  closeIcon: {
+    fontSize: 24,
+    color: '#6b7280',
   },
   menuItem: {
     paddingVertical: 16,

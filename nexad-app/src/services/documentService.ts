@@ -1,5 +1,4 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import { supabase } from '../config/supabase';
 import type { UploadedDocument, ApiResponse } from '../types';
 
@@ -47,30 +46,31 @@ export const documentService = {
         return { error: 'Invalid file URI' };
       }
 
-      // Read file as base64
-      const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: 'base64' as any,
-      });
-
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `documents/${fileName}`;
+      // First folder MUST be the uploader's user ID to satisfy storage RLS policy
+      const filePath = uploadedBy ? `${uploadedBy}/${fileName}` : `public/${fileName}`;
 
-      // Convert base64 to blob
-      const blob = this.base64ToBlob(fileContent, file.mimeType || 'application/pdf');
+      // Use fetch + arrayBuffer — the reliable way to read files in React Native/Expo
+      // (avoids the unreliable atob() path that silently fails on some devices)
+      const fetchResponse = await fetch(file.uri);
+      if (!fetchResponse.ok) {
+        return { error: 'Failed to read file from device' };
+      }
+      const arrayBuffer = await fetchResponse.arrayBuffer();
 
       // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('consultation-documents')
-        .upload(filePath, blob, {
-          contentType: file.mimeType,
+        .upload(filePath, arrayBuffer, {
+          contentType: file.mimeType || 'application/pdf',
           upsert: false,
         });
 
       if (uploadError) throw uploadError;
 
-      // Create document record
+      // Create document record in the database
       const { data: documentData, error: documentError } = await supabase
         .from('uploaded_documents')
         .insert({
@@ -78,7 +78,7 @@ export const documentService = {
           attachment_bin_id: attachmentBinId,
           file_name: file.name,
           file_type: fileExt === 'pdf' ? 'pdf' : 'docx',
-          file_size_bytes: file.size || 0,
+          file_size_bytes: file.size || arrayBuffer.byteLength,
           storage_path: uploadData.path,
           uploaded_by: uploadedBy,
         })
@@ -130,20 +130,5 @@ export const documentService = {
     } catch (error: any) {
       return { error: error.message || 'Failed to fetch documents' };
     }
-  },
-
-  /**
-   * Helper: Convert base64 to Blob
-   */
-  base64ToBlob(base64: string, mimeType: string): Blob {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
   },
 };

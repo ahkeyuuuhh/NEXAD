@@ -60,8 +60,9 @@
       "bundler": "metro"
     },
     "updates": {
-      "enabled": false,
-      "fallbackToCacheTimeout": 0
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "url": "https://u.expo.dev/c58f8a0d-88ab-4e14-93b2-368c91253b52"
     },
     "plugins": [
       "expo-dev-client",
@@ -76,11 +77,14 @@
       ],
       "expo-web-browser"
     ],
+    "owner": "kaiszxui",
     "extra": {
       "eas": {
-        "projectId": "99241254-043e-4876-8001-4be5a6079d81"
+        "projectId": "c58f8a0d-88ab-4e14-93b2-368c91253b52"
       }
     },
-    "owner": "ahkeyuuuhh"
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

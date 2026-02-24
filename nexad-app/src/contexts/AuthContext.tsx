@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, clearSupabaseSession } from '../config/supabase';
 import { authService, AuthProfile, getPendingOAuthRole, clearPendingOAuthRole, setPendingOAuthRole } from '../services/authService';
 import { profileService } from '../services/profileService';
+import { notificationService } from '../services/notificationService';
 import type { User, UserRole } from '../types';
 
 interface AuthContextType {
@@ -19,6 +20,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Register push token whenever a user logs in (fire-and-forget, never blocks UI)
+  useEffect(() => {
+    if (user?.user_id) {
+      notificationService.registerForPushNotifications(user.user_id).catch(() => {});
+    }
+  }, [user?.user_id]);
 
   useEffect(() => {
     console.log('🔵 [AuthProvider] Initializing...');

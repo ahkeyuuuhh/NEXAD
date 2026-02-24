@@ -13,8 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
+import * as Linking from 'expo-linking';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
+import { notificationService } from '../../services/notificationService';
+import { aiService } from '../../services/aiService';
+import { documentService } from '../../services/documentService';
 import type { ConsultationRequest } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -42,18 +46,24 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState(14);
   const [endMinute, setEndMinute] = useState(0);
-  const [showDateModal, setShowDateModal] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [classroomNumber, setClassroomNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingStudent, setIsLoadingStudent] = useState(true);
   const [existingConsultations, setExistingConsultations] = useState<ConsultationWithStudent[]>([]);
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
   const [isLoadingConsultations, setIsLoadingConsultations] = useState(true);
+  const [smartBrief, setSmartBrief] = useState<any>(null);
+  const [isLoadingBrief, setIsLoadingBrief] = useState(true);
+  const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
 
   useEffect(() => {
     loadStudentProfile();
     loadExistingConsultations();
+    loadSmartBrief();
+    loadUploadedDocuments();
   }, []);
 
   const loadExistingConsultations = async () => {
@@ -117,6 +127,38 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     }
   };
 
+  const loadSmartBrief = async () => {
+    try {
+      const result = await aiService.getSmartBrief(request.id);
+      if (result.data) {
+        console.log('Smart Brief loaded:', result.data);
+        setSmartBrief(result.data);
+      } else {
+        console.log('No smart brief found for request:', request.id);
+      }
+    } catch (error) {
+      console.error('Error loading smart brief:', error);
+    } finally {
+      setIsLoadingBrief(false);
+    }
+  };
+
+  const loadUploadedDocuments = async () => {
+    try {
+      const result = await documentService.getConsultationDocuments(request.id);
+      if (result.data) {
+        console.log('Documents loaded:', result.data.length, 'files');
+        setUploadedDocuments(result.data);
+      } else {
+        console.log('No documents found for request:', request.id);
+      }
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -135,6 +177,12 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   };
 
   const validateDateTime = () => {
+    // Validate classroom number
+    if (!classroomNumber.trim()) {
+      Alert.alert('Classroom Required', 'Please enter a classroom number');
+      return false;
+    }
+
     // Validate date is not in the past
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -203,13 +251,28 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       const result = await consultationService.scheduleConsultation(
         request.id,
         startDateTime.toISOString(),
-        endDateTime.toISOString()
+        endDateTime.toISOString(),
+        classroomNumber.trim()
       );
 
       if (result.error) {
         Alert.alert('Error', result.error);
         return;
       }
+
+      // Send notification to student
+      const teacherProfile = await profileService.getTeacherProfile(userId!);
+      const teacherName = teacherProfile.data 
+        ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
+        : 'Your teacher';
+      
+      await notificationService.notifyConsultationApproved(
+        request.student_id,
+        teacherName,
+        request.subject_line,
+        startDateTime.toISOString(),
+        classroomNumber.trim()
+      );
 
       Alert.alert(
         'Request Approved',
@@ -247,6 +310,18 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 Alert.alert('Error', result.error);
                 return;
               }
+
+              // Send notification to student
+              const teacherProfile = await profileService.getTeacherProfile(userId!);
+              const teacherName = teacherProfile.data 
+                ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
+                : 'Your teacher';
+              
+              await notificationService.notifyConsultationDeclined(
+                request.student_id,
+                teacherName,
+                request.subject_line
+              );
 
               Alert.alert(
                 'Request Declined',
@@ -323,6 +398,174 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             </View>
           </View>
         </View>
+
+        {/* AI Smart Brief Section */}
+        {isLoadingBrief ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI Smart Brief</Text>
+            <View style={styles.loadingBrief}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={styles.loadingBriefText}>Generating smart brief...</Text>
+            </View>
+          </View>
+        ) : smartBrief ? (
+          <View style={styles.section}>
+            <View style={styles.smartBriefHeader}>
+              <Text style={styles.sectionTitle}>AI Smart Brief</Text>
+              <View style={styles.confidenceBadge}>
+                <Text style={styles.confidenceText}>AI Generated</Text>
+              </View>
+            </View>
+
+            {/* Summary */}
+            {smartBrief.summary && (
+              <View style={styles.smartBriefCard}>
+                <View style={styles.briefSection}>
+                  <Text style={styles.briefLabel}>📋 Summary</Text>
+                  <Text style={styles.briefText}>{smartBrief.summary}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Key Points */}
+            {smartBrief.key_points && smartBrief.key_points.length > 0 && (
+              <View style={styles.smartBriefCard}>
+                <View style={styles.briefSection}>
+                  <Text style={styles.briefLabel}>🎯 Key Points</Text>
+                  {smartBrief.key_points.map((point: string, index: number) => (
+                    <View key={index} style={styles.bulletPoint}>
+                      <Text style={styles.bullet}>•</Text>
+                      <Text style={styles.bulletText}>{point}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Student Concerns */}
+            {smartBrief.student_concerns && smartBrief.student_concerns.length > 0 && (
+              <View style={styles.smartBriefCard}>
+                <View style={styles.briefSection}>
+                  <Text style={styles.briefLabel}>⚠️ Student Concerns</Text>
+                  <View style={styles.concernsContainer}>
+                    {smartBrief.student_concerns.map((concern: string, index: number) => (
+                      <View key={index} style={styles.concernChip}>
+                        <Text style={styles.concernText}>{concern}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Suggested Prep Materials */}
+            {smartBrief.suggested_prep_materials && smartBrief.suggested_prep_materials.length > 0 && (
+              <View style={styles.smartBriefCard}>
+                <View style={styles.briefSection}>
+                  <Text style={styles.briefLabel}>📚 Suggested Prep Materials</Text>
+                  {smartBrief.suggested_prep_materials.map((material: string, index: number) => (
+                    <View key={index} style={styles.bulletPoint}>
+                      <Text style={styles.bullet}>•</Text>
+                      <Text style={styles.bulletText}>{material}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Estimated Duration */}
+            {smartBrief.estimated_consultation_duration_minutes && (
+              <View style={styles.smartBriefCard}>
+                <View style={styles.briefSection}>
+                  <Text style={styles.briefLabel}>⏱️ Estimated Duration</Text>
+                  <Text style={styles.durationText}>
+                    {smartBrief.estimated_consultation_duration_minutes} minutes
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI Smart Brief</Text>
+            <View style={styles.noDataCard}>
+              <Text style={styles.noDataText}>
+                No AI Smart Brief available yet. The summary may still be generating or wasn't created for this request.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Uploaded Documents/Drafts Section */}
+        {isLoadingDocuments ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📎 Student Documents</Text>
+            <View style={styles.loadingBrief}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={styles.loadingBriefText}>Loading documents...</Text>
+            </View>
+          </View>
+        ) : uploadedDocuments.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.smartBriefHeader}>
+              <Text style={styles.sectionTitle}>📎 Student Documents & Drafts</Text>
+              <View style={styles.documentBadge}>
+                <Text style={styles.documentBadgeText}>{uploadedDocuments.length} file(s)</Text>
+              </View>
+            </View>
+            <Text style={styles.documentsSubtext}>
+              Student has uploaded the following materials for review:
+            </Text>
+            {uploadedDocuments.map((doc, index) => (
+              <TouchableOpacity 
+                key={doc.id || index} 
+                style={styles.documentCard}
+                onPress={async () => {
+                  try {
+                    const urlResult = await documentService.getDocumentUrl(doc.storage_path);
+                    if (urlResult.data) {
+                      const supported = await Linking.canOpenURL(urlResult.data);
+                      if (supported) {
+                        await Linking.openURL(urlResult.data);
+                      } else {
+                        Alert.alert('Error', 'Cannot open this file type on your device.');
+                      }
+                    } else {
+                      Alert.alert('Error', urlResult.error || 'Failed to get document link');
+                    }
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to load document');
+                  }
+                }}
+              >
+                <View style={styles.documentIcon}>
+                  <Text style={styles.documentIconText}>
+                    {doc.file_name?.endsWith('.pdf') ? '📄' : '📝'}
+                  </Text>
+                </View>
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentName} numberOfLines={1}>
+                    {doc.file_name || 'Document'}
+                  </Text>
+                  <Text style={styles.documentMeta}>
+                    {doc.file_size_bytes ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'} • 
+                    {doc.uploaded_at ? ` Uploaded ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
+                  </Text>
+                </View>
+                <Text style={styles.documentArrow}>→</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📎 Student Documents & Drafts</Text>
+            <View style={styles.noDataCard}>
+              <Text style={styles.noDataText}>
+                No documents uploaded for this consultation.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Calendar Section */}
         <View style={styles.section}>
@@ -570,6 +813,19 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           <Text style={styles.timeNote}>
             ⚠️ System will check for conflicts with existing consultations
           </Text>
+
+          {/* Classroom Number Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Classroom Number *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g., 101, A-205, Room 3"
+              value={classroomNumber}
+              onChangeText={setClassroomNumber}
+              autoCapitalize="characters"
+            />
+            <Text style={styles.helperText}>Enter the classroom where the consultation will be held</Text>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -786,7 +1042,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
-  input: {
+  textInput: {
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#d1d5db',
@@ -933,6 +1189,172 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 6,
+    fontStyle: 'italic',
+  },
+  smartBriefHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  smartBriefCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  briefSection: {
+    gap: 8,
+  },
+  briefLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  briefText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  bulletPoint: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  bullet: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+  bulletText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+    flex: 1,
+  },
+  concernsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  concernChip: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  concernText: {
+    fontSize: 13,
+    color: '#92400e',
+    fontWeight: '600',
+  },
+  durationText: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+  confidenceBadge: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  confidenceText: {
+    fontSize: 11,
+    color: '#1e40af',
+    fontWeight: '700',
+  },
+  loadingBrief: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 20,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+  },
+  loadingBriefText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
+  documentBadge: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#16a34a',
+  },
+  documentBadgeText: {
+    fontSize: 11,
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  documentsSubtext: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  documentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  documentIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  documentIconText: {
+    fontSize: 20,
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  documentMeta: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  documentArrow: {
+    fontSize: 18,
+    color: '#3b82f6',
+    marginLeft: 8,
+  },
+  noDataCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
     fontStyle: 'italic',
   },
 });

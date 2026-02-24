@@ -162,17 +162,24 @@ export const consultationService = {
   async scheduleConsultation(
     requestId: string,
     startTime: string,
-    endTime: string
+    endTime: string,
+    classroomNumber?: string
   ): Promise<ApiResponse<ConsultationRequest>> {
     try {
+      const updateData: any = {
+        scheduled_start_time: startTime,
+        scheduled_end_time: endTime,
+        status: 'accepted',
+        teacher_reviewed_at: new Date().toISOString(),
+      };
+
+      if (classroomNumber) {
+        updateData.classroom_number = classroomNumber;
+      }
+
       const { data, error } = await supabase
         .from('consultation_requests')
-        .update({
-          scheduled_start_time: startTime,
-          scheduled_end_time: endTime,
-          status: 'accepted',
-          teacher_reviewed_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', requestId)
         .select('*')
         .single();

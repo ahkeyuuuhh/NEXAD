@@ -16,8 +16,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { messageService, MessageWithSender } from '../../services/messageService';
-import { notificationService } from '../../services/notificationService';
 import { profileService, StudentProfile } from '../../services/profileService';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { ConsultationRequest } from '../../types';
 
 // Dashboard data limits
@@ -32,7 +32,6 @@ interface DashboardData {
   upcomingConsultations: ConsultationWithTeacher[];
   pendingRequests: ConsultationWithTeacher[];
   unreadMessages: MessageWithSender[];
-  unreadNotificationCount: number;
   profile: StudentProfile | null;
 }
 
@@ -41,11 +40,12 @@ export default function StudentDashboard({ navigation, route }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithTeacher | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     upcomingConsultations: [],
     pendingRequests: [],
     unreadMessages: [],
-    unreadNotificationCount: 0,
     profile: null,
   });
 
@@ -53,13 +53,14 @@ export default function StudentDashboard({ navigation, route }: any) {
   const currentUser = authContext.user;
   const userId = currentUser?.user_id;
 
+  const { unreadCount: realtimeUnreadCount } = useRealtimeNotifications(userId);
+
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
-      const [consultationsResult, messagesResult, notificationsResult, profileResult] = await Promise.all([
+      const [consultationsResult, messagesResult, profileResult] = await Promise.all([
         consultationService.getStudentRequests(userId, 1, 100),
         messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
-        notificationService.getUnreadCount(userId),
         profileService.getStudentProfile(userId),
       ]);
 
@@ -112,7 +113,6 @@ export default function StudentDashboard({ navigation, route }: any) {
         upcomingConsultations: consultationsWithTeachers,
         pendingRequests: pendingWithTeachers,
         unreadMessages: messagesResult.data || [],
-        unreadNotificationCount: notificationsResult.data || 0,
         profile: profileResult.data || null,
       });
     } catch (error) {
@@ -184,16 +184,13 @@ export default function StudentDashboard({ navigation, route }: any) {
       
       {/* TOP BAR */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => setShowSideMenu(true)}>
-          <Text style={styles.iconText}>☰</Text>
-        </TouchableOpacity>
         <Text style={styles.appTitle}>NEXAD</Text>
         <View style={styles.rightIcons}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => console.log('Notifications')}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
             <Text style={styles.iconText}>🔔</Text>
-            {dashboardData.unreadNotificationCount > 0 && (
+            {realtimeUnreadCount > 0 && (
               <View style={styles.notificationBadge}>
-                <Text style={styles.badgeText}>{dashboardData.unreadNotificationCount > 9 ? '9+' : dashboardData.unreadNotificationCount}</Text>
+                <Text style={styles.badgeText}>{realtimeUnreadCount > 9 ? '9+' : realtimeUnreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -201,6 +198,9 @@ export default function StudentDashboard({ navigation, route }: any) {
             <View style={styles.profileImage}>
               <Text style={styles.profileInitial}>{getUserName().charAt(0).toUpperCase()}</Text>
             </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={() => setShowSideMenu(true)}>
+            <Text style={styles.iconText}>☰</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -229,7 +229,13 @@ export default function StudentDashboard({ navigation, route }: any) {
             <Text style={styles.reminderTopic}>{dashboardData.upcomingConsultations[0].subject_line}</Text>
             <Text style={styles.reminderDate}>📅 {formatDate(dashboardData.upcomingConsultations[0].scheduled_start_time)}</Text>
             <Text style={styles.reminderTime}>🕐 {formatTime(dashboardData.upcomingConsultations[0].scheduled_start_time)}</Text>
-            <TouchableOpacity style={styles.reminderButton}>
+            <TouchableOpacity 
+              style={styles.reminderButton}
+              onPress={() => {
+                setSelectedConsultation(dashboardData.upcomingConsultations[0]);
+                setShowDetailsModal(true);
+              }}
+            >
               <Text style={styles.reminderButtonText}>View Details</Text>
             </TouchableOpacity>
           </View>
@@ -252,11 +258,18 @@ export default function StudentDashboard({ navigation, route }: any) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Pending Requests</Text>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{dashboardData.pendingRequests.length}</Text>
+              <View style={styles.sectionHeaderRight}>
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>{dashboardData.pendingRequests.length}</Text>
+                </View>
+                {dashboardData.pendingRequests.length > 4 && (
+                  <TouchableOpacity onPress={() => navigation.navigate('PendingRequests')}>
+                    <Text style={styles.viewAllText}>View All</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {dashboardData.pendingRequests.map((request) => (
+            {dashboardData.pendingRequests.slice(0, 4).map((request) => (
               <View key={request.id} style={styles.pendingCard}>
                 <View style={styles.pendingAvatar}>
                   <Text style={styles.pendingAvatarText}>{request.teacherName.charAt(0)}</Text>
@@ -368,19 +381,21 @@ export default function StudentDashboard({ navigation, route }: any) {
       {/* SIDE MENU */}
       <Modal visible={showSideMenu} transparent animationType="slide" onRequestClose={() => setShowSideMenu(false)}>
         <View style={styles.sideMenuContainer}>
+          <TouchableOpacity style={styles.sideMenuOverlay} activeOpacity={1} onPress={() => setShowSideMenu(false)} />
           <View style={styles.sideMenu}>
             <View style={styles.sideMenuHeader}>
               <Text style={styles.sideMenuTitle}>NEXAD</Text>
               <TouchableOpacity onPress={() => setShowSideMenu(false)}><Text style={styles.closeIcon}>✕</Text></TouchableOpacity>
             </View>
             {[
-              { icon: '🏠', label: 'Dashboard', action: () => {} },
+              { icon: '🏠', label: 'Dashboard', action: () => setShowSideMenu(false) },
               { icon: '📝', label: 'My Consultations', action: () => navigation.navigate('StudentConsultations') },
+              { icon: '⏳', label: 'Pending Requests', action: () => navigation.navigate('PendingRequests') },
+              { icon: '🏫', label: 'My Classrooms', action: () => navigation.navigate('StudentClassrooms') },
+              { icon: '🔔', label: 'Notifications', action: () => navigation.navigate('Notifications') },
               { icon: '📋', label: 'Consultation History', action: () => navigation.navigate('ConsultationHistory') },
-              { icon: '💬', label: 'Messages', action: () => {} },
-              { icon: '🎓', label: 'My Classrooms', action: () => {} },
-              { icon: '📚', label: 'Resources', action: () => {} },
-              { icon: '📅', label: 'Schedule', action: () => {} },
+              { icon: '🔍', label: 'Find Teachers', action: () => navigation.navigate('FindTeacher') },
+              { icon: '⚙️', label: 'Settings', action: () => Alert.alert('Coming Soon', 'Settings feature') },
             ].map((item, i) => (
               <TouchableOpacity key={i} style={styles.sideMenuItem} onPress={() => {
                 setShowSideMenu(false);
@@ -391,7 +406,62 @@ export default function StudentDashboard({ navigation, route }: any) {
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={styles.sideMenuOverlay} onPress={() => setShowSideMenu(false)} />
+        </View>
+      </Modal>
+
+      {/* CONSULTATION DETAILS MODAL */}
+      <Modal visible={showDetailsModal} transparent animationType="slide" onRequestClose={() => setShowDetailsModal(false)}>
+        <View style={styles.detailsModalOverlay}>
+          <View style={styles.detailsModalContent}>
+            {selectedConsultation && (
+              <>
+                <View style={styles.detailsModalHeader}>
+                  <Text style={styles.detailsModalTitle}>Consultation Details</Text>
+                  <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
+                    <Text style={styles.detailsModalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.detailsModalBody}>
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsLabel}>Teacher</Text>
+                    <Text style={styles.detailsValue}>{selectedConsultation.teacherName}</Text>
+                  </View>
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsLabel}>Subject</Text>
+                    <Text style={styles.detailsValue}>{selectedConsultation.subject_line}</Text>
+                  </View>
+                  {selectedConsultation.description && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Description</Text>
+                      <Text style={styles.detailsValue}>{selectedConsultation.description}</Text>
+                    </View>
+                  )}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsLabel}>Date</Text>
+                    <Text style={styles.detailsValue}>{formatDate(selectedConsultation.scheduled_start_time)}</Text>
+                  </View>
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsLabel}>Time</Text>
+                    <Text style={styles.detailsValue}>
+                      {formatTime(selectedConsultation.scheduled_start_time)} - {formatTime(selectedConsultation.scheduled_end_time)}
+                    </Text>
+                  </View>
+                  {selectedConsultation.classroom_number && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.detailsLabel}>Classroom</Text>
+                      <Text style={styles.detailsValue}>Room {selectedConsultation.classroom_number}</Text>
+                    </View>
+                  )}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsLabel}>Status</Text>
+                    <View style={[styles.statusBadge, getStatusStyle(selectedConsultation.status)]}>
+                      <Text style={styles.statusText}>{selectedConsultation.status}</Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -479,6 +549,7 @@ const styles = StyleSheet.create({
   calendarArrow: { fontSize: 24, color: '#3b82f6', fontWeight: '700' },
   section: { marginBottom: 20, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
   viewAllText: { fontSize: 14, color: '#6B4EFF', fontWeight: '600' },
   emptyCard: { backgroundColor: '#fff', borderRadius: 12, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
@@ -516,8 +587,8 @@ const styles = StyleSheet.create({
   profileMenuItemText: { fontSize: 15, color: '#374151' },
   signOutText: { color: '#ef4444' },
   sideMenuContainer: { flex: 1, flexDirection: 'row' },
-  sideMenu: { width: '75%', backgroundColor: '#fff', paddingTop: 60, paddingHorizontal: 20 },
   sideMenuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sideMenu: { width: '75%', backgroundColor: '#fff', paddingTop: 60, paddingHorizontal: 20 },
   sideMenuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
   sideMenuTitle: { fontSize: 24, fontWeight: '800', color: '#6B4EFF' },
   closeIcon: { fontSize: 24, color: '#6b7280' },
@@ -535,4 +606,13 @@ const styles = StyleSheet.create({
   pendingTime: { fontSize: 11, color: '#9ca3af' },
   pendingStatusBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   pendingStatusText: { fontSize: 11, fontWeight: '600', color: '#f59e0b' },
+  detailsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  detailsModalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxHeight: '80%', overflow: 'hidden' },
+  detailsModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  detailsModalTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  detailsModalClose: { fontSize: 24, color: '#6b7280' },
+  detailsModalBody: { padding: 20 },
+  detailsSection: { marginBottom: 20 },
+  detailsLabel: { fontSize: 14, fontWeight: '600', color: '#6b7280', marginBottom: 6 },
+  detailsValue: { fontSize: 16, color: '#111827', lineHeight: 24 },
 });

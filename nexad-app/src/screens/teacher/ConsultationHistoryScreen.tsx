@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
+import { documentService } from '../../services/documentService';
 import type { ConsultationRequest } from '../../types';
 
 interface ConsultationWithStudent extends ConsultationRequest {
@@ -28,6 +29,8 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithStudent | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedConsultationDocuments, setSelectedConsultationDocuments] = useState<any[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -143,7 +146,13 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
 
   const handleViewConsultation = (consultation: ConsultationWithStudent) => {
     setSelectedConsultation(consultation);
+    setSelectedConsultationDocuments([]);
     setShowDetailModal(true);
+    setIsLoadingDocuments(true);
+    documentService.getConsultationDocuments(consultation.id)
+      .then((result) => setSelectedConsultationDocuments(result.data || []))
+      .catch(() => setSelectedConsultationDocuments([]))
+      .finally(() => setIsLoadingDocuments(false));
   };
 
   if (isLoading) {
@@ -334,6 +343,32 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                       </Text>
                     </View>
                   )}
+
+                  {/* Student attached files */}
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalLabel}>Student Files</Text>
+                    {isLoadingDocuments ? (
+                      <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 8 }} />
+                    ) : selectedConsultationDocuments.length > 0 ? (
+                      selectedConsultationDocuments.map((doc, index) => (
+                        <View key={doc.id || index} style={styles.docItem}>
+                          <Text style={styles.docIcon}>
+                            {doc.file_name?.endsWith('.pdf') ? '📄' : '📝'}
+                          </Text>
+                          <View style={styles.docInfo}>
+                            <Text style={styles.docName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
+                            <Text style={styles.docMeta}>
+                              {doc.file_size_bytes
+                                ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB`
+                                : 'Unknown size'}
+                            </Text>
+                          </View>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={styles.noDocText}>No files were attached.</Text>
+                    )}
+                  </View>
                 </ScrollView>
               </>
             )}
@@ -559,5 +594,38 @@ const styles = StyleSheet.create({
   modalStatusText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  docItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  docIcon: {
+    fontSize: 22,
+    marginRight: 10,
+  },
+  docInfo: {
+    flex: 1,
+  },
+  docName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  docMeta: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  noDocText: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });

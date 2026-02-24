@@ -15,7 +15,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
-import type { ConsultationTopic, UrgencyLevel, TimeSlot } from '../../types';
+import { notificationService } from '../../services/notificationService';
+import { aiService } from '../../services/aiService';
+import { profileService } from '../../services/profileService';
+import { documentService } from '../../services/documentService';
+import type { ConsultationTopic, UrgencyLevel, TimeSlot, UploadedDocument } from '../../types';
 
 const REASON_PRESETS = [
   'Academic Support',
@@ -44,6 +48,11 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
   const [reason, setReason] = useState('');
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [hasOfferedHelp, setHasOfferedHelp] = useState(false);
+  const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string>('');
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([
     {
       id: '1',
@@ -66,6 +75,76 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
     }
   };
 
+  // Handle file upload
+  const handleFileUpload = async () => {
+    try {
+      setIsUploadingFile(true);
+      const pickResult = await documentService.pickDocument();
+      
+      if (pickResult.error) {
+        if (pickResult.error !== 'Document selection cancelled') {
+          Alert.alert('Error', pickResult.error);
+        }
+        return;
+      }
+
+      if (pickResult.data && !pickResult.data.canceled) {
+        const file = pickResult.data.assets[0];
+        // Store temporarily until consultation is created
+        setUploadedDocuments(prev => [...prev, file]);
+        Alert.alert('Success', `${file.name} added! It will be uploaded when you submit.`);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  // Handle "Done" button press to show AI suggestions
+  const handleDoneReason = async () => {
+    if (!helpNeeded || !reason) {
+      Alert.alert('Missing Information', 'Please enter what you need help with and your reason first.');
+      return;
+    }
+
+    try {
+      setIsAIThinking(true);
+      const result = await aiService.askForPreparationAssistance(
+        helpNeeded,
+        reason,
+        selectedPreset
+      );
+
+      if (result.needsHelp && result.suggestions.length > 0) {
+        const draftMessage = result.isProjectRelated && result.shouldUploadDraft
+          ? '\n\n📎 PROJECT DETECTED: I recommend uploading a draft or progress document!'
+          : '';
+        
+        const suggestionsText = `I see you're requesting help with "${helpNeeded}".${draftMessage}\n\n📋 Here are my suggestions:\n${result.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n💡 You can also chat with me for more personalized help!`;
+        setAiSuggestions(suggestionsText);
+        setShowAiSuggestions(true);
+        
+        // Also add to chat messages for the modal
+        const helpOffer: AIMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `I see you're requesting help with "${helpNeeded}". Would you like some assistance preparing for this consultation?${draftMessage}\n\n📋 I can help you:\n• Prepare materials to bring\n• Suggest questions to ask\n• Review what to expect\n• Improve your request clarity${result.isProjectRelated ? '\n• Recommend uploading drafts' : ''}\n\nAsk me anything!`,
+          timestamp: new Date(),
+        };
+        setAiMessages(prev => [...prev, helpOffer]);
+      } else {
+        setAiSuggestions('Your request looks good! Feel free to submit or ask me anything in the chat.');
+        setShowAiSuggestions(true);
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      Alert.alert('Error', 'Failed to generate AI suggestions');
+    } finally {
+      setIsAIThinking(false);
+    }
+  };
+
   const handleAISubmit = async () => {
     if (!aiInput.trim()) return;
 
@@ -80,33 +159,40 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
     setAiInput('');
     setIsAIThinking(true);
 
-    // Simulate AI response (replace with actual AI service call)
-    setTimeout(() => {
+    try {
+      // Use actual AI service
+      const aiResponseText = await aiService.generateAIChatResponse(
+        userMessage.content,
+        {
+          subjectLine: helpNeeded,
+          description: reason,
+          category: selectedPreset,
+        }
+      );
+
       const aiResponse: AIMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: generateAIResponse(userMessage.content, helpNeeded, reason),
+        content: aiResponseText,
         timestamp: new Date(),
       };
+      
       setAiMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('AI response error:', error);
+      const errorMessage: AIMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'I apologize, but I\'m having trouble processing your request. Please try rephrasing your question.',
+        timestamp: new Date(),
+      };
+      setAiMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsAIThinking(false);
-    }, 1500);
-  };
-
-  const generateAIResponse = (userQuery: string, topic: string, details: string): string => {
-    // Simple rule-based responses (replace with actual AI integration)
-    const lowerQuery = userQuery.toLowerCase();
-
-    if (lowerQuery.includes('how') || lowerQuery.includes('what')) {
-      return `Based on your request about "${topic}", I suggest including:\n\n1. Specific topics or chapters you need help with\n2. Your current understanding level\n3. Any specific questions or problems you're facing\n4. Your preferred meeting time\n\nWould you like help adding any of these details?`;
-    } else if (lowerQuery.includes('time') || lowerQuery.includes('when')) {
-      return `For scheduling, consider:\n- Your teacher's office hours\n- Your availability this week\n- Whether this is urgent or can wait\n\nWould you like to add preferred time slots to your request?`;
-    } else if (lowerQuery.includes('urgent')) {
-      return `I notice this might be urgent. I recommend:\n1. Marking it as urgent when submitting\n2. Being specific about deadlines\n3. Providing all relevant context upfront\n\nShould I help you structure an urgent request?`;
-    } else {
-      return `I can help you improve your consultation request. Consider:\n- Being specific about your needs\n- Mentioning any materials to review beforehand\n- Suggesting preferred times\n\nWhat aspect would you like to clarify?`;
     }
   };
+
+
 
   const handleSubmitRequest = async () => {
     if (!helpNeeded.trim()) {
@@ -138,6 +224,71 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
       if (result.error) {
         Alert.alert('Error', result.error);
         return;
+      }
+
+      // Upload documents if any
+      if (uploadedDocuments.length > 0 && result.data?.id) {
+        let uploadFailures: string[] = [];
+        for (const doc of uploadedDocuments) {
+          const uploadResult = await documentService.uploadDocument(
+            doc,
+            result.data.id,
+            undefined,
+            user?.user_id
+          );
+          if (uploadResult.error) {
+            console.error('Failed to upload document:', uploadResult.error);
+            uploadFailures.push(doc.name || 'Unknown file');
+          }
+        }
+        if (uploadFailures.length > 0) {
+          Alert.alert(
+            'File Upload Failed',
+            `The following file(s) could not be uploaded:\n${uploadFailures.join('\n')}\n\nYour consultation request was still submitted, but please try re-attaching the files.`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Get student name first
+      const studentProfile = await profileService.getStudentProfile(user?.user_id!);
+      const studentName = studentProfile.data 
+        ? `${studentProfile.data.first_name} ${studentProfile.data.last_name}`
+        : 'A student';
+
+      // Generate AI Smart Brief for the teacher (pass uploaded file names)
+      if (result.data?.id) {
+        const docNames = uploadedDocuments.map((d: any) => d.name || d.file_name || 'Unknown file');
+        const aiResult = await aiService.generateSmartBrief(
+          result.data.id,
+          studentName,
+          helpNeeded,
+          reason,
+          'normal',
+          'academic',
+          docNames
+        );
+
+        if (aiResult.error) {
+          console.error('AI Smart Brief generation failed:', aiResult.error);
+          // Continue anyway - brief is helpful but not critical
+        } else {
+          console.log('AI Smart Brief generated successfully');
+        }
+      }
+
+      // Send notification to teacher
+      
+      const notifResult = await notificationService.notifyNewConsultationRequest(
+        teacher.user_id,
+        studentName,
+        helpNeeded
+      );
+
+      if (notifResult.error) {
+        console.error('Failed to send notification to teacher:', notifResult.error);
+        // Don't block the request submission, just log the error
       }
 
       Alert.alert(
@@ -244,10 +395,23 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
             {/* Reason Details */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Reason *</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.inputLabel}>Reason *</Text>
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={handleDoneReason}
+                  disabled={isAIThinking || !helpNeeded || !reason}
+                >
+                  {isAIThinking ? (
+                    <ActivityIndicator size="small" color="#2563eb" />
+                  ) : (
+                    <Text style={styles.doneButtonText}>✓ Done</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={[styles.textInput, styles.textArea]}
-                placeholder="Enter your reason here"
+                placeholder="Enter your reason here, then tap 'Done' to get AI suggestions"
                 value={reason}
                 onChangeText={setReason}
                 multiline
@@ -257,24 +421,65 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               />
             </View>
 
-            {/* AI Assistant Prompt */}
-            <View style={styles.aiPromptCard}>
-              <Text style={styles.aiPromptTitle}>You may ask for assistance with Nexad</Text>
-              <View style={styles.aiCharacterPlaceholder}>
-                <View style={styles.aiIcon}>
-                  <Text style={styles.aiIconText}>🤖</Text>
-                </View>
-                <Text style={styles.aiPlaceholderText}>
-                  AI Assistant ready to help
-                </Text>
-              </View>
+            {/* File Upload Section */}
+            <View style={styles.uploadSection}>
+              <Text style={styles.uploadLabel}>📎 Upload Documents (Optional)</Text>
+              <Text style={styles.uploadHint}>PDF or DOCX, up to 5MB</Text>
+              
               <TouchableOpacity
-                style={styles.openAIButton}
-                onPress={() => setShowAIAssistant(true)}
+                style={styles.uploadButton}
+                onPress={handleFileUpload}
+                disabled={isUploadingFile}
               >
-                <Text style={styles.openAIButtonText}>Chat with Nexad AI →</Text>
+                {isUploadingFile ? (
+                  <ActivityIndicator size="small" color="#2563eb" />
+                ) : (
+                  <>
+                    <Text style={styles.uploadButtonIcon}>📄</Text>
+                    <Text style={styles.uploadButtonText}>Choose File</Text>
+                  </>
+                )}
               </TouchableOpacity>
+
+              {uploadedDocuments.length > 0 && (
+                <View style={styles.uploadedFilesList}>
+                  {uploadedDocuments.map((doc, index) => (
+                    <View key={index} style={styles.uploadedFileItem}>
+                      <Text style={styles.uploadedFileName}>✓ {doc.name}</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <Text style={styles.removeFileButton}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
+
+            {/* AI Assistant Auto-Suggestions */}
+            {showAiSuggestions && (
+              <View style={styles.aiSuggestionsCard}>
+                <View style={styles.aiSuggestionsHeader}>
+                  <Text style={styles.aiSuggestionsTitle}>🤖 Nexad AI Suggestions</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowAiSuggestions(false)}
+                    style={styles.closeSuggestionsButton}
+                  >
+                    <Text style={styles.closeSuggestionsText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.aiSuggestionsText}>{aiSuggestions}</Text>
+                <TouchableOpacity
+                  style={styles.chatWithAiButton}
+                  onPress={() => setShowAIAssistant(true)}
+                >
+                  <Text style={styles.chatWithAiButtonText}>💬 Chat with Nexad for More Help</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -659,6 +864,136 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 24,
     color: '#fff',
+    fontWeight: '600',
+  },
+  // Done Button Styles
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  doneButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 6,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // File Upload Styles
+  uploadSection: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  uploadLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  uploadHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderStyle: 'dashed',
+  },
+  uploadButtonIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  uploadedFilesList: {
+    marginTop: 12,
+  },
+  uploadedFileItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  uploadedFileName: {
+    fontSize: 14,
+    color: '#1f2937',
+    flex: 1,
+  },
+  removeFileButton: {
+    fontSize: 18,
+    color: '#ef4444',
+    paddingHorizontal: 8,
+  },
+  // AI Suggestions Styles
+  aiSuggestionsCard: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#2563eb',
+  },
+  aiSuggestionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  aiSuggestionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e40af',
+  },
+  closeSuggestionsButton: {
+    padding: 4,
+  },
+  closeSuggestionsText: {
+    fontSize: 20,
+    color: '#6b7280',
+  },
+  aiSuggestionsText: {
+    fontSize: 14,
+    color: '#1f2937',
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  chatWithAiButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  chatWithAiButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

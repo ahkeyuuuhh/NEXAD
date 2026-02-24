@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import * as Updates from 'expo-updates';
 import { getQueryParams } from 'expo-auth-session/build/QueryParams';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { DEV_CONFIG } from './src/config/devMode';
@@ -36,6 +37,21 @@ import TeacherConsultationsScreen from './src/screens/teacher/TeacherConsultatio
 import StudentConsultationsScreen from './src/screens/student/StudentConsultationsScreen';
 import TeacherConsultationHistoryScreen from './src/screens/teacher/ConsultationHistoryScreen';
 import StudentConsultationHistoryScreen from './src/screens/student/ConsultationHistoryScreen';
+import AllRequestsScreen from './src/screens/teacher/AllRequestsScreen';
+import NotificationsScreen from './src/screens/shared/NotificationsScreen';
+import PendingRequestsScreen from './src/screens/student/PendingRequestsScreen';
+
+// Classroom Hub Screens - Teacher
+import ClassroomHubScreen from './src/screens/teacher/ClassroomHubScreen';
+import CreateClassroomScreen from './src/screens/teacher/CreateClassroomScreen';
+import ClassroomDetailScreen from './src/screens/teacher/ClassroomDetailScreen';
+import CreateAnnouncementScreen from './src/screens/teacher/CreateAnnouncementScreen';
+import CreateAttachmentBinScreen from './src/screens/teacher/CreateAttachmentBinScreen';
+
+// Classroom Hub Screens - Student
+import StudentClassroomsScreen from './src/screens/student/StudentClassroomsScreen';
+import StudentClassroomDetailScreen from './src/screens/student/StudentClassroomDetailScreen';
+import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSubmissionScreen';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -131,6 +147,63 @@ function AppStack() {
       <Stack.Screen 
         name="ConsultationHistory" 
         component={user?.role === 'teacher' ? TeacherConsultationHistoryScreen : StudentConsultationHistoryScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="AllRequests" 
+        component={AllRequestsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="PendingRequests" 
+        component={PendingRequestsScreen} 
+        options={{ headerShown: false }} 
+      />
+      {/* Classroom Hub - Teacher Routes */}
+      <Stack.Screen 
+        name="ClassroomHub" 
+        component={ClassroomHubScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="CreateClassroom" 
+        component={CreateClassroomScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="ClassroomDetail" 
+        component={ClassroomDetailScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="CreateAnnouncement" 
+        component={CreateAnnouncementScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="CreateAttachmentBin" 
+        component={CreateAttachmentBinScreen} 
+        options={{ headerShown: false }} 
+      />
+      {/* Classroom Hub - Student Routes */}
+      <Stack.Screen 
+        name="StudentClassrooms" 
+        component={StudentClassroomsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="StudentClassroomDetail" 
+        component={StudentClassroomDetailScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="AttachmentBinSubmission" 
+        component={AttachmentBinSubmissionScreen} 
         options={{ headerShown: false }} 
       />
     </Stack.Navigator>
@@ -291,6 +364,31 @@ function Navigation() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Check for OTA updates on app start
+    async function checkForUpdates() {
+      try {
+        if (!__DEV__) {
+          console.log('Checking for updates...');
+          const update = await Updates.checkForUpdateAsync();
+          
+          if (update.isAvailable) {
+            console.log('Update available, downloading...');
+            await Updates.fetchUpdateAsync();
+            console.log('Update downloaded, reloading app...');
+            await Updates.reloadAsync();
+          } else {
+            console.log('No updates available');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for updates:', error);
+      }
+    }
+    
+    checkForUpdates();
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
       <SafeAreaProvider>

@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS consultation_requests (
   preferred_time_slots JSONB, -- [{"start": "2026-02-10T14:00:00Z", "end": "2026-02-10T15:00:00Z"}]
   scheduled_start_time TIMESTAMP WITH TIME ZONE,
   scheduled_end_time TIMESTAMP WITH TIME ZONE,
+  classroom_number VARCHAR(50), -- Room number where consultation will be held
   
   -- Status tracking
   submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -486,6 +487,10 @@ CREATE POLICY "Users view own notifications" ON notifications
 
 CREATE POLICY "Users mark own notifications as read" ON notifications
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- Allow authenticated users to create notifications (for consultation requests, etc.)
+CREATE POLICY "Allow authenticated users to create notifications" ON notifications
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- Classrooms: Teachers manage, students view joined classrooms
 CREATE POLICY "Teachers manage own classrooms" ON classrooms
