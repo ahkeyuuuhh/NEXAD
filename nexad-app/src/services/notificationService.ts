@@ -256,41 +256,70 @@ export const notificationService = {
   },
 
   /**
-   * Create a notification row in the database AND send an Expo push
-   * notification to the target user's device (works when app is closed/background).
-   * The Supabase Realtime subscription in useRealtimeNotifications also picks
-   * up the INSERT and fires a local notification when the app is in foreground.
+   * Create a notification row via a SECURITY DEFINER RPC function.
+   * This bypasses all RLS policies, so a student can notify a teacher
+   * and vice-versa — the root cause of past notification failures.
+   * Also sends an Expo push notification to the target user's device.
+   *
+   * Valid type values (must match notification_type enum):
+   *   request_submitted | request_accepted | request_declined |
+   *   consultation_reminder | new_message | classroom_announcement |
+   *   attachment_bin_created | document_uploaded | ai_brief_ready |
+   *   consultation_completed | consultation_cancelled | new_announcement
    */
   async createNotification(
     userId: string,
     title: string,
     message: string,
-    type: string = 'info',
-    relatedId?: string
+    type: string = 'request_submitted',
+    consultationRequestId?: string
   ): Promise<ApiResponse<any>> {
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          title,
-          message,
-          type,
-          related_id: relatedId,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        })
-        .select('*')
-        .single();
+      // Use SECURITY DEFINER RPC — runs as DB owner, bypasses all RLS.
+      const { data, error } = await supabase.rpc('create_notification', {
+        p_user_id:                 userId,
+        p_title:                   title,
+        p_message:                 message,
+        p_type:                    type,
+        p_consultation_request_id: consultationRequestId ?? null,
+      });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Notif] RPC create_notification failed for user', userId,
+          '| type:', type, '| error:', error.message, '| code:', error.code,
+          '\nFalling back to direct insert...');
 
-      // Send Expo push notification to the target user's device
-      // (fire-and-forget — don't let push failure block the DB write)
-      this.sendPushToUser(userId, title, message, { type, relatedId }).catch(() => {});
+        // Fallback: direct insert using the correct column name
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id:                  userId,
+            title,
+            message,
+            type,
+            consultation_request_id:  consultationRequestId ?? null,
+            is_read:                  false,
+            created_at:               new Date().toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (fallbackError) {
+          console.error('[Notif] Fallback insert also failed:', fallbackError.message);
+          throw fallbackError;
+        }
+
+        console.log('[Notif] Fallback insert succeeded for user', userId);
+        this.sendPushToUser(userId, title, message, { type, consultationRequestId }).catch(() => {});
+        return { data: fallbackData };
+      }
+
+      console.log('[Notif] RPC succeeded for user', userId, '| type:', type);
+      this.sendPushToUser(userId, title, message, { type, consultationRequestId }).catch(() => {});
 
       return { data };
     } catch (error: any) {
+      console.error('[Notif] createNotification totally failed:', error.message);
       return { error: error.message || 'Failed to create notification' };
     }
   },
@@ -309,7 +338,7 @@ export const notificationService = {
     const title = 'Consultation Approved! 🎉';
     const message = `Your consultation request with ${teacherName} about "${subject}" has been approved${locationText}. Scheduled for ${new Date(scheduledTime).toLocaleString()}.`;
     
-    return await this.createNotification(studentId, title, message, 'consultation_approved');
+    return await this.createNotification(studentId, title, message, 'request_accepted');
   },
 
   /**
@@ -323,7 +352,7 @@ export const notificationService = {
     const title = 'Request Declined';
     const message = `${teacherName} has declined your consultation request about "${subject}". You can submit a new request with different time preferences.`;
     
-    return await this.createNotification(studentId, title, message, 'consultation_declined');
+    return await this.createNotification(studentId, title, message, 'request_declined');
   },
 
   /**
@@ -332,12 +361,13 @@ export const notificationService = {
   async notifyNewConsultationRequest(
     teacherId: string,
     studentName: string,
-    subject: string
+    subject: string,
+    consultationRequestId?: string
   ): Promise<ApiResponse<any>> {
     const title = 'New Consultation Request 📝';
     const message = `${studentName} has requested a consultation about "${subject}".`;
     
-    return await this.createNotification(teacherId, title, message, 'consultation_request');
+    return await this.createNotification(teacherId, title, message, 'request_submitted', consultationRequestId);
   },
 
   /**
@@ -365,5 +395,63 @@ export const notificationService = {
     const message = `Your consultation about "${subject}" has been marked as completed.`;
     
     return await this.createNotification(userId, title, message, 'consultation_completed');
+  },
+
+  /**
+   * Notify a user that they received a new message
+   */
+  async notifyNewMessage(
+    recipientId: string,
+    senderName: string,
+    messagePreview: string,
+    consultationRequestId?: string
+  ): Promise<ApiResponse<any>> {
+    const title = `New message from ${senderName} 💬`;
+    const preview = messagePreview.length > 80
+      ? `${messagePreview.substring(0, 80)}…`
+      : messagePreview;
+
+    return await this.createNotification(
+      recipientId,
+      title,
+      preview,
+      'new_message',
+      consultationRequestId
+    );
+  },
+
+  /**
+   * Notify a teacher that a student cancelled their pending consultation request
+   */
+  async notifyConsultationRequestCancelled(
+    teacherId: string,
+    studentName: string,
+    subject: string
+  ): Promise<ApiResponse<any>> {
+    const title = 'Consultation Request Withdrawn';
+    const message = `${studentName} has cancelled their consultation request about "${subject}".`;
+
+    return await this.createNotification(teacherId, title, message, 'request_submitted');
+  },
+
+  /**
+   * Notify all provided user IDs about a new classroom announcement.
+   * Call with the array of student user IDs from the classroom.
+   */
+  async notifyNewAnnouncement(
+    studentIds: string[],
+    teacherName: string,
+    classroomName: string,
+    announcementTitle: string,
+    announcementId?: string
+  ): Promise<void> {
+    const title = `📢 New announcement in ${classroomName}`;
+    const message = `${teacherName}: ${announcementTitle}`;
+
+    await Promise.all(
+      studentIds.map(studentId =>
+        this.createNotification(studentId, title, message, 'new_announcement').catch(() => {})
+      )
+    );
   },
 };

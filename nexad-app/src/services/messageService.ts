@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { notificationService } from './notificationService';
 import type { Message, ApiResponse, PaginatedResponse, MessageType } from '../types';
 
 export interface MessageWithSender extends Omit<Message, 'sender' | 'recipient'> {
@@ -26,7 +27,8 @@ export const messageService = {
     content: string,
     messageType: MessageType = 'consultation_chat',
     consultationRequestId?: string,
-    announcementId?: string
+    announcementId?: string,
+    senderName?: string
   ): Promise<ApiResponse<Message>> {
     try {
       const { data, error } = await supabase
@@ -44,6 +46,13 @@ export const messageService = {
         .single();
 
       if (error) throw error;
+
+      // Notify the recipient about the new message (fire-and-forget)
+      const displayName = senderName || 'Someone';
+      notificationService
+        .notifyNewMessage(recipientId, displayName, content, consultationRequestId)
+        .catch(() => {});
+
       return { data };
     } catch (error: any) {
       console.error('Error sending message:', error);

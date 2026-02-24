@@ -65,18 +65,25 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'consultation_approved':
+      case 'request_accepted':
         return '🎉';
-      case 'consultation_request':
+      case 'request_submitted':
         return '📝';
+      case 'request_declined':
+        return '🚫';
       case 'consultation_cancelled':
         return '❌';
       case 'consultation_completed':
         return '✅';
-      case 'message':
+      case 'new_message':
         return '💬';
-      case 'reminder':
+      case 'consultation_reminder':
         return '⏰';
+      case 'classroom_announcement':
+      case 'new_announcement':
+        return '📢';
+      case 'ai_brief_ready':
+        return '🤖';
       default:
         return '🔔';
     }
@@ -84,18 +91,25 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case 'consultation_approved':
+      case 'request_accepted':
         return '#10b981';
-      case 'consultation_request':
+      case 'request_submitted':
         return '#3b82f6';
+      case 'request_declined':
+        return '#ef4444';
       case 'consultation_cancelled':
         return '#ef4444';
       case 'consultation_completed':
         return '#8b5cf6';
-      case 'message':
+      case 'new_message':
         return '#f59e0b';
-      case 'reminder':
+      case 'consultation_reminder':
         return '#6366f1';
+      case 'classroom_announcement':
+      case 'new_announcement':
+        return '#3b82f6';
+      case 'ai_brief_ready':
+        return '#8b5cf6';
       default:
         return '#6b7280';
     }

@@ -283,11 +283,12 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
       const notifResult = await notificationService.notifyNewConsultationRequest(
         teacher.user_id,
         studentName,
-        helpNeeded
+        helpNeeded,
+        result.data?.id
       );
 
       if (notifResult.error) {
-        console.error('Failed to send notification to teacher:', notifResult.error);
+        console.error('[Notif] Failed to notify teacher:', notifResult.error);
         // Don't block the request submission, just log the error
       }
 

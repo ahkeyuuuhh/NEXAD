@@ -329,6 +329,20 @@ export default function TeacherDashboard({ navigation, route }: any) {
         Alert.alert('Error', result.error);
         return;
       }
+
+      // Notify the student that their request was accepted
+      const request = dashboardData.pendingRequests.find(r => r.id === requestId);
+      if (request) {
+        const teacherName = `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim() || 'Your teacher';
+        await notificationService.createNotification(
+          request.student_id,
+          'Consultation Request Accepted ✅',
+          `${teacherName} has accepted your consultation request about "${request.subject_line}". They will reach out to you with a schedule soon.`,
+          'request_accepted',
+          requestId
+        ).catch((err: any) => console.error('[Notif] Failed to notify student on approve:', err));
+      }
+
       Alert.alert('Success', 'Request approved');
       await loadDashboardData();
     } catch (error) {
@@ -349,6 +363,18 @@ export default function TeacherDashboard({ navigation, route }: any) {
               Alert.alert('Error', result.error);
               return;
             }
+
+            // Notify the student that their request was declined
+            const request = dashboardData.pendingRequests.find(r => r.id === requestId);
+            if (request) {
+              const teacherName = `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim() || 'Your teacher';
+              await notificationService.notifyConsultationDeclined(
+                request.student_id,
+                teacherName,
+                request.subject_line
+              ).catch((err: any) => console.error('[Notif] Failed to notify student on reject:', err));
+            }
+
             Alert.alert('Success', 'Request rejected');
             await loadDashboardData();
           } catch (error) {

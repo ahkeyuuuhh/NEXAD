@@ -133,7 +133,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => navigation.navigate('CreateAnnouncement', { classroomId })}
+          onPress={() => navigation.navigate('CreateAnnouncement', { classroomId, classroomName: classroom?.name || '' })}
         >
           <View style={styles.actionIcon}>
             <Ionicons name="megaphone" size={24} color="#007AFF" />

@@ -13,10 +13,11 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
+import { notificationService } from '../../services/notificationService';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function CreateAnnouncementScreen({ navigation, route }: any) {
-  const { classroomId } = route.params as { classroomId: string };
+  const { classroomId, classroomName = 'your classroom' } = route.params as { classroomId: string; classroomName?: string };
   const { user } = useAuth();
 
   const [title, setTitle] = useState('');
@@ -51,6 +52,19 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
       );
 
       if (result.data) {
+        // Notify all active classroom members about the new announcement (fire-and-forget)
+        classroomService.getClassroomMembers(classroomId).then(membersResult => {
+          const studentIds: string[] = (membersResult.data || [])
+            .map((m: any) => m.id)
+            .filter(Boolean);
+          if (studentIds.length > 0) {
+            const teacherName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Your teacher';
+            notificationService
+              .notifyNewAnnouncement(studentIds, teacherName, classroomName, title.trim(), result.data.id)
+              .catch(() => {});
+          }
+        }).catch(() => {});
+
         Alert.alert('Success', 'Announcement posted successfully', [
           {
             text: 'OK',
