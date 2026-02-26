@@ -14,7 +14,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, DateData } from 'react-native-calendars';
+// react-native-calendars not used — replaced with custom week strip
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
@@ -58,6 +59,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [weekOffset, setWeekOffset] = useState<number>(0);
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithStudent | null>(null);
@@ -141,12 +143,18 @@ export default function TeacherDashboard({ navigation, route }: any) {
         })
       );
 
-      // Mark dates on calendar — red dot for missed, blue for upcoming
+      // Mark dates on calendar — red dot for missed, white for upcoming
       const now = Date.now();
+      const toLocalDate = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
       const marks: MarkedDates = {};
       upcomingWithNames.forEach(consultation => {
         if (!consultation.scheduled_start_time) return;
-        const date = consultation.scheduled_start_time.split('T')[0];
+        const date = toLocalDate(new Date(consultation.scheduled_start_time));
         const isPast = new Date(consultation.scheduled_start_time).getTime() < now;
         const isMissed = isPast && consultation.status === 'accepted';
         const dotColor = isMissed ? C.ink4 : C.ink2;
@@ -230,7 +238,11 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const getConsultationsForDate = (date: string) => {
     return dashboardData.upcomingAppointments.filter(consultation => {
       if (!consultation.scheduled_start_time) return false;
-      const consultationDate = consultation.scheduled_start_time.split('T')[0];
+      const d = new Date(consultation.scheduled_start_time);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const consultationDate = `${y}-${m}-${day}`;
       return consultationDate === date;
     });
   };
@@ -254,12 +266,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
     return { text: 'Scheduled', color: C.ink1, bgColor: C.action };
   };
 
-  const handleDayPress = (day: DateData) => {
-    const date = day.dateString;
+  const handleDayPress = (date: string) => {
     const consultationsOnDate = getConsultationsForDate(date);
-    
+    setSelectedDate(date);
     if (consultationsOnDate.length === 0) {
-      Alert.alert('No Consultations', 'No consultations scheduled for this date.');
       return;
     }
     // Prioritise missed consultations first, then earliest upcoming
@@ -451,10 +461,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Calendar View of Appointments */}
+        {/* Calendar — week strip */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Consultations Calendar</Text>
+            <Text style={styles.sectionTitle}>My Consultations</Text>
             <TouchableOpacity onPress={() => navigation.navigate('TeacherConsultations')}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={styles.viewAllText}>View All</Text>
@@ -462,76 +472,195 @@ export default function TeacherDashboard({ navigation, route }: any) {
               </View>
             </TouchableOpacity>
           </View>
-          <View style={styles.calendarWrapper}>
-            <Calendar
-              markingType='multi-dot'
-              markedDates={markedDates}
-              onDayPress={handleDayPress}
-              theme={{
-                backgroundColor: C.surface,
-                calendarBackground: C.surface,
-                textSectionTitleColor: C.ink2,
-                selectedDayBackgroundColor: C.accent,
-                selectedDayTextColor: '#ffffff',
-                todayTextColor: C.accentMid,
-                dayTextColor: C.ink2,
-                textDisabledColor: C.ink5,
-                dotColor: C.accentMid,
-                selectedDotColor: '#ffffff',
-                arrowColor: C.accent,
-                monthTextColor: C.ink1,
-                textMonthFontWeight: 'bold',
-                textDayFontSize: 14,
-                textMonthFontSize: 16,
-                textDayHeaderFontSize: 12,
-              }}
-            />
-          </View>
-          {/* Dot legend */}
-          <View style={styles.calendarLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
-              <Text style={styles.legendText}>Scheduled</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: C.ink4 }]} />
-              <Text style={styles.legendText}>Missed</Text>
-            </View>
-          </View>
+
+          {/* Week strip card */}
+          {(() => {
+            // Helper: YYYY-MM-DD in LOCAL time (avoids UTC-offset mismatch)
+            const toLocalDate = (d: Date) => {
+              const y = d.getFullYear();
+              const m = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              return `${y}-${m}-${day}`;
+            };
+            const todayDate = new Date();
+            const todayStr = toLocalDate(todayDate);
+            // Sunday of the displayed week
+            const base = new Date(todayDate);
+            base.setDate(todayDate.getDate() - todayDate.getDay() + weekOffset * 7);
+            // Build 7 day objects
+            const days = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(base);
+              d.setDate(base.getDate() + i);
+              return d;
+            });
+            // Month label logic: centre = Wednesday
+            const midMonth = days[3].toLocaleString('en-US', { month: 'long' });
+            const leftMonth  = days[0].getMonth() !== days[3].getMonth()
+              ? days[0].toLocaleString('en-US', { month: 'short' })
+              : null;
+            const rightMonth = days[6].getMonth() !== days[3].getMonth()
+              ? days[6].toLocaleString('en-US', { month: 'short' })
+              : null;
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            return (
+              <View style={styles.weekCard}>
+                {/* Glass sheen – subtle white highlight from top */}
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.0)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 0.55 }}
+                  style={StyleSheet.absoluteFillObject}
+                  pointerEvents="none"
+                />
+                {/* Month navigation header */}
+                <View style={styles.weekMonthRow}>
+                  <TouchableOpacity
+                    style={styles.weekNavBtn}
+                    onPress={() => setWeekOffset(w => w - 1)}
+                  >
+                    {leftMonth && <Text style={styles.weekMonthAdj}>{leftMonth}</Text>}
+                    <Ionicons name="chevron-back" size={16} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+
+                  <Text style={styles.weekMonthTitle}>{midMonth}</Text>
+
+                  <TouchableOpacity
+                    style={styles.weekNavBtn}
+                    onPress={() => setWeekOffset(w => w + 1)}
+                  >
+                    <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
+                    {rightMonth && <Text style={styles.weekMonthAdj}>{rightMonth}</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Day columns */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={62}
+                  decelerationRate="fast"
+                  contentContainerStyle={styles.weekDaysRow}
+                >
+                  {days.map((d, i) => {
+                    const dateStr = toLocalDate(d);
+                    const isToday    = dateStr === todayStr;
+                    const isSelected = dateStr === selectedDate;
+                    const dots = markedDates[dateStr]?.dots ?? [];
+                    const hasScheduled = dots.some(dot => dot.key === 'upcoming');
+                    const hasMissed    = dots.some(dot => dot.key === 'missed');
+
+                    return (
+                      <TouchableOpacity
+                        key={dateStr}
+                        style={styles.weekDayCol}
+                        onPress={() => handleDayPress(dateStr)}
+                        activeOpacity={0.7}
+                      >
+                        {/* Pill wraps day name + number + dots */}
+                        <View style={[
+                          styles.weekPill,
+                          isSelected && styles.weekPillSelected,
+                          !isSelected && isToday && styles.weekPillToday,
+                        ]}>
+                          <Text style={[
+                            styles.weekDayName,
+                            isSelected && styles.weekDayNameSelected,
+                            !isSelected && isToday && styles.weekDayNameToday,
+                          ]}>
+                            {dayNames[i]}
+                          </Text>
+                          <Text style={[
+                            styles.weekDayNum,
+                            isSelected && styles.weekDayNumTextSelected,
+                            !isSelected && isToday && styles.weekDayNumTextToday,
+                          ]}>
+                            {d.getDate()}
+                          </Text>
+                          {/* Dot indicators inside pill */}
+                          <View style={styles.weekDotRow}>
+                            {hasScheduled && <View style={[styles.weekDot, { backgroundColor: isSelected ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.85)' }]} />}
+                            {hasMissed    && <View style={[styles.weekDot, { backgroundColor: '#F87171' }]} />}
+                            {!hasScheduled && !hasMissed && <View style={[styles.weekDot, { backgroundColor: 'transparent' }]} />}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Legend */}
+                <View style={styles.weekLegend}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: 'rgba(255,255,255,0.85)' }]} />
+                    <Text style={styles.weekLegendText}>Scheduled</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#F87171' }]} />
+                    <Text style={styles.weekLegendText}>Missed</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
         {/* Quick Stats Row */}
         <View style={styles.section}>
           <View style={styles.statsRow}>
             <TouchableOpacity
-              style={styles.statCard}
+              style={styles.statCardWrap}
               onPress={() => navigation.navigate('TeacherConsultations')}
+              activeOpacity={0.85}
             >
-              <View style={[styles.statIconCircle, { backgroundColor: C.accentSoft }]}>
-                <Ionicons name="calendar" size={20} color={C.accent} />
-              </View>
-              <Text style={styles.statNumber}>{dashboardData.upcomingAppointments.length}</Text>
-              <Text style={styles.statLabel}>Upcoming</Text>
+              <LinearGradient
+                colors={['#FFFFFF', '#E8F0F8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statCard}
+              >
+                <View style={styles.statIconCircle}>
+                  <Ionicons name="calendar" size={20} color={C.ink2} />
+                </View>
+                <Text style={styles.statNumber}>{dashboardData.upcomingAppointments.length}</Text>
+                <Text style={styles.statLabel}>Upcoming</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.statCard}
+              style={styles.statCardWrap}
               onPress={() => navigation.navigate('AllRequests')}
+              activeOpacity={0.85}
             >
-              <View style={[styles.statIconCircle, { backgroundColor: C.warmLight }]}>
-                <Ionicons name="hourglass" size={20} color={C.warm} />
-              </View>
-              <Text style={styles.statNumber}>{dashboardData.pendingRequests.length}</Text>
-              <Text style={styles.statLabel}>Pending</Text>
+              <LinearGradient
+                colors={['#FFFFFF', '#E8F0F8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statCard}
+              >
+                <View style={styles.statIconCircle}>
+                  <Ionicons name="hourglass" size={20} color={C.ink2} />
+                </View>
+                <Text style={styles.statNumber}>{dashboardData.pendingRequests.length}</Text>
+                <Text style={styles.statLabel}>Pending</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.statCard}
+              style={styles.statCardWrap}
               onPress={() => Alert.alert('Messages', 'View all messages')}
+              activeOpacity={0.85}
             >
-              <View style={[styles.statIconCircle, { backgroundColor: C.infoBg }]}>
-                <Ionicons name="chatbubble" size={20} color={C.info} />
-              </View>
-              <Text style={styles.statNumber}>{dashboardData.unreadMessages.length}</Text>
-              <Text style={styles.statLabel}>Messages</Text>
+              <LinearGradient
+                colors={['#FFFFFF', '#E8F0F8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statCard}
+              >
+                <View style={styles.statIconCircle}>
+                  <Ionicons name="chatbubble" size={20} color={C.ink2} />
+                </View>
+                <Text style={styles.statNumber}>{dashboardData.unreadMessages.length}</Text>
+                <Text style={styles.statLabel}>Messages</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -714,94 +843,96 @@ export default function TeacherDashboard({ navigation, route }: any) {
       >
         <View style={styles.modalOverlay2}>
           <View style={styles.modalContent2}>
-            {selectedConsultation && (
-              <>
-                <View style={styles.modalHeader2}>
-                  <Text style={styles.modalTitle2}>Consultation Details</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowDetailModal(false)}
-                    style={styles.closeButton2}
-                  >
-                    <Ionicons name="close" size={20} color={C.ink3} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.modalBody2}>
-                  <View style={styles.modalSection2}>
-                    <Text style={styles.modalLabel2}>Student</Text>
-                    <Text style={styles.modalValue2}>{selectedConsultation.studentName}</Text>
-                  </View>
-
-                  <View style={styles.modalSection2}>
-                    <Text style={styles.modalLabel2}>Subject</Text>
-                    <Text style={styles.modalValue2}>{selectedConsultation.subject_line}</Text>
-                  </View>
-
-                  {selectedConsultation.description && (
-                    <View style={styles.modalSection2}>
-                      <Text style={styles.modalLabel2}>Description</Text>
-                      <Text style={styles.modalValue2}>{selectedConsultation.description}</Text>
+            {selectedConsultation && (() => {
+              const isMissed = checkIfMissed(selectedConsultation);
+              const status = getStatusDisplay(selectedConsultation);
+              const headerBg = isMissed ? '#7F1D1D' : '#1C1C1C';
+              const headerDecor = isMissed ? '#991B1B' : '#2E2E2E';
+              return (
+                <>
+                  {/* Dark header */}
+                  <View style={[styles.tdmHeader, { backgroundColor: headerBg }]}>
+                    <View style={[styles.tdmHeaderDecor,  { backgroundColor: headerDecor }]} />
+                    <View style={[styles.tdmHeaderDecor2, { backgroundColor: headerDecor }]} />
+                    <TouchableOpacity style={styles.tdmCloseBtn} onPress={() => setShowDetailModal(false)}>
+                      <Ionicons name="close" size={18} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                    <View style={styles.tdmAvatarWrap}>
+                      <Text style={styles.tdmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
                     </View>
-                  )}
-
-                  <View style={styles.modalSection2}>
-                    <Text style={styles.modalLabel2}>Date & Time</Text>
-                    <Text style={styles.modalValue2}>
-                      {formatDate(selectedConsultation.scheduled_start_time || '')}
-                    </Text>
-                    <Text style={styles.modalValue2}>
-                      {formatTime(selectedConsultation.scheduled_start_time || '')} - {formatTime(selectedConsultation.scheduled_end_time || '')}
-                    </Text>
+                    <Text style={styles.tdmStudentName}>{selectedConsultation.studentName}</Text>
+                    <Text style={styles.tdmSubjectLine} numberOfLines={2}>{selectedConsultation.subject_line}</Text>
+                    <View style={[styles.tdmStatusPill, isMissed && styles.tdmStatusPillMissed]}>
+                      <View style={[styles.tdmStatusDot, isMissed && { backgroundColor: '#FCA5A5' }]} />
+                      <Text style={styles.tdmStatusPillText}>{status.text}</Text>
+                    </View>
                   </View>
 
-                  <View style={styles.modalSection2}>
-                    <Text style={styles.modalLabel2}>Current Status</Text>
-                    <View style={styles.modalStatusContainer2}>
-                      {(() => {
-                        const status = getStatusDisplay(selectedConsultation);
-                        return (
-                          <View style={[styles.modalStatusBadge2, { backgroundColor: status.bgColor }]}>
-                            <Text style={[styles.modalStatusText2, { color: status.color }]}>{status.text}</Text>
+                  {/* Body */}
+                  <ScrollView style={styles.modalBody2} showsVerticalScrollIndicator={false}>
+                    {selectedConsultation.description && (
+                      <View style={styles.tdmInfoCard}>
+                        <View style={styles.tdmInfoRow}>
+                          <View style={styles.tdmIconBox}><Ionicons name="document-text-outline" size={16} color={C.ink2} /></View>
+                          <View style={styles.tdmInfoContent}>
+                            <Text style={styles.tdmInfoLabel}>Description</Text>
+                            <Text style={styles.tdmInfoValue}>{selectedConsultation.description}</Text>
                           </View>
-                        );
-                      })()}
-                    </View>
-                  </View>
+                        </View>
+                      </View>
+                    )}
 
-                  {(selectedConsultation.status === 'accepted' || checkIfMissed(selectedConsultation)) && (
-                    <View style={styles.modalActions2}>
-                      <TouchableOpacity
-                        style={styles.modalActionButton2}
-                        onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
-                      >
-                        <Text style={styles.modalActionButtonText2}>
-                          <Ionicons name="checkmark" size={16} color={C.actionText} /> Mark as Done
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.modalActionButton2, styles.cancelButton2]}
-                        onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
-                      >
-                        <Text style={[styles.modalActionButtonText2, styles.cancelButtonText2]}>
-                          <Ionicons name="close" size={16} color={C.ink2} /> Cancel Consultation
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {checkIfMissed(selectedConsultation) && (
-                    <View style={styles.missedNotice2}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                        <Ionicons name="warning-outline" size={16} color={C.ink2} style={{ marginRight: 6, marginTop: 2 }} />
-                        <Text style={styles.missedNoticeText2}>
-                          This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
-                        </Text>
+                    <View style={styles.tdmInfoCard}>
+                      <View style={styles.tdmInfoRow}>
+                        <View style={styles.tdmIconBox}><Ionicons name="calendar-outline" size={16} color={C.ink2} /></View>
+                        <View style={styles.tdmInfoContent}>
+                          <Text style={styles.tdmInfoLabel}>Date</Text>
+                          <Text style={styles.tdmInfoValue}>{formatDate(selectedConsultation.scheduled_start_time || '')}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.tdmInfoDivider} />
+                      <View style={styles.tdmInfoRow}>
+                        <View style={styles.tdmIconBox}><Ionicons name="time-outline" size={16} color={C.ink2} /></View>
+                        <View style={styles.tdmInfoContent}>
+                          <Text style={styles.tdmInfoLabel}>Time</Text>
+                          <Text style={styles.tdmInfoValue}>
+                            {formatTime(selectedConsultation.scheduled_start_time || '')} — {formatTime(selectedConsultation.scheduled_end_time || '')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  )}
-                </ScrollView>
-              </>
-            )}
+
+                    {isMissed && (
+                      <View style={styles.tdmMissedBanner}>
+                        <Ionicons name="warning-outline" size={15} color={C.ink2} />
+                        <Text style={styles.tdmMissedText}>Passed scheduled time without being marked completed or cancelled.</Text>
+                      </View>
+                    )}
+
+                    {(selectedConsultation.status === 'accepted' || isMissed) && (
+                      <View style={styles.tdmActions}>
+                        <TouchableOpacity
+                          style={styles.tdmActionPrimary}
+                          onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
+                        >
+                          <Ionicons name="checkmark-circle-outline" size={18} color={C.accentText} />
+                          <Text style={styles.tdmActionPrimaryText}>Mark as Done</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.tdmActionSecondary}
+                          onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
+                        >
+                          <Ionicons name="close-circle-outline" size={18} color={C.ink2} />
+                          <Text style={styles.tdmActionSecondaryText}>Cancel Consultation</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    <View style={{ height: 24 }} />
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -842,12 +973,36 @@ const styles = StyleSheet.create({
 
   // ─── Stats Row ────────────────────────────────────────
   statsRow:       { flexDirection: 'row', gap: S.md },
-  statCard:       { flex: 1, backgroundColor: C.surface, borderRadius: R.xl, padding: S.lg, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight, ...shadow.soft },
-  statIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: S.sm },
+  statCardWrap:   { flex: 1, borderRadius: R.xl, overflow: 'hidden' as const, shadowColor: '#A0B8D0', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 8 },
+  statCard:       { padding: S.lg, alignItems: 'center' as const, borderRadius: R.xl, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)' },
+  statIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(200,218,235,0.6)', justifyContent: 'center' as const, alignItems: 'center' as const, marginBottom: S.sm },
   statNumber:     { ...T.h1, color: C.ink1, marginBottom: 2 },
   statLabel:      { ...T.small, color: C.ink3 },
 
   // ─── Calendar ─────────────────────────────────────────
+  // Week strip styles
+  weekCard:           { borderRadius: R.xl, paddingVertical: S.lg, paddingHorizontal: S.md, overflow: 'hidden' as const, backgroundColor: '#1E1E1E', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#000000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.55, shadowRadius: 22, elevation: 14 },
+  weekMonthRow:       { flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.sm, marginBottom: S.md },
+  weekNavBtn:         { flexDirection: 'row' as const, alignItems: 'center', gap: 2, minWidth: 56, padding: 4 },
+  weekMonthAdj:       { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500' as const },
+  weekMonthTitle:     { fontSize: 17, fontWeight: '700' as const, color: '#FFFFFF', textAlign: 'center' as const, flex: 1 },
+  weekDaysRow:        { flexDirection: 'row' as const, gap: 4, paddingHorizontal: S.sm, paddingVertical: 4 },
+  weekDayCol:             { alignItems: 'center' as const, width: 58, gap: 6 },
+  weekPill:               { alignItems: 'center' as const, justifyContent: 'center' as const, alignSelf: 'center' as const, width: 50, paddingVertical: 16, borderRadius: 28, gap: 3, backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  weekPillSelected:       { backgroundColor: 'rgba(255,255,255,0.92)', borderColor: 'rgba(255,255,255,0.9)' },
+  weekPillToday:          { backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.45)' },
+  weekDayName:            { fontSize: 11, fontWeight: '500' as const, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' as const, letterSpacing: 0.3 },
+  weekDayNameSelected:    { color: 'rgba(0,0,0,0.55)' },
+  weekDayNameToday:       { color: 'rgba(255,255,255,0.65)' },
+  weekDayNum:             { fontSize: 15, fontWeight: '700' as const, color: 'rgba(255,255,255,0.8)' },
+  weekDayNumTextSelected: { color: '#111111' },
+  weekDayNumTextToday:    { color: '#FFFFFF' },
+  weekDotRow:         { flexDirection: 'row' as const, gap: 3, height: 7, alignItems: 'center' as const, justifyContent: 'center' as const },
+  weekDot:            { width: 5, height: 5, borderRadius: 3 },
+  weekLegend:         { flexDirection: 'row' as const, justifyContent: 'center', gap: 24, marginTop: S.md, paddingTop: S.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  weekLegendText:     { ...T.tiny, color: 'rgba(255,255,255,0.5)' },
+
+  // Legacy calendar (unused but kept to avoid RN style ref errors)
   calendarWrapper: { backgroundColor: C.surface, borderRadius: R.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.borderLight, ...shadow.soft },
   calendarLegend:  { flexDirection: 'row', justifyContent: 'center', gap: 24, paddingVertical: S.md, paddingHorizontal: S.lg, borderTopWidth: 1, borderTopColor: C.borderLight },
   legendItem:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -931,14 +1086,43 @@ const styles = StyleSheet.create({
   signOutItem:        { marginTop: S.sm },
   signOutText:        { color: C.red, fontWeight: '600' as const },
 
-  // ─── Detail Modal ─────────────────────────────────────
+  // ─── Detail Modal (redesigned) ───────────────────────
   modalOverlay2:      { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },
-  modalContent2:      { backgroundColor: C.surface, borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl, maxHeight: '80%', paddingBottom: S.xl },
+  modalContent2:      { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' as const, maxHeight: '88%', ...shadow.lift },
+  modalBody2:         { padding: S.xl },
+
+  tdmHeader:          { padding: S.xl, paddingTop: S.xl + 8, paddingBottom: S.xl + 4, overflow: 'hidden' as const, position: 'relative' as const, alignItems: 'center' as const },
+  tdmHeaderDecor:     { position: 'absolute' as const, width: 160, height: 160, borderRadius: 80, top: -60, right: -40, backgroundColor: 'rgba(255,255,255,0.06)' },
+  tdmHeaderDecor2:    { position: 'absolute' as const, width: 90,  height: 90,  borderRadius: 45, bottom: -20, left: 20, backgroundColor: 'rgba(255,255,255,0.04)' },
+  tdmCloseBtn:        { position: 'absolute' as const, top: S.lg, right: S.lg, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center' as const, alignItems: 'center' as const },
+  tdmAvatarWrap:      { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center' as const, alignItems: 'center' as const, marginBottom: S.md },
+  tdmAvatarText:      { color: '#FFFFFF', fontSize: 26, fontWeight: '700' as const },
+  tdmStudentName:     { color: '#FFFFFF', fontSize: 18, fontWeight: '700' as const, textAlign: 'center' as const, marginBottom: 4 },
+  tdmSubjectLine:     { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' as const, lineHeight: 18, marginBottom: S.md, paddingHorizontal: S.xl },
+  tdmStatusPill:      { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full },
+  tdmStatusPillMissed:{ backgroundColor: 'rgba(255,255,255,0.22)' },
+  tdmStatusDot:       { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86EFAC' },
+  tdmStatusPillText:  { color: '#FFFFFF', fontSize: 12, fontWeight: '600' as const },
+  tdmInfoCard:        { backgroundColor: C.bg, borderRadius: R.xl, marginBottom: S.md, overflow: 'hidden' as const, borderWidth: 1, borderColor: C.borderLight },
+  tdmInfoRow:         { flexDirection: 'row' as const, alignItems: 'flex-start' as const, padding: S.lg, gap: S.md },
+  tdmIconBox:         { width: 36, height: 36, borderRadius: R.md, backgroundColor: C.surface, justifyContent: 'center' as const, alignItems: 'center' as const, borderWidth: 1, borderColor: C.borderLight },
+  tdmInfoContent:     { flex: 1 },
+  tdmInfoLabel:       { fontSize: 11, fontWeight: '600' as const, color: C.ink4, textTransform: 'uppercase' as const, letterSpacing: 0.6, marginBottom: 3 },
+  tdmInfoValue:       { ...T.body, color: C.ink1, lineHeight: 22 },
+  tdmInfoDivider:     { height: 1, backgroundColor: C.borderLight, marginLeft: 52 },
+  tdmMissedBanner:    { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: S.sm, backgroundColor: C.surfaceAlt, borderRadius: R.lg, padding: S.lg, marginBottom: S.md, borderWidth: 1, borderColor: C.borderLight },
+  tdmMissedText:      { ...T.small, color: C.ink2, lineHeight: 18, flex: 1 },
+  tdmActions:         { gap: S.md, marginTop: S.sm },
+  tdmActionPrimary:   { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: S.sm, backgroundColor: C.accent, paddingVertical: 15, borderRadius: R.lg, ...shadow.soft },
+  tdmActionPrimaryText:   { ...T.label, color: C.accentText, fontSize: 15, fontWeight: '600' as const },
+  tdmActionSecondary: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: S.sm, backgroundColor: C.surfaceAlt, paddingVertical: 15, borderRadius: R.lg, borderWidth: 1, borderColor: C.borderLight },
+  tdmActionSecondaryText: { ...T.label, color: C.ink2, fontSize: 15 },
+
+  // Legacy modal refs (kept for TS) ─────────────────────
   modalHeader2:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.xl, borderBottomWidth: 1, borderBottomColor: C.borderLight },
   modalTitle2:        { ...T.h2 },
   closeButton2:       { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
   closeButtonText2:   { fontSize: 20, color: C.ink3 },
-  modalBody2:         { padding: S.xl },
   modalSection2:      { marginBottom: S.xl },
   modalLabel2:        { ...T.cap, color: C.ink4, marginBottom: 8 },
   modalValue2:        { ...T.body, color: C.ink1, lineHeight: 24 },
