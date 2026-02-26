@@ -281,26 +281,50 @@ export const classroomService = {
   },
 
   /**
-   * Get classroom members with user details
+   * Get classroom members with profile details.
+   * Uses two direct queries (no RPC) to be resilient against RLS edge cases:
+   *   1. Fetch membership rows from classroom_memberships (teacher RLS policy allows this)
+   *   2. Batch-fetch student_profiles by user_id (teacher RLS policy allows this)
    */
   async getClassroomMembers(classroomId: string): Promise<ApiResponse<any[]>> {
     try {
-      const { data, error } = await supabase
+      // Step 1: Get all active memberships for this classroom
+      const { data: memberships, error: membershipError } = await supabase
         .from('classroom_memberships')
-        .select(`
-          *,
-          users:student_id(id, first_name, last_name, email, profile_photo_url)
-        `)
+        .select('id, student_id, joined_at')
         .eq('classroom_id', classroomId)
         .eq('is_active', true)
         .order('joined_at', { ascending: false });
 
-      if (error) throw error;
+      if (membershipError) throw membershipError;
+      if (!memberships || memberships.length === 0) return { data: [] };
 
-      const members = data?.map((membership: any) => ({
-        ...membership.users,
-        joined_at: membership.joined_at,
-      })) || [];
+      // Step 2: Fetch student profiles for those student_ids
+      const studentIds = memberships.map((m: any) => m.student_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('student_profiles')
+        .select('user_id, first_name, last_name, email, profile_photo_url, student_id, department, course')
+        .in('user_id', studentIds);
+
+      // profileError is non-fatal — we can still show partial data
+      const profileMap = new Map(
+        (profiles || []).map((p: any) => [p.user_id, p])
+      );
+
+      const members = memberships.map((m: any) => {
+        const profile = profileMap.get(m.student_id);
+        return {
+          id: m.student_id,
+          first_name: profile?.first_name || 'Unknown',
+          last_name: profile?.last_name || 'Student',
+          email: profile?.email || '',
+          profile_photo_url: profile?.profile_photo_url || null,
+          student_id: profile?.student_id || null,
+          department: profile?.department || null,
+          course: profile?.course || null,
+          joined_at: m.joined_at,
+        };
+      });
 
       return { data: members };
     } catch (error: any) {
@@ -347,21 +371,33 @@ export const classroomService = {
   },
 
   /**
-   * Get attachment bin details
+   * Get attachment bin details.
+   * teacher_id references auth.users (not a public table), so PostgREST cannot
+   * join it directly. Instead we fetch the bin first, then look up the teacher
+   * name from teacher_profiles using teacher_id = user_id.
    */
   async getAttachmentBin(binId: string): Promise<ApiResponse<any>> {
     try {
       const { data, error } = await supabase
         .from('attachment_bins')
-        .select(`
-          *,
-          classrooms(name),
-          users:teacher_id(first_name, last_name)
-        `)
+        .select('*')
         .eq('id', binId)
         .single();
 
       if (error) throw error;
+      if (!data) return { data: null };
+
+      // Fetch teacher name (teacher_id → teacher_profiles.user_id)
+      if (data.teacher_id) {
+        const { data: teacherProfile } = await supabase
+          .from('teacher_profiles')
+          .select('first_name, last_name')
+          .eq('user_id', data.teacher_id)
+          .maybeSingle();
+        // Assign as `users` so the existing UI (bin.users?.first_name) keeps working
+        data.users = teacherProfile || null;
+      }
+
       return { data };
     } catch (error: any) {
       return { error: error.message || 'Failed to fetch attachment bin' };
@@ -396,23 +432,116 @@ export const classroomService = {
   },
 
   /**
-   * Get all submissions for an attachment bin (Teacher view)
+   * Get all submissions for an attachment bin (Teacher view).
+   * uploaded_by references auth.users so we do a two-step fetch.
    */
   async getAttachmentBinSubmissions(binId: string): Promise<ApiResponse<any[]>> {
     try {
+      const { data: docs, error } = await supabase
+        .from('uploaded_documents')
+        .select('*')
+        .eq('attachment_bin_id', binId)
+        .eq('is_deleted', false)
+        .order('uploaded_at', { ascending: false });
+
+      if (error) throw error;
+      if (!docs || docs.length === 0) return { data: [] };
+
+      // Batch-fetch student profiles for each uploader
+      const studentIds = [...new Set(docs.map((d: any) => d.uploaded_by).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('student_profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', studentIds);
+
+      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+
+      const submissions = docs.map((doc: any) => {
+        const profile = profileMap.get(doc.uploaded_by);
+        return {
+          ...doc,
+          student: {
+            first_name: profile?.first_name || 'Unknown',
+            last_name: profile?.last_name || 'Student',
+            email: profile?.email || '',
+          },
+        };
+      });
+
+      return { data: submissions };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to fetch submissions' };
+    }
+  },
+
+  /**
+   * Update the review status of a submission (Teacher only)
+   */
+  async updateSubmissionStatus(
+    documentId: string,
+    status: 'approved' | 'revised' | 'for_consultation' | 'pending_review' | 'consultation_requested'
+  ): Promise<ApiResponse<any>> {
+    try {
       const { data, error } = await supabase
         .from('uploaded_documents')
-        .select(`
-          *,
-          users:uploaded_by(first_name, last_name, email)
-        `)
+        .update({ review_status: status })
+        .eq('id', documentId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to update submission status' };
+    }
+  },
+
+  /**
+   * Get private comment thread for a bin × student pair
+   */
+  async getBinComments(binId: string, studentId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('bin_comments')
+        .select('*')
         .eq('attachment_bin_id', binId)
-        .order('uploaded_at', { ascending: false });
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       return { data: data || [] };
     } catch (error: any) {
-      return { error: error.message || 'Failed to fetch submissions' };
+      return { error: error.message || 'Failed to fetch comments' };
+    }
+  },
+
+  /**
+   * Add a comment to a bin × student thread
+   */
+  async addBinComment(
+    binId: string,
+    studentId: string,
+    senderId: string,
+    senderRole: 'teacher' | 'student',
+    message: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('bin_comments')
+        .insert({
+          attachment_bin_id: binId,
+          student_id: studentId,
+          sender_id: senderId,
+          sender_role: senderRole,
+          message: message.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to add comment' };
     }
   },
 

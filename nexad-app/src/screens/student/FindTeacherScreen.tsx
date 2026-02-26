@@ -8,11 +8,14 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileService, TeacherProfile } from '../../services/profileService';
 import { supabase } from '../../config/supabase';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 interface Teacher {
   user_id: string;
@@ -113,9 +116,10 @@ export default function FindTeacherScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.surface} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Find a Teacher</Text>
         <View style={styles.placeholder} />
@@ -124,13 +128,13 @@ export default function FindTeacherScreen({ navigation }: any) {
       {/* Search Bar */}
       <View style={styles.searchSection}>
         <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search-outline" size={18} color={C.ink4} style={{ marginRight: S.sm }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Find your professor's name"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
           />
         </View>
 
@@ -142,7 +146,7 @@ export default function FindTeacherScreen({ navigation }: any) {
           <Text style={styles.departmentButtonText}>
             {selectedDepartment === 'All Departments' ? 'Select a Department' : selectedDepartment}
           </Text>
-          <Text style={styles.dropdownIcon}>{showDepartmentDropdown ? '▲' : '▼'}</Text>
+          <Ionicons name={showDepartmentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink3} />
         </TouchableOpacity>
 
         {showDepartmentDropdown && (
@@ -176,11 +180,11 @@ export default function FindTeacherScreen({ navigation }: any) {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color={C.action} />
           </View>
         ) : filteredTeachers.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>👨‍🏫</Text>
+            <Ionicons name="person-outline" size={56} color={C.ink5} />
             <Text style={styles.emptyStateText}>
               {searchQuery || selectedDepartment !== 'All Departments'
                 ? 'No teachers found matching your criteria'
@@ -195,7 +199,8 @@ export default function FindTeacherScreen({ navigation }: any) {
               style={styles.retryButton}
               onPress={loadTeachers}
             >
-              <Text style={styles.retryButtonText}>🔄 Refresh</Text>
+              <Ionicons name="refresh-outline" size={16} color={C.actionText} style={{ marginRight: 6 }} />
+              <Text style={styles.retryButtonText}>Refresh</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -229,7 +234,7 @@ export default function FindTeacherScreen({ navigation }: any) {
                   <Text style={styles.teacherOfficeLocation}>📍 {teacher.office_location}</Text>
                 )}
               </View>
-              <Text style={styles.selectIcon}>→</Text>
+              <Ionicons name="chevron-forward" size={20} color={C.ink4} />
             </TouchableOpacity>
           ))
         )}
@@ -241,111 +246,109 @@ export default function FindTeacherScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#2563eb',
+    width: 36,
+    height: 36,
+    borderRadius: R.full,
+    backgroundColor: C.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
-    width: 40,
+    width: 36,
   },
   searchSection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: C.surface,
+    padding: S.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+    paddingHorizontal: S.md,
+    marginBottom: S.md,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1f2937',
+    paddingVertical: S.md,
+    fontSize: 14,
+    fontWeight: '400' as const,
+    color: C.ink1,
   },
   departmentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+    paddingHorizontal: S.md,
+    paddingVertical: S.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   departmentButtonText: {
-    fontSize: 16,
-    color: '#1f2937',
-  },
-  dropdownIcon: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '400' as const,
+    color: C.ink2,
   },
   departmentDropdown: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: C.surface,
+    borderRadius: R.sm,
+    marginTop: S.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
     maxHeight: 200,
     overflow: 'hidden',
+    ...shadow.card,
   },
   dropdownScroll: {
     maxHeight: 200,
   },
   departmentOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    paddingVertical: S.md,
+    paddingHorizontal: S.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.surfaceAlt,
   },
   departmentOptionText: {
-    fontSize: 16,
-    color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '400' as const,
+    color: C.ink2,
   },
   selectedDepartmentText: {
-    color: '#2563eb',
-    fontWeight: '600',
+    color: C.action,
+    fontWeight: '600' as const,
   },
   teachersList: {
     flex: 1,
-    padding: 16,
+    padding: S.lg,
   },
   listTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 12,
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.md,
   },
   loadingContainer: {
     flex: 1,
@@ -357,94 +360,92 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 40,
-    paddingHorizontal: 20,
-  },
-  emptyStateIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    paddingHorizontal: S.xl,
   },
   emptyStateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: C.ink1,
     textAlign: 'center',
-    marginBottom: 8,
+    marginTop: S.lg,
+    marginBottom: S.sm,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '400' as const,
+    color: C.ink3,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: S.xl,
     lineHeight: 20,
   },
   retryButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.action,
+    paddingHorizontal: S.xl,
+    paddingVertical: S.md,
+    borderRadius: R.sm,
   },
   retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: C.actionText,
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: C.surface,
+    padding: S.lg,
+    borderRadius: R.lg,
+    marginBottom: S.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    ...shadow.card,
   },
   teacherAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e5e7eb',
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: S.md,
   },
   teacherAvatarText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   teacherInfo: {
     flex: 1,
   },
   teacherName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: 2,
   },
   teacherDepartment: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '400' as const,
+    color: C.ink3,
     marginBottom: 2,
   },
   teacherPosition: {
-    fontSize: 13,
-    color: '#9ca3af',
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: C.ink4,
     marginBottom: 2,
   },
   teacherExpertise: {
-    fontSize: 12,
-    color: '#9ca3af',
+    fontSize: 11,
+    fontWeight: '400' as const,
+    color: C.ink4,
     marginBottom: 2,
   },
   teacherOfficeLocation: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  selectIcon: {
-    fontSize: 20,
-    color: '#2563eb',
+    fontSize: 11,
+    fontWeight: '400' as const,
+    color: C.ink4,
   },
 });

@@ -272,7 +272,8 @@ export const notificationService = {
     title: string,
     message: string,
     type: string = 'request_submitted',
-    consultationRequestId?: string
+    consultationRequestId?: string,
+    relatedId?: string
   ): Promise<ApiResponse<any>> {
     try {
       // Use SECURITY DEFINER RPC — runs as DB owner, bypasses all RLS.
@@ -282,6 +283,7 @@ export const notificationService = {
         p_message:                 message,
         p_type:                    type,
         p_consultation_request_id: consultationRequestId ?? null,
+        p_related_id:              relatedId ?? consultationRequestId ?? null,
       });
 
       if (error) {
@@ -289,7 +291,7 @@ export const notificationService = {
           '| type:', type, '| error:', error.message, '| code:', error.code,
           '\nFalling back to direct insert...');
 
-        // Fallback: direct insert using the correct column name
+        // Fallback: direct insert using the correct column names
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('notifications')
           .insert({
@@ -298,6 +300,7 @@ export const notificationService = {
             message,
             type,
             consultation_request_id:  consultationRequestId ?? null,
+            related_id:               relatedId ?? consultationRequestId ?? null,
             is_read:                  false,
             created_at:               new Date().toISOString(),
           })
@@ -310,12 +313,12 @@ export const notificationService = {
         }
 
         console.log('[Notif] Fallback insert succeeded for user', userId);
-        this.sendPushToUser(userId, title, message, { type, consultationRequestId }).catch(() => {});
+        this.sendPushToUser(userId, title, message, { type, consultationRequestId, relatedId }).catch(() => {});
         return { data: fallbackData };
       }
 
       console.log('[Notif] RPC succeeded for user', userId, '| type:', type);
-      this.sendPushToUser(userId, title, message, { type, consultationRequestId }).catch(() => {});
+      this.sendPushToUser(userId, title, message, { type, consultationRequestId, relatedId }).catch(() => {});
 
       return { data };
     } catch (error: any) {

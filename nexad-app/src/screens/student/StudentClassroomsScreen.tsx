@@ -10,11 +10,14 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 export default function StudentClassroomsScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -118,7 +121,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
     >
       <View style={styles.classroomHeader}>
         <View style={styles.classroomIcon}>
-          <Ionicons name="school" size={24} color="#34C759" />
+          <Ionicons name="school" size={22} color={C.ink1} />
         </View>
         <View style={styles.classroomInfo}>
           <Text style={styles.classroomName}>{item.name}</Text>
@@ -128,14 +131,14 @@ export default function StudentClassroomsScreen({ navigation }: any) {
             </Text>
           )}
           <Text style={styles.teacherName}>
-            Teacher: {item.teacher_first_name} {item.teacher_last_name}
+            {item.teacher_first_name} {item.teacher_last_name}
           </Text>
         </View>
         <TouchableOpacity
           onPress={() => handleLeaveClassroom(item.id, item.name)}
           style={styles.leaveButton}
         >
-          <Ionicons name="exit-outline" size={20} color="#FF3B30" />
+          <Ionicons name="exit-outline" size={20} color={C.ink4} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -143,18 +146,26 @@ export default function StudentClassroomsScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#34C759" />
+      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
+        <ActivityIndicator size="large" color={C.ink1} />
         <Text style={styles.loadingText}>Loading classrooms...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>My Classrooms</Text>
-        <Text style={styles.subtitle}>Join and manage your classes</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>My Classrooms</Text>
+          <Text style={styles.subtitle}>Join and manage your classes</Text>
+        </View>
       </View>
 
       <FlatList
@@ -162,18 +173,19 @@ export default function StudentClassroomsScreen({ navigation }: any) {
         renderItem={renderClassroom}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.ink2} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="school-outline" size={64} color="#ccc" />
+            <Ionicons name="school-outline" size={56} color={C.ink5} />
             <Text style={styles.emptyText}>No classrooms yet</Text>
             <Text style={styles.emptySubtext}>Join a classroom using an invite code</Text>
           </View>
         }
       />
 
+      {/* Bottom CTA */}
       <TouchableOpacity style={styles.joinButton} onPress={() => setShowJoinModal(true)}>
-        <Ionicons name="enter" size={24} color="#fff" />
+        <Ionicons name="enter" size={20} color={C.actionText} />
         <Text style={styles.joinButtonText}>Join Classroom</Text>
       </TouchableOpacity>
 
@@ -181,7 +193,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
       <Modal
         visible={showJoinModal}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowJoinModal(false)}
       >
         <View style={styles.modalOverlay}>
@@ -189,7 +201,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Join Classroom</Text>
               <TouchableOpacity onPress={() => setShowJoinModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={22} color={C.ink3} />
               </TouchableOpacity>
             </View>
 
@@ -199,7 +211,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               value={inviteCode}
               onChangeText={(text) => setInviteCode(text.toUpperCase())}
               placeholder="ABC123"
-              placeholderTextColor="#999"
+              placeholderTextColor={C.ink5}
               maxLength={6}
               autoCapitalize="characters"
               autoCorrect={false}
@@ -211,7 +223,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               disabled={joining}
             >
               {joining ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={C.actionText} />
               ) : (
                 <Text style={styles.submitButtonText}>Join</Text>
               )}
@@ -219,185 +231,70 @@ export default function StudentClassroomsScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
+  container: { flex: 1, backgroundColor: C.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  loadingText: { fontWeight: '400' as const, fontSize: 15, color: C.ink3, marginTop: S.md },
+
   header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surface, paddingHorizontal: S.xl, paddingVertical: S.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center',
+    marginRight: S.md, ...shadow.soft,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  listContainer: {
-    padding: 16,
-    paddingBottom: 100,
-  },
+  title: { fontWeight: '600' as const, fontSize: 22, color: C.ink1, letterSpacing: -0.3 },
+  subtitle: { fontWeight: '400' as const, fontSize: 13, color: C.ink3, marginTop: 2 },
+
+  listContainer: { padding: S.lg, paddingBottom: 100 },
+
   classroomCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: C.surface, borderRadius: R.lg, padding: S.lg, marginBottom: S.md,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight, ...shadow.card,
   },
-  classroomHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
+  classroomHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   classroomIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E8F5E9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md,
   },
-  classroomInfo: {
-    flex: 1,
-  },
-  classroomName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  classroomDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  teacherName: {
-    fontSize: 12,
-    color: '#999',
-  },
-  leaveButton: {
-    padding: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#999',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#bbb',
-    marginTop: 8,
-  },
+  classroomInfo: { flex: 1 },
+  classroomName: { fontWeight: '600' as const, fontSize: 16, color: C.ink1, marginBottom: 4 },
+  classroomDescription: { fontWeight: '400' as const, fontSize: 13, color: C.ink3, marginBottom: 4, lineHeight: 18 },
+  teacherName: { fontWeight: '400' as const, fontSize: 12, color: C.ink4 },
+  leaveButton: { padding: S.sm },
+
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { fontWeight: '600' as const, fontSize: 17, color: C.ink3, marginTop: S.lg },
+  emptySubtext: { fontWeight: '400' as const, fontSize: 13, color: C.ink4, marginTop: S.sm },
+
   joinButton: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    right: 24,
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#34C759',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    position: 'absolute', bottom: S.xl2, left: S.xl2, right: S.xl2,
+    backgroundColor: C.action, borderRadius: R.lg, paddingVertical: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.sm,
+    ...shadow.lift,
   },
-  joinButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  modalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
+  joinButtonText: { fontWeight: '600' as const, fontSize: 16, color: C.actionText },
+
+  modalOverlay: { flex: 1, backgroundColor: C.scrim, justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: C.surface, borderRadius: R.xl, padding: S.xl2, width: '85%', maxWidth: 400, ...shadow.float },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.xl2 },
+  modalTitle: { fontWeight: '600' as const, fontSize: 20, color: C.ink1 },
+  modalLabel: { fontWeight: '600' as const, fontSize: 14, color: C.ink2, marginBottom: S.sm },
   codeInput: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 4,
-    color: '#333',
-    marginBottom: 20,
+    backgroundColor: C.bg, borderRadius: R.lg, padding: S.lg,
+    fontWeight: '600' as const, fontSize: 24, textAlign: 'center', letterSpacing: 4,
+    color: C.ink1, marginBottom: S.xl, borderWidth: 1, borderColor: C.borderLight,
   },
   submitButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
+    backgroundColor: C.action, borderRadius: R.lg, paddingVertical: 16, alignItems: 'center',
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonText: { fontWeight: '600' as const, fontSize: 16, color: C.actionText },
 });

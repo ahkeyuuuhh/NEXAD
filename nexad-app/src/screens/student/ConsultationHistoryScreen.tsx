@@ -15,18 +15,23 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import { documentService } from '../../services/documentService';
+import { Ionicons } from '@expo/vector-icons';
 import type { ConsultationRequest } from '../../types';
+import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;
 }
 
-export default function ConsultationHistoryScreen({ navigation }: any) {
+export default function ConsultationHistoryScreen({ navigation, route }: any) {
+  // initialFilter can be passed from notification deep-link (e.g. 'completed')
+  const initialFilter = (route?.params?.initialFilter as 'all' | 'completed' | 'cancelled' | 'declined') || 'all';
+
   const [consultations, setConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [filteredConsultations, setFilteredConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'cancelled' | 'declined'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'cancelled' | 'declined'>(initialFilter);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithTeacher | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedConsultationDocuments, setSelectedConsultationDocuments] = useState<any[]>([]);
@@ -137,15 +142,15 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
 
   const getStatusDisplay = (consultation: ConsultationWithTeacher) => {
     if (consultation.status === 'completed') {
-      return { text: 'Completed', color: '#10b981', bgColor: '#dcfce7' };
+      return { text: 'Completed', color: C.ink2, bgColor: C.surfaceAlt };
     }
     if (consultation.status === 'cancelled') {
-      return { text: 'Cancelled', color: '#f59e0b', bgColor: '#fef3c7' };
+      return { text: 'Cancelled', color: C.ink3, bgColor: C.surfaceAlt };
     }
     if (consultation.status === 'declined') {
-      return { text: 'Declined', color: '#ef4444', bgColor: '#fee2e2' };
+      return { text: 'Declined', color: C.ink4, bgColor: C.surfaceAlt };
     }
-    return { text: 'Unknown', color: '#6b7280', bgColor: '#f3f4f6' };
+    return { text: 'Unknown', color: C.ink3, bgColor: C.surfaceAlt };
   };
 
   const handleViewConsultation = (consultation: ConsultationWithTeacher) => {
@@ -166,7 +171,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading history...</Text>
         </View>
       </SafeAreaView>
@@ -181,7 +186,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Consultation History</Text>
         <View style={styles.placeholder} />
@@ -269,13 +274,16 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                     <Text style={styles.detailValue} numberOfLines={1}>{consultation.subject_line}</Text>
                   </View>
                 </View>
-                <Text style={styles.tapToViewText}>Tap to view details →</Text>
+                <View style={styles.tapToViewRow}>
+                  <Text style={styles.tapToViewText}>Tap to view details</Text>
+                  <Ionicons name="chevron-forward" size={14} color={C.ink3} />
+                </View>
               </TouchableOpacity>
             );
           })
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📋</Text>
+            <Ionicons name="clipboard-outline" size={56} color={C.ink4} />
             <Text style={styles.emptyStateText}>No consultation history</Text>
             <Text style={styles.emptyStateSubtext}>
               {selectedFilter === 'all' 
@@ -304,7 +312,9 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                     onPress={() => setShowDetailModal(false)}
                     style={styles.closeButton}
                   >
-                    <Text style={styles.closeButtonText}>✕</Text>
+                    <Text style={styles.closeButtonText}>
+                    <Ionicons name="close" size={18} color={C.ink3} />
+                  </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -372,13 +382,16 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                   <View style={styles.modalSection}>
                     <Text style={styles.modalLabel}>Attached Files</Text>
                     {isLoadingDocuments ? (
-                      <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 8 }} />
+                      <ActivityIndicator size="small" color={C.ink2} style={{ marginTop: 8 }} />
                     ) : selectedConsultationDocuments.length > 0 ? (
                       selectedConsultationDocuments.map((doc, index) => (
                         <View key={doc.id || index} style={styles.docItem}>
-                          <Text style={styles.docIcon}>
-                            {doc.file_name?.endsWith('.pdf') ? '📄' : '📝'}
-                          </Text>
+                          <Ionicons
+                            name={doc.file_name?.endsWith('.pdf') ? 'document-outline' : 'create-outline'}
+                            size={20}
+                            color={C.ink3}
+                            style={styles.docIcon}
+                          />
                           <View style={styles.docInfo}>
                             <Text style={styles.docName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
                             <Text style={styles.docMeta}>
@@ -404,250 +417,80 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#6b7280',
-    fontSize: 16,
-  },
+  container:        { flex: 1, backgroundColor: C.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText:      { ...T.body, color: C.ink4, marginTop: S.md },
+
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: S.lg, paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center',
+    ...shadow.soft,
   },
-  backButtonText: {
-    color: '#3b82f6',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  placeholder: {
-    width: 60,
-  },
+  headerTitle:   { ...T.h2 },
+  placeholder:   { width: 60 },
+
   filterContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    backgroundColor: C.surface,
+    paddingHorizontal: S.lg, paddingTop: S.md, paddingBottom: S.sm,
+    flexDirection: 'row', gap: S.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderLight,
   },
-  filterTab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    marginRight: 8,
-  },
-  filterTabActive: {
-    backgroundColor: '#3b82f6',
-  },
-  filterTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  filterTabTextActive: {
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
+  filterTab:           { paddingVertical: S.sm, paddingHorizontal: S.md, borderRadius: R.full, backgroundColor: C.surfaceAlt },
+  filterTabActive:     { backgroundColor: C.action },
+  filterTabText:       { ...T.label, color: C.ink3 },
+  filterTabTextActive: { ...T.label, color: C.actionText },
+
+  content: { flex: 1, padding: S.lg },
+
   consultationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, padding: S.lg, marginBottom: S.md,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
+    ...shadow.soft,
   },
   consultationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md,
   },
-  teacherName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  consultationDetails: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-    width: 80,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#1f2937',
-    flex: 1,
-  },
-  tapToViewText: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#3b82f6',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-  },
-  emptyStateIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    paddingHorizontal: 32,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#6b7280',
-  },
-  modalBody: {
-    padding: 20,
-  },
-  modalSection: {
-    marginBottom: 20,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 6,
-  },
-  modalValue: {
-    fontSize: 16,
-    color: '#1f2937',
-    lineHeight: 24,
-  },
-  modalStatusContainer: {
-    flexDirection: 'row',
-  },
-  modalStatusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  modalStatusText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Document attachment styles
-  docItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  docIcon: {
-    fontSize: 22,
-    marginRight: 10,
-  },
-  docInfo: {
-    flex: 1,
-  },
-  docName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  docMeta: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  noDocText: {
-    fontSize: 14,
-    color: '#9ca3af',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
+  teacherName:       { ...T.h3, flex: 1 },
+  statusBadge:       { paddingHorizontal: S.sm, paddingVertical: 3, borderRadius: R.full, backgroundColor: C.surfaceAlt },
+  statusText:        { ...T.tiny, fontWeight: '600' as const, color: C.ink2 },
+  consultationDetails: { gap: S.sm },
+  detailRow:         { flexDirection: 'row' },
+  detailLabel:       { ...T.small, color: C.ink4, width: 80 },
+  detailValue:       { ...T.small, color: C.ink1, flex: 1 },
+  tapToViewRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: S.sm, gap: 4 },
+  tapToViewText:     { ...T.small, color: C.ink3, fontWeight: '600' as const, textAlign: 'center' },
+
+  emptyState:         { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
+  emptyStateIcon:     { marginBottom: S.lg },
+  emptyStateText:     { ...T.h3, color: C.ink2, marginBottom: S.sm },
+  emptyStateSubtext:  { ...T.small, color: C.ink4, textAlign: 'center', paddingHorizontal: 32 },
+
+  // Modal
+  modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent:  { backgroundColor: C.surface, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, maxHeight: '80%', paddingBottom: S.xl },
+  modalHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderLight },
+  modalTitle:    { ...T.h2 },
+  closeButton:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  closeButtonText: { fontSize: 18, color: C.ink3 },
+  modalBody:     { padding: S.xl },
+  modalSection:  { marginBottom: S.xl },
+  modalLabel:    { ...T.label, color: C.ink4, marginBottom: S.xs, textTransform: 'uppercase', letterSpacing: 0.6 },
+  modalValue:    { ...T.body, color: C.ink1, lineHeight: 24 },
+  modalStatusContainer: { flexDirection: 'row' },
+  modalStatusBadge:     { paddingHorizontal: S.md, paddingVertical: S.sm, borderRadius: R.full, backgroundColor: C.ink1 },
+  modalStatusText:      { ...T.label, color: C.actionText },
+
+  docItem:  { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: R.sm, padding: S.sm + 2, marginTop: S.xs, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight },
+  docIcon:  { marginRight: S.sm },
+  docInfo:  { flex: 1 },
+  docName:  { ...T.label, color: C.ink1 },
+  docMeta:  { ...T.tiny, marginTop: 2 },
+  noDocText:{ ...T.small, color: C.ink4, fontStyle: 'italic', marginTop: S.xs },
 });

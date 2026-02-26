@@ -15,6 +15,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import type { ConsultationRequest } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;
@@ -29,14 +31,15 @@ interface MarkedDates {
   };
 }
 
-export default function StudentConsultationsScreen({ navigation }: any) {
+export default function StudentConsultationsScreen({ navigation, route }: any) {
+  const initialFilter = (route?.params?.initialFilter as 'all' | 'approved' | 'pending') || 'all';
   const [consultations, setConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [allConsultations, setAllConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
-  const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'pending'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'pending'>(initialFilter);
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -80,7 +83,7 @@ export default function StudentConsultationsScreen({ navigation }: any) {
           const date = consultation.scheduled_start_time.split('T')[0];
           marks[date] = {
             marked: true,
-            dotColor: '#3b82f6',
+            dotColor: C.ink2,
           };
         }
       });
@@ -128,7 +131,7 @@ export default function StudentConsultationsScreen({ navigation }: any) {
       updatedMarks[key] = {
         ...markedDates[key],
         selected: key === date,
-        selectedColor: key === date ? '#3b82f6' : undefined,
+        selectedColor: key === date ? C.ink2 : undefined,
       };
     });
     
@@ -136,9 +139,9 @@ export default function StudentConsultationsScreen({ navigation }: any) {
     if (!updatedMarks[date]) {
       updatedMarks[date] = {
         marked: false,
-        dotColor: '#3b82f6',
+        dotColor: C.ink2,
         selected: true,
-        selectedColor: '#3b82f6',
+        selectedColor: C.ink2,
       };
     }
     
@@ -186,7 +189,7 @@ export default function StudentConsultationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading consultations...</Text>
         </View>
       </SafeAreaView>
@@ -201,7 +204,7 @@ export default function StudentConsultationsScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Consultations</Text>
         <View style={styles.placeholder} />
@@ -240,18 +243,18 @@ export default function StudentConsultationsScreen({ navigation }: any) {
             markedDates={markedDates}
             onDayPress={onDayPress}
             theme={{
-              backgroundColor: '#ffffff',
-              calendarBackground: '#ffffff',
-              textSectionTitleColor: '#1f2937',
-              selectedDayBackgroundColor: '#3b82f6',
-              selectedDayTextColor: '#ffffff',
-              todayTextColor: '#3b82f6',
-              dayTextColor: '#1f2937',
-              textDisabledColor: '#d1d5db',
-              dotColor: '#3b82f6',
-              selectedDotColor: '#ffffff',
-              arrowColor: '#3b82f6',
-              monthTextColor: '#1f2937',
+              backgroundColor: C.surface,
+              calendarBackground: C.surface,
+              textSectionTitleColor: C.ink1,
+              selectedDayBackgroundColor: C.ink2,
+              selectedDayTextColor: C.actionText,
+              todayTextColor: C.ink2,
+              dayTextColor: C.ink1,
+              textDisabledColor: C.ink5,
+              dotColor: C.ink2,
+              selectedDotColor: C.actionText,
+              arrowColor: C.ink2,
+              monthTextColor: C.ink1,
               textMonthFontWeight: 'bold',
               textDayFontSize: 16,
               textMonthFontSize: 18,
@@ -263,7 +266,7 @@ export default function StudentConsultationsScreen({ navigation }: any) {
         {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
+            <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
             <Text style={styles.legendText}>Has Consultations</Text>
           </View>
         </View>
@@ -305,6 +308,12 @@ export default function StudentConsultationsScreen({ navigation }: any) {
                         <Text style={styles.detailValue}>{consultation.description}</Text>
                       </View>
                     )}
+                    {(consultation as any).classroom_number ? (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Room:</Text>
+                        <Text style={styles.detailValue}>{(consultation as any).classroom_number}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               ))
@@ -372,6 +381,12 @@ export default function StudentConsultationsScreen({ navigation }: any) {
                         <Text style={styles.detailValue}>{consultation.description}</Text>
                       </View>
                     )}
+                    {(consultation as any).classroom_number ? (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Room:</Text>
+                        <Text style={styles.detailValue}>{(consultation as any).classroom_number}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               ))
@@ -391,225 +406,108 @@ export default function StudentConsultationsScreen({ navigation }: any) {
 const getStatusBadgeStyle = (status: string) => {
   switch (status) {
     case 'accepted':
-      return { backgroundColor: '#dcfce7' };
+      return { backgroundColor: C.surfaceAlt };
     case 'pending':
     case 'awaiting_teacher':
-      return { backgroundColor: '#fef3c7' };
+      return { backgroundColor: C.surfaceAlt };
     case 'declined':
-      return { backgroundColor: '#fee2e2' };
+      return { backgroundColor: C.surfaceAlt };
     default:
-      return { backgroundColor: '#f3f4f6' };
+      return { backgroundColor: C.surfaceAlt };
   }
 };
 
 const getStatusTextStyle = (status: string) => {
   switch (status) {
     case 'accepted':
-      return { color: '#16a34a' };
+      return { color: C.ink2 };
     case 'pending':
     case 'awaiting_teacher':
-      return { color: '#f59e0b' };
+      return { color: C.ink3 };
     case 'declined':
-      return { color: '#dc2626' };
+      return { color: C.ink3 };
     default:
-      return { color: '#6b7280' };
+      return { color: C.ink3 };
   }
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#6b7280',
-    fontSize: 16,
-  },
+  container:        { flex: 1, backgroundColor: C.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText:      { ...T.body, color: C.ink4, marginTop: S.md },
+
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: S.lg, paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center',
+    ...shadow.soft,
   },
-  backButtonText: {
-    color: '#3b82f6',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  placeholder: {
-    width: 60,
-  },
+  headerTitle:  { ...T.h2 },
+  placeholder:  { width: 60 },
+
+  // Filter
   filterContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 8,
+    flexDirection: 'row', backgroundColor: C.surface,
+    paddingHorizontal: S.lg, paddingTop: S.md, paddingBottom: S.sm, gap: S.sm,
   },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-  },
-  filterTabActive: {
-    backgroundColor: '#3b82f6',
-  },
-  filterTabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  filterTabTextActive: {
-    color: '#fff',
-  },
+  filterTab:           { flex: 1, paddingVertical: 9, borderRadius: R.md, alignItems: 'center', backgroundColor: C.surfaceAlt },
+  filterTabActive:     { backgroundColor: C.action },
+  filterTabText:       { ...T.label, color: C.ink3 },
+  filterTabTextActive: { ...T.label, color: C.actionText },
+
+  // Calendar
   calendarContainer: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    backgroundColor: C.surface,
+    margin: S.lg, borderRadius: R.lg, overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
+    ...shadow.soft,
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  selectedDateSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  selectedDateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  noSelectionContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  noSelectionText: {
-    fontSize: 16,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  allConsultationsSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
+  legend:      { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: S.lg, marginBottom: S.lg },
+  legendItem:  { flexDirection: 'row', alignItems: 'center', marginHorizontal: S.sm },
+  legendDot:   { width: 7, height: 7, borderRadius: 4, marginRight: S.xs, backgroundColor: C.ink2 },
+  legendText:  { ...T.tiny },
+
+  // Selected date section
+  selectedDateSection: { paddingHorizontal: S.lg, marginBottom: S.xl },
+  selectedDateTitle:   { ...T.h3, marginBottom: S.md },
+
+  noSelectionContainer: { paddingHorizontal: S.lg, paddingVertical: 32, alignItems: 'center' },
+  noSelectionText:      { ...T.body, color: C.ink4, textAlign: 'center' },
+
+  allConsultationsSection: { paddingHorizontal: S.lg, marginBottom: S.xl },
+  sectionTitle:            { ...T.h3, marginBottom: S.md },
+
+  // Consultation card
   consultationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: C.surface,
+    borderRadius: R.lg, padding: S.lg, marginBottom: S.md,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
+    ...shadow.soft,
   },
   consultationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md,
   },
-  teacherName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    flex: 1,
-  },
+  teacherName: { ...T.h3, flex: 1 },
   statusBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: C.accent,
+    paddingHorizontal: S.md, paddingVertical: 3,
+    borderRadius: R.full,
   },
-  statusText: {
-    color: '#16a34a',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  consultationDetails: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-    width: 100,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#1f2937',
-    flex: 1,
-  },
+  statusText:          { color: C.actionText, ...T.tiny, fontWeight: '600' as const },
+  consultationDetails: { gap: S.sm },
+  detailRow:           { flexDirection: 'row' },
+  detailLabel:         { ...T.small, color: C.ink4, width: 100 },
+  detailValue:         { ...T.small, color: C.ink1, flex: 1 },
+
   noConsultationsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: C.surface, borderRadius: R.lg, padding: S.xl,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
   },
-  noConsultationsText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
+  noConsultationsText: { ...T.body, color: C.ink4, textAlign: 'center' },
 });

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,15 @@ import {
   Dimensions,
   Animated,
   PanResponder,
-  Image,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { C, F, S, R, shadow } from '../../config/theme';
 
-const { width } = Dimensions.get('window');
-const SLIDER_WIDTH = width - 80;
-const BUTTON_SIZE = 60;
-const SLIDE_THRESHOLD = SLIDER_WIDTH - BUTTON_SIZE - 20;
+const { width, height } = Dimensions.get('window');
+const SLIDER_WIDTH = width - 64;
+const BUTTON_SIZE = 56;
+const SLIDE_THRESHOLD = SLIDER_WIDTH - BUTTON_SIZE - 12;
 
 interface WelcomeScreenProps {
   navigation: any;
@@ -23,234 +24,350 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
   const slideX = useRef(new Animated.Value(0)).current;
   const [isSliding, setIsSliding] = useState(false);
 
+  // Entrance animations
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(40)).current;
+  const orbitRotation = useRef(new Animated.Value(0)).current;
+  const pulseScale = useRef(new Animated.Value(1)).current;
+  const dotScale1 = useRef(new Animated.Value(0)).current;
+  const dotScale2 = useRef(new Animated.Value(0)).current;
+  const dotScale3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Staggered entrance animation
+    Animated.sequence([
+      Animated.delay(200),
+      Animated.parallel([
+        Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(slideUp, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    // Floating dots pop in
+    Animated.stagger(150, [
+      Animated.spring(dotScale1, { toValue: 1, friction: 5, useNativeDriver: true }),
+      Animated.spring(dotScale2, { toValue: 1, friction: 5, useNativeDriver: true }),
+      Animated.spring(dotScale3, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start();
+
+    // Continuous subtle orbit rotation
+    Animated.loop(
+      Animated.timing(orbitRotation, {
+        toValue: 1,
+        duration: 20000,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Gentle pulse on hero circle
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseScale, { toValue: 1.04, duration: 2500, useNativeDriver: true }),
+        Animated.timing(pulseScale, { toValue: 1, duration: 2500, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        setIsSliding(true);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const newX = Math.max(0, Math.min(gestureState.dx, SLIDE_THRESHOLD));
+      onPanResponderGrant: () => setIsSliding(true),
+      onPanResponderMove: (_, gs) => {
+        const newX = Math.max(0, Math.min(gs.dx, SLIDE_THRESHOLD));
         slideX.setValue(newX);
       },
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (_, gs) => {
         setIsSliding(false);
-        if (gestureState.dx >= SLIDE_THRESHOLD * 0.8) {
-          // Slide completed - navigate to role selection
+        if (gs.dx >= SLIDE_THRESHOLD * 0.75) {
           Animated.timing(slideX, {
             toValue: SLIDE_THRESHOLD,
-            duration: 200,
+            duration: 180,
             useNativeDriver: true,
-          }).start(() => {
-            navigation.replace('RoleSelection');
-          });
+          }).start(() => navigation.replace('RoleSelection'));
         } else {
-          // Slide back to start
           Animated.spring(slideX, {
             toValue: 0,
             useNativeDriver: true,
-            friction: 5,
+            friction: 6,
           }).start();
         }
       },
     })
   ).current;
 
-  // Interpolate background color based on slide progress
-  const sliderBgColor = slideX.interpolate({
-    inputRange: [0, SLIDE_THRESHOLD],
-    outputRange: ['#4a4a4a', '#2563eb'],
+  // Slider text opacity fades as thumb travels
+  const sliderTextOpacity = slideX.interpolate({
+    inputRange: [0, SLIDE_THRESHOLD * 0.5],
+    outputRange: [0.55, 0],
     extrapolate: 'clamp',
   });
 
+  const orbitSpin = orbitRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo/Icon Area */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoIcon}>📚</Text>
-          </View>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-        {/* Welcome Text */}
-        <View style={styles.textContainer}>
-          <Text style={styles.welcomeText}>WELCOME TO</Text>
-          <Text style={styles.brandText}>NEXAD</Text>
-          <Text style={styles.descriptionText}>
-            Your AI-Enhanced Consultation System for seamless student-faculty communication.
+        {/* ═══ Hero graphic area ═══ */}
+        <Animated.View
+          style={[
+            styles.heroArea,
+            { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+          ]}
+        >
+          {/* Outer orbit ring (rotates) */}
+          <Animated.View style={[styles.orbitRing, { transform: [{ rotate: orbitSpin }] }]}>
+            {/* Orbiting dots */}
+            <Animated.View style={[styles.orbitDot, styles.orbitDotA, { transform: [{ scale: dotScale1 }] }]} />
+            <Animated.View style={[styles.orbitDot, styles.orbitDotB, { transform: [{ scale: dotScale2 }] }]} />
+            <Animated.View style={[styles.orbitDot, styles.orbitDotC, { transform: [{ scale: dotScale3 }] }]} />
+          </Animated.View>
+
+          {/* Central circle with pulsing scale */}
+          <Animated.View style={[styles.heroCircle, { transform: [{ scale: pulseScale }] }]}>
+            <Text style={styles.heroLetter}>N</Text>
+          </Animated.View>
+
+          {/* Static decorative rings */}
+          <View style={styles.ringMid} />
+          <View style={styles.ringOuter} />
+        </Animated.View>
+
+        {/* ═══ Text block ═══ */}
+        <Animated.View
+          style={[
+            styles.textArea,
+            { opacity: fadeIn, transform: [{ translateY: slideUp }] },
+          ]}
+        >
+          <Text style={styles.brandName}>NEXAD</Text>
+          <Text style={styles.tagline}>
+            Your AI-Enhanced{'\n'}Consultation System
           </Text>
-        </View>
+          <Text style={styles.subtitle}>
+            Seamless student-faculty communication,{'\n'}powered by intelligent scheduling.
+          </Text>
+        </Animated.View>
 
-        {/* Preview/Feature Area */}
-        <View style={styles.previewContainer}>
-          <View style={styles.previewBox}>
-            <View style={styles.movingElementContainer}>
-              {/* Animated dots to show it's interactive */}
-              <View style={styles.dotsContainer}>
-                <View style={[styles.dot, styles.dotActive]} />
-                <View style={styles.dot} />
-                <View style={styles.dot} />
+        {/* ═══ Bottom area: Slide to start ═══ */}
+        <View style={styles.bottomArea}>
+          {/* Feature pills row */}
+          <View style={styles.pillRow}>
+            {['AI-Powered', 'Real-time', 'Secure'].map((text) => (
+              <View key={text} style={styles.pill}>
+                <Text style={styles.pillText}>{text}</Text>
               </View>
-              <Text style={styles.movingElementText}>Smart Consultations</Text>
+            ))}
+          </View>
+
+          {/* Slider */}
+          <View style={styles.sliderWrap}>
+            <View style={styles.sliderTrack}>
+              <Animated.View
+                style={[
+                  styles.sliderThumb,
+                  { transform: [{ translateX: slideX }] },
+                ]}
+                {...panResponder.panHandlers}
+              >
+                <Text style={styles.thumbArrow}>→</Text>
+              </Animated.View>
+              <Animated.Text style={[styles.sliderLabel, { opacity: sliderTextOpacity }]}>
+                Slide to Get Started
+              </Animated.Text>
             </View>
           </View>
         </View>
 
-        {/* Slide to Start Button */}
-        <View style={styles.sliderContainer}>
-          <Animated.View 
-            style={[
-              styles.sliderTrack,
-              { backgroundColor: sliderBgColor }
-            ]}
-          >
-            <Animated.View
-              style={[
-                styles.sliderButton,
-                {
-                  transform: [{ translateX: slideX }],
-                },
-              ]}
-              {...panResponder.panHandlers}
-            >
-              <Text style={styles.arrowIcon}>→</Text>
-            </Animated.View>
-            <Text style={styles.sliderText}>Slide to Start</Text>
-          </Animated.View>
-        </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
+
+// ─── Layout constants ──────────────────────────────────────────────────────────
+const HERO_SIZE = Math.min(width * 0.55, 240);
+const CIRCLE_SIZE = HERO_SIZE * 0.42;
+const RING_MID = HERO_SIZE * 0.72;
+const RING_OUTER = HERO_SIZE;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: C.bg,
   },
-  content: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 40,
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
   },
-  logoContainer: {
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  logoPlaceholder: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#333',
-    borderRadius: 8,
-    justifyContent: 'center',
+
+  // ── Hero graphic ──────────────────────────────────────────────────────────
+  heroArea: {
     alignItems: 'center',
-  },
-  logoIcon: {
-    fontSize: 24,
-  },
-  textContainer: {
-    marginBottom: 32,
-  },
-  welcomeText: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  brandText: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 4,
-    marginBottom: 16,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#9ca3af',
-    lineHeight: 22,
-    maxWidth: '80%',
-  },
-  previewContainer: {
-    flex: 1,
     justifyContent: 'center',
-    marginVertical: 24,
+    height: HERO_SIZE + 40,
+    marginTop: height * 0.06,
   },
-  previewBox: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 16,
-    padding: 24,
-    aspectRatio: 0.75,
-    maxHeight: 320,
-    justifyContent: 'center',
+  heroCircle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    backgroundColor: C.ink1,
     alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    ...shadow.lift,
+  },
+  heroLetter: {
+    fontWeight: '700' as const,
+    fontSize: CIRCLE_SIZE * 0.48,
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  // Static concentric rings
+  ringMid: {
+    position: 'absolute',
+    width: RING_MID,
+    height: RING_MID,
+    borderRadius: RING_MID / 2,
     borderWidth: 1,
-    borderColor: '#3a3a3a',
+    borderColor: C.border,
   },
-  movingElementContainer: {
-    alignItems: 'center',
+  ringOuter: {
+    position: 'absolute',
+    width: RING_OUTER,
+    height: RING_OUTER,
+    borderRadius: RING_OUTER / 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
+  // Orbiting dot container — rotates continuously
+  orbitRing: {
+    position: 'absolute',
+    width: RING_OUTER,
+    height: RING_OUTER,
   },
-  dot: {
+  orbitDot: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  orbitDotA: {
+    width: 14,
+    height: 14,
+    backgroundColor: C.ink1,
+    top: -7,
+    left: RING_OUTER / 2 - 7,
+  },
+  orbitDotB: {
+    width: 10,
+    height: 10,
+    backgroundColor: C.ink3,
+    bottom: RING_OUTER * 0.12,
+    right: -2,
+  },
+  orbitDotC: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4a4a4a',
-    marginHorizontal: 4,
+    backgroundColor: C.ink4,
+    bottom: RING_OUTER * 0.15,
+    left: 4,
   },
-  dotActive: {
-    backgroundColor: '#2563eb',
-    width: 24,
-  },
-  movingElementText: {
-    fontSize: 16,
-    color: '#9ca3af',
-    fontWeight: '500',
-  },
-  sliderContainer: {
+
+  // ── Text block ────────────────────────────────────────────────────────────
+  textArea: {
     alignItems: 'center',
-    paddingTop: 16,
+    paddingHorizontal: S.sm,
+  },
+  brandName: {
+    fontWeight: '700' as const,
+    fontSize: 52,
+    color: C.ink1,
+    letterSpacing: 4,
+    marginBottom: S.md,
+  },
+  tagline: {
+    fontWeight: '600' as const,
+    fontSize: 18,
+    color: C.ink2,
+    textAlign: 'center',
+    lineHeight: 26,
+    letterSpacing: -0.2,
+    marginBottom: S.sm,
+  },
+  subtitle: {
+    fontWeight: '400' as const,
+    fontSize: 13,
+    color: C.ink4,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+
+  // ── Bottom ────────────────────────────────────────────────────────────────
+  bottomArea: {
+    paddingBottom: S.lg,
+    gap: S.xl,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: S.sm,
+  },
+  pill: {
+    paddingHorizontal: S.md + 2,
+    paddingVertical: S.xs + 2,
+    borderRadius: R.full,
+    backgroundColor: C.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    ...shadow.soft,
+  },
+  pillText: {
+    fontWeight: '600' as const,
+    fontSize: 11,
+    color: C.ink3,
+    letterSpacing: 0.4,
+  },
+
+  // ── Slider ────────────────────────────────────────────────────────────────
+  sliderWrap: {
+    alignItems: 'center',
   },
   sliderTrack: {
     width: SLIDER_WIDTH,
     height: 64,
-    backgroundColor: '#4a4a4a',
+    backgroundColor: C.ink1,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
     overflow: 'hidden',
+    ...shadow.card,
   },
-  sliderButton: {
+  sliderThumb: {
     position: 'absolute',
-    left: 4,
+    left: 6,
     width: BUTTON_SIZE,
     height: BUTTON_SIZE - 8,
-    backgroundColor: '#ef4444',
-    borderRadius: 28,
+    backgroundColor: C.surface,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    ...shadow.lift,
   },
-  arrowIcon: {
-    fontSize: 24,
-    color: '#ffffff',
-    fontWeight: '700',
+  thumbArrow: {
+    fontWeight: '600' as const,
+    fontSize: 22,
+    color: C.ink1,
   },
-  sliderText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '500',
-    letterSpacing: 1,
+  sliderLabel: {
+    fontWeight: '400' as const,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.8,
   },
 });

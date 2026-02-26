@@ -10,10 +10,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
+import { C, F, S, R, shadow } from '../../config/theme';
 import type { ConsultationRequest } from '../../types';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
@@ -113,7 +115,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6B4EFF" />
+          <ActivityIndicator size="large" color={C.action} />
           <Text style={styles.loadingText}>Loading pending requests...</Text>
         </View>
       </SafeAreaView>
@@ -128,7 +130,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pending Requests</Text>
         <View style={styles.placeholder} />
@@ -136,7 +138,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
 
       {/* Info Banner */}
       <View style={styles.infoBanner}>
-        <Text style={styles.infoBannerIcon}>⏳</Text>
+        <Ionicons name="time-outline" size={28} color={C.ink3} style={styles.infoBannerIcon} />
         <View style={styles.infoBannerContent}>
           <Text style={styles.infoBannerTitle}>Awaiting Teacher Response</Text>
           <Text style={styles.infoBannerText}>
@@ -153,7 +155,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
       >
         {requests.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>✅</Text>
+            <Ionicons name="checkmark-circle-outline" size={64} color={C.ink4} />
             <Text style={styles.emptyText}>All clear!</Text>
             <Text style={styles.emptySubtext}>
               You don't have any pending consultation requests
@@ -193,7 +195,8 @@ export default function PendingRequestsScreen({ navigation }: any) {
 
               <View style={styles.requestFooter}>
                 <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>⏳ Pending Review</Text>
+                  <Ionicons name="time-outline" size={12} color={C.ink3} style={{ marginRight: S.xs }} />
+                  <Text style={styles.statusText}>Pending Review</Text>
                 </View>
               </View>
             </View>
@@ -207,7 +210,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -215,144 +218,141 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: S.md,
     fontSize: 16,
-    color: '#6b7280',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: '#6B4EFF',
-    fontSize: 16,
-    fontWeight: '500',
+    width: 36,
+    height: 36,
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
-    width: 60,
+    width: 36,
   },
   infoBanner: {
     flexDirection: 'row',
-    backgroundColor: '#fef3c7',
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
+    alignItems: 'center',
+    backgroundColor: C.surfaceAlt,
+    padding: S.lg,
+    marginHorizontal: S.lg,
+    marginTop: S.lg,
+    borderRadius: R.md,
   },
   infoBannerIcon: {
-    fontSize: 28,
-    marginRight: 12,
+    marginRight: S.md,
   },
   infoBannerContent: {
     flex: 1,
   },
   infoBannerTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#92400e',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginBottom: S.xs,
   },
   infoBannerText: {
     fontSize: 14,
-    color: '#78350f',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: S.lg,
   },
   requestCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#fbbf24',
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    padding: S.lg,
+    marginBottom: S.md,
+    ...shadow.card,
   },
   requestHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: S.md,
   },
   teacherAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e0e7ff',
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: S.md,
   },
   teacherAvatarText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#4f46e5',
+    fontWeight: '600' as const,
+    color: C.ink2,
   },
   requestInfo: {
     flex: 1,
   },
   teacherName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.xs,
   },
   requestSubject: {
     fontSize: 14,
-    color: '#374151',
-    marginBottom: 4,
+    fontWeight: '400' as const,
+    color: C.ink2,
+    marginBottom: S.xs,
   },
   requestTime: {
     fontSize: 12,
-    color: '#9ca3af',
+    fontWeight: '400' as const,
+    color: C.ink4,
   },
   urgentBadge: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ef4444',
+    borderRadius: R.full,
+    backgroundColor: C.ink2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   urgentText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600' as const,
   },
   descriptionContainer: {
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: C.surfaceRaised,
+    padding: S.md,
+    borderRadius: R.sm,
+    marginBottom: S.md,
   },
   descriptionLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink3,
+    marginBottom: S.xs,
   },
   descriptionText: {
     fontSize: 14,
-    color: '#374151',
+    fontWeight: '400' as const,
+    color: C.ink2,
     lineHeight: 20,
   },
   requestFooter: {
@@ -361,15 +361,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBadge: {
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surfaceAlt,
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm,
+    borderRadius: R.md,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#f59e0b',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   emptyState: {
     alignItems: 'center',
@@ -377,20 +379,18 @@ const styles = StyleSheet.create({
     paddingVertical: 80,
     paddingHorizontal: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginTop: S.lg,
+    marginBottom: S.sm,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9ca3af',
+    fontWeight: '400' as const,
+    color: C.ink4,
     textAlign: 'center',
   },
 });

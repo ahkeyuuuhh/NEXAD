@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -21,6 +23,9 @@ import { notificationService } from '../../services/notificationService';
 import { profileService, TeacherProfile } from '../../services/profileService';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { ConsultationRequest } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
+import { FloatingTabBar } from '../../components/FloatingTabBar'; // kept for future use
 
 // Dashboard data limits
 const CONSULTATION_LIMIT = 5;
@@ -32,8 +37,9 @@ interface ConsultationWithStudent extends ConsultationRequest {
 
 interface MarkedDates {
   [date: string]: {
-    marked: boolean;
-    dotColor: string;
+    dots?: Array<{ key: string; color: string; selectedDotColor: string }>;
+    marked?: boolean;
+    dotColor?: string;
     selected?: boolean;
     selectedColor?: string;
   };
@@ -67,6 +73,24 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const userId = currentUser?.user_id;
 
   const { unreadCount: realtimeUnreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(userId);
+
+  const menuAnim = useRef(new Animated.Value(300)).current;
+  const openMenu = () => {
+    setShowSideMenu(true);
+    Animated.spring(menuAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 10,
+    }).start();
+  };
+  const closeMenu = () => {
+    Animated.timing(menuAnim, {
+      toValue: 300,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => setShowSideMenu(false));
+  };
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -117,16 +141,26 @@ export default function TeacherDashboard({ navigation, route }: any) {
         })
       );
 
-      // Mark dates on calendar
+      // Mark dates on calendar — red dot for missed, blue for upcoming
+      const now = Date.now();
       const marks: MarkedDates = {};
       upcomingWithNames.forEach(consultation => {
-        if (consultation.scheduled_start_time) {
-          const date = consultation.scheduled_start_time.split('T')[0];
-          marks[date] = {
-            marked: true,
-            dotColor: '#3b82f6',
-          };
+        if (!consultation.scheduled_start_time) return;
+        const date = consultation.scheduled_start_time.split('T')[0];
+        const isPast = new Date(consultation.scheduled_start_time).getTime() < now;
+        const isMissed = isPast && consultation.status === 'accepted';
+        const dotColor = isMissed ? C.ink4 : C.ink2;
+        const dotKey = isMissed ? 'missed' : 'upcoming';
+        if (!marks[date]) {
+          marks[date] = { dots: [] };
         }
+        const existing = marks[date].dots!;
+        // Only add each type of dot once per day
+        if (!existing.some(d => d.key === dotKey)) {
+          existing.push({ key: dotKey, color: dotColor, selectedDotColor: '#fff' });
+        }
+        // Sort so missed (red) always comes first
+        marks[date].dots!.sort((a, b) => (a.key === 'missed' ? -1 : 1));
       });
       setMarkedDates(marks);
 
@@ -202,36 +236,41 @@ export default function TeacherDashboard({ navigation, route }: any) {
   };
 
   const checkIfMissed = (consultation: ConsultationWithStudent): boolean => {
-    if (!consultation.scheduled_end_time) return false;
-    const endTime = new Date(consultation.scheduled_end_time);
-    const now = new Date();
-    return now > endTime && consultation.status === 'accepted';
+    const refTime = consultation.scheduled_end_time || consultation.scheduled_start_time;
+    if (!refTime) return false;
+    return new Date(refTime).getTime() < Date.now() && consultation.status === 'accepted';
   };
 
   const getStatusDisplay = (consultation: ConsultationWithStudent) => {
     if (consultation.status === 'completed') {
-      return { text: 'Done', color: '#10b981', bgColor: '#dcfce7' };
+      return { text: 'Done', color: C.ink1, bgColor: C.ink1 };
     }
     if (consultation.status === 'cancelled') {
-      return { text: 'Cancelled', color: '#ef4444', bgColor: '#fee2e2' };
+      return { text: 'Cancelled', color: C.ink4, bgColor: C.surfaceAlt };
     }
     if (checkIfMissed(consultation)) {
-      return { text: 'Missed', color: '#f59e0b', bgColor: '#fef3c7' };
+      return { text: 'Missed', color: C.ink2, bgColor: C.surfaceAlt };
     }
-    return { text: 'Scheduled', color: '#3b82f6', bgColor: '#dbeafe' };
+    return { text: 'Scheduled', color: C.ink1, bgColor: C.action };
   };
 
   const handleDayPress = (day: DateData) => {
     const date = day.dateString;
     const consultationsOnDate = getConsultationsForDate(date);
     
-    if (consultationsOnDate.length > 0) {
-      // Show the first consultation for that date
-      setSelectedConsultation(consultationsOnDate[0]);
-      setShowDetailModal(true);
-    } else {
+    if (consultationsOnDate.length === 0) {
       Alert.alert('No Consultations', 'No consultations scheduled for this date.');
+      return;
     }
+    // Prioritise missed consultations first, then earliest upcoming
+    const sorted = [...consultationsOnDate].sort((a, b) => {
+      const aMissed = checkIfMissed(a) ? 0 : 1;
+      const bMissed = checkIfMissed(b) ? 0 : 1;
+      if (aMissed !== bMissed) return aMissed - bMissed;
+      return new Date(a.scheduled_start_time || 0).getTime() - new Date(b.scheduled_start_time || 0).getTime();
+    });
+    setSelectedConsultation(sorted[0]);
+    setShowDetailModal(true);
   };
 
   const handleMarkAsCompleted = async (consultationId: string) => {
@@ -353,7 +392,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={C.ink1} />
         <Text style={styles.loadingText}>Loading Dashboard...</Text>
       </View>
     );
@@ -361,42 +400,53 @@ export default function TeacherDashboard({ navigation, route }: any) {
 
   const profile = dashboardData.profile || currentUser;
   const fullName = `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Professor';
+  const firstName = profile?.first_name || 'Professor';
+
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{fullName[0] || 'P'}</Text>
+          <TouchableOpacity style={styles.avatarBtn} onPress={() => setShowProfileMenu(true)}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{fullName[0] || 'P'}</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerGreeting}>{getGreeting()}</Text>
+            <Text style={styles.headerTitle}>{firstName}</Text>
           </View>
-          <Text style={styles.headerTitle}>{fullName}</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.iconButton}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Text style={styles.iconText}>🔔</Text>
+            <Ionicons name="notifications-outline" size={22} color={C.ink2} />
             {realtimeUnreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{realtimeUnreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={() => setShowSideMenu(true)}
-          >
-            <Text style={styles.iconText}>☰</Text>
+          <TouchableOpacity style={styles.iconButton} onPress={openMenu}>
+            <Ionicons name="menu-outline" size={24} color={C.ink2} />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
@@ -406,26 +456,30 @@ export default function TeacherDashboard({ navigation, route }: any) {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Consultations Calendar</Text>
             <TouchableOpacity onPress={() => navigation.navigate('TeacherConsultations')}>
-              <Text style={styles.viewAllText}>View All →</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.viewAllText}>View All</Text>
+                <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
+              </View>
             </TouchableOpacity>
           </View>
           <View style={styles.calendarWrapper}>
             <Calendar
+              markingType='multi-dot'
               markedDates={markedDates}
               onDayPress={handleDayPress}
               theme={{
-                backgroundColor: '#ffffff',
-                calendarBackground: '#ffffff',
-                textSectionTitleColor: '#1f2937',
-                selectedDayBackgroundColor: '#3b82f6',
+                backgroundColor: C.surface,
+                calendarBackground: C.surface,
+                textSectionTitleColor: C.ink2,
+                selectedDayBackgroundColor: C.accent,
                 selectedDayTextColor: '#ffffff',
-                todayTextColor: '#3b82f6',
-                dayTextColor: '#1f2937',
-                textDisabledColor: '#d1d5db',
-                dotColor: '#3b82f6',
+                todayTextColor: C.accentMid,
+                dayTextColor: C.ink2,
+                textDisabledColor: C.ink5,
+                dotColor: C.accentMid,
                 selectedDotColor: '#ffffff',
-                arrowColor: '#3b82f6',
-                monthTextColor: '#1f2937',
+                arrowColor: C.accent,
+                monthTextColor: C.ink1,
                 textMonthFontWeight: 'bold',
                 textDayFontSize: 14,
                 textMonthFontSize: 16,
@@ -433,25 +487,53 @@ export default function TeacherDashboard({ navigation, route }: any) {
               }}
             />
           </View>
+          {/* Dot legend */}
+          <View style={styles.calendarLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
+              <Text style={styles.legendText}>Scheduled</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: C.ink4 }]} />
+              <Text style={styles.legendText}>Missed</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Quick Stats Card */}
+        {/* Quick Stats Row */}
         <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.statsCard}
-            onPress={() => navigation.navigate('TeacherConsultations')}
-          >
-            <View style={styles.calendarCardContent}>
-              <Text style={styles.calendarIcon}>📊</Text>
-              <View style={styles.calendarInfo}>
-                <Text style={styles.calendarTitle}>Quick Stats</Text>
-                <Text style={styles.calendarSubtext}>
-                  {dashboardData.upcomingAppointments.length} upcoming • {dashboardData.pendingRequests.length} pending
-                </Text>
+          <View style={styles.statsRow}>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => navigation.navigate('TeacherConsultations')}
+            >
+              <View style={[styles.statIconCircle, { backgroundColor: C.accentSoft }]}>
+                <Ionicons name="calendar" size={20} color={C.accent} />
               </View>
-              <Text style={styles.calendarArrow}>→</Text>
-            </View>
-          </TouchableOpacity>
+              <Text style={styles.statNumber}>{dashboardData.upcomingAppointments.length}</Text>
+              <Text style={styles.statLabel}>Upcoming</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => navigation.navigate('AllRequests')}
+            >
+              <View style={[styles.statIconCircle, { backgroundColor: C.warmLight }]}>
+                <Ionicons name="hourglass" size={20} color={C.warm} />
+              </View>
+              <Text style={styles.statNumber}>{dashboardData.pendingRequests.length}</Text>
+              <Text style={styles.statLabel}>Pending</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => Alert.alert('Messages', 'View all messages')}
+            >
+              <View style={[styles.statIconCircle, { backgroundColor: C.infoBg }]}>
+                <Ionicons name="chatbubble" size={20} color={C.info} />
+              </View>
+              <Text style={styles.statNumber}>{dashboardData.unreadMessages.length}</Text>
+              <Text style={styles.statLabel}>Messages</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Pending Requests */}
@@ -460,7 +542,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
             <Text style={styles.sectionTitle}>Pending Requests</Text>
             {dashboardData.pendingRequests.length > 4 && (
               <TouchableOpacity onPress={() => navigation.navigate('AllRequests')}>
-                <Text style={styles.viewAllText}>View All →</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.viewAllText}>View All</Text>
+                  <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -507,7 +592,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
             <Text style={styles.sectionTitle}>Unread Messages</Text>
             {dashboardData.unreadMessages.length > MESSAGE_LIMIT && (
               <TouchableOpacity onPress={() => Alert.alert('Coming Soon', 'View all messages')}>
-                <Text style={styles.viewAllText}>View All →</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.viewAllText}>View All</Text>
+                  <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -537,77 +625,85 @@ export default function TeacherDashboard({ navigation, route }: any) {
         </View>
       </ScrollView>
 
-      {/* Side Menu Modal */}
-      <Modal
-        visible={showSideMenu}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSideMenu(false)}
-      >
-        <View style={styles.sideMenuContainer}>
-          <TouchableOpacity 
-            style={styles.sideMenuOverlay}
-            activeOpacity={1}
-            onPress={() => setShowSideMenu(false)}
-          />
-          <View style={styles.sideMenu}>
-            <View style={styles.sideMenuHeader}>
-              <Text style={styles.sideMenuTitle}>NEXAD</Text>
-              <TouchableOpacity onPress={() => setShowSideMenu(false)}>
-                <Text style={styles.closeIcon}>✕</Text>
+      {/* Burger Menu Drawer */}
+      <Modal visible={showSideMenu} transparent animationType="none" onRequestClose={closeMenu}>
+        <View style={styles.drawerOverlay}>
+          <TouchableOpacity style={styles.drawerBackdrop} activeOpacity={1} onPress={closeMenu} />
+          <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerAvatar}>
+                <Text style={styles.drawerAvatarText}>{fullName[0] || 'P'}</Text>
+              </View>
+              <View style={styles.drawerHeaderInfo}>
+                <Text style={styles.drawerName}>{fullName}</Text>
+                <Text style={styles.drawerRole}>Teacher</Text>
+              </View>
+              <TouchableOpacity onPress={closeMenu} style={styles.drawerClose}>
+                <Ionicons name="close" size={20} color={C.ink3} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-            }}>
-              <Text style={styles.menuItemText}>🏠 Dashboard</Text>
+            <View style={styles.drawerDivider} />
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); }}>
+              <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              navigation.navigate('TeacherConsultations');
-            }}>
-              <Text style={styles.menuItemText}>📅 My Consultations</Text>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ClassroomHub'); }}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              navigation.navigate('AllRequests');
-            }}>
-              <Text style={styles.menuItemText}>📝 All Requests</Text>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AllRequests'); }}>
+              <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Requests</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              navigation.navigate('ClassroomHub');
-            }}>
-              <Text style={styles.menuItemText}>🏫 Classroom Hub</Text>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherConsultations'); }}>
+              <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Messages</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              navigation.navigate('Notifications');
-            }}>
-              <Text style={styles.menuItemText}>🔔 Notifications</Text>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
+              <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Consultation History</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              navigation.navigate('ConsultationHistory');
-            }}>
-              <Text style={styles.menuItemText}>📋 History</Text>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Notifications'); }}>
+              <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Notifications</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowSideMenu(false);
-              Alert.alert('Coming Soon', 'Profile Settings');
-            }}>
-              <Text style={styles.menuItemText}>⚙️ Settings</Text>
+            <View style={styles.drawerDivider} />
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); handleSignOut(); }}>
+              <Ionicons name="log-out-outline" size={20} color={C.red} style={styles.drawerItemIcon} />
+              <Text style={[styles.drawerItemText, { color: C.red }]}>Sign Out</Text>
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={[styles.menuItem, styles.signOutItem]} onPress={() => {
-              setShowSideMenu(false);
-              handleSignOut();
-            }}>
-              <Text style={[styles.menuItemText, styles.signOutText]}>🚪 Sign Out</Text>
-            </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
+
+      {/* Profile Menu Modal */}
+      <Modal visible={showProfileMenu} transparent animationType="fade" onRequestClose={() => setShowProfileMenu(false)}>
+        <TouchableOpacity style={styles.profileOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
+          <View style={styles.profileMenu}>
+            <View style={styles.profileMenuHeader}>
+              <View style={styles.profileMenuAvatar}>
+                <Text style={styles.profileMenuAvatarText}>{fullName[0] || 'P'}</Text>
+              </View>
+              <View style={styles.profileMenuInfo}>
+                <Text style={styles.profileMenuName}>{fullName}</Text>
+                <Text style={styles.profileMenuEmail}>{dashboardData.profile?.email || currentUser?.email || ''}</Text>
+              </View>
+            </View>
+            <View style={styles.profileMenuDivider} />
+            <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+              <Ionicons name="person-outline" size={18} color={C.ink2} style={{ marginRight: S.md }} />
+              <Text style={styles.profileMenuItemText}>Account Profile Settings</Text>
+            </TouchableOpacity>
+            <View style={styles.profileMenuDivider} />
+            <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); handleSignOut(); }}>
+              <Ionicons name="log-out-outline" size={18} color={C.red} style={{ marginRight: S.md }} />
+              <Text style={[styles.profileMenuItemText, { color: C.red }]}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+
 
       {/* Consultation Detail Modal */}
       <Modal
@@ -626,7 +722,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
                     onPress={() => setShowDetailModal(false)}
                     style={styles.closeButton2}
                   >
-                    <Text style={styles.closeButtonText2}>✕</Text>
+                    <Ionicons name="close" size={20} color={C.ink3} />
                   </TouchableOpacity>
                 </View>
 
@@ -678,22 +774,29 @@ export default function TeacherDashboard({ navigation, route }: any) {
                         style={styles.modalActionButton2}
                         onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
                       >
-                        <Text style={styles.modalActionButtonText2}>✓ Mark as Done</Text>
+                        <Text style={styles.modalActionButtonText2}>
+                          <Ionicons name="checkmark" size={16} color={C.actionText} /> Mark as Done
+                        </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.modalActionButton2, styles.cancelButton2]}
                         onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
                       >
-                        <Text style={[styles.modalActionButtonText2, styles.cancelButtonText2]}>✕ Cancel Consultation</Text>
+                        <Text style={[styles.modalActionButtonText2, styles.cancelButtonText2]}>
+                          <Ionicons name="close" size={16} color={C.ink2} /> Cancel Consultation
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   )}
 
                   {checkIfMissed(selectedConsultation) && (
                     <View style={styles.missedNotice2}>
-                      <Text style={styles.missedNoticeText2}>
-                        ⚠️ This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                        <Ionicons name="warning-outline" size={16} color={C.ink2} style={{ marginRight: 6, marginTop: 2 }} />
+                        <Text style={styles.missedNoticeText2}>
+                          This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
+                        </Text>
+                      </View>
                     </View>
                   )}
                 </ScrollView>
@@ -707,401 +810,156 @@ export default function TeacherDashboard({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6b7280',
-  },
+  container:        { flex: 1, backgroundColor: C.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  loadingText:      { marginTop: S.md, ...T.body, color: C.ink4 },
+
+  // ─── Header ───────────────────────────────────────────
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md,
+    backgroundColor: C.bg,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2563eb',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  iconText: {
-    fontSize: 20,
-  },
-  badge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#2563eb',
-    fontWeight: '500',
-  },
-  calendarCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  calendarWrapper: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  calendarCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  calendarIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  calendarInfo: {
-    flex: 1,
-  },
-  calendarTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  calendarSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  calendarArrow: {
-    fontSize: 20,
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
+  headerLeft:    { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  avatar:        { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
+  avatarText:    { color: C.ink1, fontSize: 19, fontWeight: '600' as const },
+  headerTextWrap:{ flex: 1 },
+  headerGreeting:{ ...T.small, color: C.ink3, marginBottom: 2 },
+  headerTitle:   { ...T.h2, color: C.ink1 },
+  headerRight:   { flexDirection: 'row', gap: S.sm },
+  avatarBtn:     { },
+
+  iconButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderLight, position: 'relative' },
+  badge:      { position: 'absolute', top: -2, right: -2, backgroundColor: C.red, borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: C.bg },
+  badgeText:  { color: '#fff', fontSize: 10, fontWeight: '700' as const },
+
+  // ─── Content ──────────────────────────────────────────
+  content:       { flex: 1 },
+  section:       { marginTop: S.xl, paddingHorizontal: S.xl },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.lg },
+  sectionTitle:  { ...T.h3, color: C.ink1 },
+  viewAllText:   { ...T.label, color: C.accent },
+
+  // ─── Stats Row ────────────────────────────────────────
+  statsRow:       { flexDirection: 'row', gap: S.md },
+  statCard:       { flex: 1, backgroundColor: C.surface, borderRadius: R.xl, padding: S.lg, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight, ...shadow.soft },
+  statIconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginBottom: S.sm },
+  statNumber:     { ...T.h1, color: C.ink1, marginBottom: 2 },
+  statLabel:      { ...T.small, color: C.ink3 },
+
+  // ─── Calendar ─────────────────────────────────────────
+  calendarWrapper: { backgroundColor: C.surface, borderRadius: R.xl, overflow: 'hidden', borderWidth: 1, borderColor: C.borderLight, ...shadow.soft },
+  calendarLegend:  { flexDirection: 'row', justifyContent: 'center', gap: 24, paddingVertical: S.md, paddingHorizontal: S.lg, borderTopWidth: 1, borderTopColor: C.borderLight },
+  legendItem:      { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot:       { width: 10, height: 10, borderRadius: 5 },
+  legendText:      { ...T.tiny },
+
+  // ─── Request Cards ────────────────────────────────────
   requestCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  requestCardHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  requestAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e5e7eb',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  requestAvatarText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  requestInfo: {
-    flex: 1,
-  },
-  requestName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  requestSubject: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  requestDate: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  messageCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  messageHeader: {
-    marginBottom: 8,
-  },
-  messageSubject: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  messagePreview: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  emptyState: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#9ca3af',
-  },
-  sideMenuContainer: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  sideMenuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  sideMenu: {
-    width: '75%',
-    backgroundColor: '#ffffff',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-  },
-  sideMenuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 32,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  sideMenuTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#6B4EFF',
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: '#6b7280',
-  },
-  menuItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: '#1f2937',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 8,
-  },
-  signOutItem: {
-    marginTop: 8,
-  },
-  signOutText: {
-    color: '#ef4444',
-    fontWeight: '600',
-  },
-  modalOverlay2: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent2: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingBottom: 20,
-  },
-  modalHeader2: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle2: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  closeButton2: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText2: {
-    fontSize: 20,
-    color: '#6b7280',
-  },
-  modalBody2: {
-    padding: 20,
-  },
-  modalSection2: {
-    marginBottom: 20,
-  },
-  modalLabel2: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 6,
-  },
-  modalValue2: {
-    fontSize: 16,
-    color: '#1f2937',
-    lineHeight: 24,
-  },
-  modalStatusContainer2: {
-    flexDirection: 'row',
-  },
-  modalStatusBadge2: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  modalStatusText2: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalActions2: {
-    marginTop: 20,
-    gap: 12,
-  },
-  modalActionButton2: {
-    backgroundColor: '#10b981',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  modalActionButtonText2: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton2: {
-    backgroundColor: '#ef4444',
-  },
-  cancelButtonText2: {
-    color: '#fff',
-  },
-  missedNotice2: {
-    backgroundColor: '#fef3c7',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.lg,
+    marginBottom: S.md,
     borderWidth: 1,
-    borderColor: '#fbbf24',
+    borderColor: C.borderLight,
+    ...shadow.soft,
   },
-  missedNoticeText2: {
-    fontSize: 14,
-    color: '#92400e',
-    lineHeight: 20,
+  requestCardHeader: { flexDirection: 'row' },
+  requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
+  requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink2 },
+  requestInfo:       { flex: 1 },
+  requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4 },
+  requestSubject:    { ...T.small, color: C.ink3, marginBottom: 4 },
+  requestDate:       { ...T.tiny },
+
+  // ─── Message Cards ────────────────────────────────────
+  messageCard: {
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.lg,
+    marginBottom: S.md,
+    borderWidth: 1,
+    borderColor: C.borderLight,
+    ...shadow.soft,
   },
+  messageHeader:  { marginBottom: S.sm },
+  messageSubject: { ...T.label, color: C.ink1, fontSize: 14 },
+  messagePreview: { ...T.small, color: C.ink3, lineHeight: 20 },
+
+  // ─── Empty State ──────────────────────────────────────
+  emptyState:     { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
+  emptyStateText: { ...T.body, color: C.ink4 },
+
+  // ─── Burger Drawer ────────────────────────────────────
+  drawerOverlay:    { flex: 1, flexDirection: 'row', backgroundColor: 'transparent' },
+  drawerBackdrop:   { flex: 1, backgroundColor: C.scrim },
+  drawer:           { width: 300, backgroundColor: C.surface, paddingTop: 60, paddingBottom: 32, borderTopLeftRadius: R.xl, borderBottomLeftRadius: R.xl, ...shadow.lift },
+  drawerHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingBottom: S.lg },
+  drawerAvatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
+  drawerAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
+  drawerHeaderInfo: { flex: 1 },
+  drawerName:       { ...T.label, color: C.ink1, fontSize: 15 },
+  drawerRole:       { ...T.small, color: C.ink3, marginTop: 2 },
+  drawerClose:      { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  drawerDivider:    { height: 1, backgroundColor: C.borderLight, marginHorizontal: S.xl, marginVertical: S.sm },
+  drawerItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingVertical: 14 },
+  drawerItemIcon:   { marginRight: S.lg },
+  drawerItemText:   { ...T.body, color: C.ink1 },
+
+  // ─── Profile Menu ─────────────────────────────────────
+  profileOverlay:        { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-start', alignItems: 'flex-start', paddingTop: 72, paddingLeft: S.xl },
+  profileMenu:           { backgroundColor: C.surface, borderRadius: R.xl, width: 280, padding: S.xl, ...shadow.lift },
+  profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
+  profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md },
+  profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
+  profileMenuInfo:       { flex: 1 },
+  profileMenuName:       { ...T.label, color: C.ink1, fontSize: 14 },
+  profileMenuEmail:      { ...T.small, color: C.ink3, marginTop: 2 },
+  profileMenuDivider:    { height: 1, backgroundColor: C.borderLight, marginVertical: S.sm },
+  profileMenuItem:       { flexDirection: 'row', alignItems: 'center', paddingVertical: S.md, paddingHorizontal: S.sm, borderRadius: R.md },
+  profileMenuItemText:   { ...T.body, color: C.ink1 },
+
+  // ─── Side Menu (kept for TS compat) ───────────────────
+  sideMenuContainer:  { flex: 1, flexDirection: 'row' },
+  sideMenuOverlay:    { flex: 1, backgroundColor: C.scrim },
+  sideMenu:           { width: '75%', backgroundColor: C.surface, paddingTop: 60, paddingHorizontal: S.xl },
+  sideMenuHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, paddingBottom: S.lg, borderBottomWidth: 1, borderBottomColor: C.borderLight },
+  sideMenuTitle:      { ...T.h2, color: C.ink1 },
+  menuItem:           { paddingVertical: S.lg, paddingHorizontal: S.md, borderRadius: R.md },
+  menuItemText:       { ...T.body, color: C.ink1 },
+  menuDivider:        { height: 1, backgroundColor: C.borderLight, marginVertical: S.sm },
+  signOutItem:        { marginTop: S.sm },
+  signOutText:        { color: C.red, fontWeight: '600' as const },
+
+  // ─── Detail Modal ─────────────────────────────────────
+  modalOverlay2:      { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },
+  modalContent2:      { backgroundColor: C.surface, borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl, maxHeight: '80%', paddingBottom: S.xl },
+  modalHeader2:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.xl, borderBottomWidth: 1, borderBottomColor: C.borderLight },
+  modalTitle2:        { ...T.h2 },
+  closeButton2:       { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  closeButtonText2:   { fontSize: 20, color: C.ink3 },
+  modalBody2:         { padding: S.xl },
+  modalSection2:      { marginBottom: S.xl },
+  modalLabel2:        { ...T.cap, color: C.ink4, marginBottom: 8 },
+  modalValue2:        { ...T.body, color: C.ink1, lineHeight: 24 },
+  modalStatusContainer2: { flexDirection: 'row' },
+  modalStatusBadge2:  { paddingHorizontal: S.lg, paddingVertical: S.sm, borderRadius: R.full },
+  modalStatusText2:   { ...T.label, fontWeight: '600' as const },
+  modalActions2:      { marginTop: S.xl, gap: S.md },
+  modalActionButton2: { backgroundColor: C.accent, paddingVertical: 16, borderRadius: R.lg, alignItems: 'center', ...shadow.soft },
+  modalActionButtonText2: { ...T.label, color: C.accentText, fontSize: 16 },
+  cancelButton2:      { backgroundColor: C.surfaceAlt },
+  cancelButtonText2:  { color: C.ink2 },
+  missedNotice2:      { backgroundColor: C.surfaceAlt, padding: S.lg, borderRadius: R.lg, marginTop: S.xl, borderWidth: 1, borderColor: C.borderLight },
+  missedNoticeText2:  { ...T.small, color: C.ink2, lineHeight: 20 },
+
+  // ─── Legacy (unused but kept for TS) ──────────────────
+  statsCard:           { backgroundColor: C.surface, borderRadius: R.xl, padding: S.xl, ...shadow.card },
+  calendarCard:        { backgroundColor: C.surface, borderRadius: R.xl, padding: S.xl, ...shadow.card },
+  calendarCardContent: { flexDirection: 'row', alignItems: 'center' },
+  calendarIcon:        { marginRight: S.lg },
+  calendarInfo:        { flex: 1 },
+  calendarTitle:       { ...T.label, color: C.ink1, marginBottom: 4 },
+  calendarSubtext:     { ...T.small, color: C.ink3 },
+  calendarArrow:       { fontSize: 20, color: C.ink2, fontWeight: '600' as const },
 });

@@ -8,11 +8,14 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
+import { C, F, S, R, shadow } from '../../config/theme';
 
 export default function CreateClassroomScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -62,17 +65,19 @@ export default function CreateClassroomScreen({ navigation }: any) {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.title}>Create Classroom</Text>
       </View>
 
       <View style={styles.form}>
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color="#007AFF" />
+          <Ionicons name="information-circle" size={20} color={C.ink3} />
           <Text style={styles.infoText}>
             A unique 6-digit invite code will be generated for students to join your classroom
           </Text>
@@ -85,7 +90,7 @@ export default function CreateClassroomScreen({ navigation }: any) {
             value={name}
             onChangeText={setName}
             placeholder="e.g., CS101 - Introduction to Programming"
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             maxLength={100}
           />
           <Text style={styles.hint}>{name.length}/100</Text>
@@ -98,7 +103,7 @@ export default function CreateClassroomScreen({ navigation }: any) {
             value={description}
             onChangeText={setDescription}
             placeholder="Add details about this classroom..."
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -113,10 +118,10 @@ export default function CreateClassroomScreen({ navigation }: any) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={C.actionText} />
           ) : (
             <>
-              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Ionicons name="add-circle" size={20} color={C.actionText} />
               <Text style={styles.createButtonText}>Create Classroom</Text>
             </>
           )}
@@ -131,103 +136,119 @@ export default function CreateClassroomScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: C.surface,
+    paddingHorizontal: S.xl,
+    paddingTop: S.xxl,
+    paddingBottom: S.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: S.md,
+    ...shadow.soft,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700' as const,
+    color: C.ink1,
   },
   form: {
-    padding: 20,
+    padding: S.xl,
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    gap: 12,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.lg,
+    padding: S.lg,
+    marginBottom: S.xl2,
+    gap: S.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#1976D2',
+    fontWeight: '400' as const,
+    color: C.ink3,
     lineHeight: 20,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: S.xl2,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginBottom: S.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.lg,
     fontSize: 16,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    fontWeight: '400' as const,
+    color: C.ink1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   textArea: {
     minHeight: 120,
-    paddingTop: 16,
+    paddingTop: S.lg,
   },
   hint: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    fontWeight: '400' as const,
+    color: C.ink4,
+    marginTop: S.xs,
     textAlign: 'right',
   },
   createButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: C.action,
+    borderRadius: R.lg,
+    paddingVertical: S.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: S.sm,
+    marginTop: S.sm,
+    ...shadow.lift,
   },
   createButtonDisabled: {
     opacity: 0.6,
   },
   createButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   cancelButton: {
-    paddingVertical: 16,
+    paddingVertical: S.lg,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: S.md,
   },
   cancelButtonText: {
-    color: '#007AFF',
+    color: C.ink3,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
 });

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
 import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import { notificationService } from '../../services/notificationService';
@@ -21,6 +22,7 @@ import { aiService } from '../../services/aiService';
 import { documentService } from '../../services/documentService';
 import type { ConsultationRequest } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { C, T, S, R, F, shadow } from '../../config/theme';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -99,7 +101,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           const date = consultation.scheduled_start_time.split('T')[0];
           marks[date] = {
             marked: true,
-            dotColor: '#ef4444',
+            dotColor: C.ink4,
           };
         }
       });
@@ -326,7 +328,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Request Details</Text>
         <View style={styles.placeholder} />
@@ -380,7 +382,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>AI Smart Brief</Text>
             <View style={styles.loadingBrief}>
-              <ActivityIndicator size="small" color="#3b82f6" />
+              <ActivityIndicator size="small" color={C.ink2} />
               <Text style={styles.loadingBriefText}>Generating smart brief...</Text>
             </View>
           </View>
@@ -397,7 +399,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             {smartBrief.summary && (
               <View style={styles.smartBriefCard}>
                 <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>📋 Summary</Text>
+                  <Text style={styles.briefLabel}><Ionicons name="clipboard-outline" size={16} color={C.ink2} /> Summary</Text>
                   <Text style={styles.briefText}>{smartBrief.summary}</Text>
                 </View>
               </View>
@@ -422,7 +424,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             {smartBrief.student_concerns && smartBrief.student_concerns.length > 0 && (
               <View style={styles.smartBriefCard}>
                 <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>⚠️ Student Concerns</Text>
+                  <Text style={styles.briefLabel}><Ionicons name="alert-circle-outline" size={16} color={C.ink2} /> Student Concerns</Text>
                   <View style={styles.concernsContainer}>
                     {smartBrief.student_concerns.map((concern: string, index: number) => (
                       <View key={index} style={styles.concernChip}>
@@ -475,16 +477,16 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         {/* Uploaded Documents/Drafts Section */}
         {isLoadingDocuments ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📎 Student Documents</Text>
+            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents</Text>
             <View style={styles.loadingBrief}>
-              <ActivityIndicator size="small" color="#3b82f6" />
+              <ActivityIndicator size="small" color={C.ink2} />
               <Text style={styles.loadingBriefText}>Loading documents...</Text>
             </View>
           </View>
         ) : uploadedDocuments.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.smartBriefHeader}>
-              <Text style={styles.sectionTitle}>📎 Student Documents & Drafts</Text>
+              <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents & Drafts</Text>
               <View style={styles.documentBadge}>
                 <Text style={styles.documentBadgeText}>{uploadedDocuments.length} file(s)</Text>
               </View>
@@ -515,9 +517,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 }}
               >
                 <View style={styles.documentIcon}>
-                  <Text style={styles.documentIconText}>
-                    {doc.file_name?.endsWith('.pdf') ? '📄' : '📝'}
-                  </Text>
+                  <Ionicons name={doc.file_name?.endsWith('.pdf') ? 'document-outline' : 'document-text-outline'} size={16} color={C.ink3} />
                 </View>
                 <View style={styles.documentInfo}>
                   <Text style={styles.documentName} numberOfLines={1}>
@@ -528,13 +528,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                     {doc.uploaded_at ? ` Uploaded ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
                   </Text>
                 </View>
-                <Text style={styles.documentArrow}>→</Text>
+                <Ionicons name="chevron-forward" size={16} color={C.ink4} style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📎 Student Documents & Drafts</Text>
+            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents & Drafts</Text>
             <View style={styles.noDataCard}>
               <Text style={styles.noDataText}>
                 No documents uploaded for this consultation.
@@ -549,7 +549,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           <Text style={styles.calendarSubtext}>Red dots indicate existing consultations</Text>
           
           {isLoadingConsultations ? (
-            <ActivityIndicator size="large" color="#3b82f6" style={{ marginVertical: 20 }} />
+            <ActivityIndicator size="large" color={C.ink2} style={{ marginVertical: 20 }} />
           ) : (
             <View style={styles.calendarContainer}>
               <Calendar
@@ -558,7 +558,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                   [selectedDate.toISOString().split('T')[0]]: {
                     ...markedDates[selectedDate.toISOString().split('T')[0]],
                     selected: true,
-                    selectedColor: '#3b82f6',
+                    selectedColor: C.ink1,
                   },
                 }}
                 onDayPress={(day: DateData) => {
@@ -566,18 +566,18 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 }}
                 minDate={new Date().toISOString().split('T')[0]}
                 theme={{
-                  backgroundColor: '#ffffff',
-                  calendarBackground: '#ffffff',
-                  textSectionTitleColor: '#1f2937',
-                  selectedDayBackgroundColor: '#3b82f6',
+                  backgroundColor: C.surface,
+                  calendarBackground: C.surface,
+                  textSectionTitleColor: C.ink1,
+                  selectedDayBackgroundColor: C.ink1,
                   selectedDayTextColor: '#ffffff',
-                  todayTextColor: '#3b82f6',
-                  dayTextColor: '#1f2937',
-                  textDisabledColor: '#d1d5db',
-                  dotColor: '#ef4444',
+                  todayTextColor: C.ink1,
+                  dayTextColor: C.ink1,
+                  textDisabledColor: C.border,
+                  dotColor: C.ink4,
                   selectedDotColor: '#ffffff',
-                  arrowColor: '#3b82f6',
-                  monthTextColor: '#1f2937',
+                  arrowColor: C.ink1,
+                  monthTextColor: C.ink1,
                   textMonthFontWeight: 'bold',
                 }}
               />
@@ -787,7 +787,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           </Modal>
 
           <Text style={styles.timeNote}>
-            ⚠️ System will check for conflicts with existing consultations
+            <Ionicons name="alert-circle-outline" size={12} color={C.ink3} /> System will check for conflicts with existing consultations
           </Text>
 
           {/* Classroom Number Input */}
@@ -815,7 +815,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               {isSubmitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.approveButtonText}>✓ Approve & Schedule</Text>
+                <Text style={styles.approveButtonText}><Ionicons name="checkmark" size={16} color="#fff" /> Approve & Schedule</Text>
               )}
             </TouchableOpacity>
 
@@ -824,7 +824,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               onPress={handleDecline}
               disabled={isSubmitting}
             >
-              <Text style={styles.declineButtonText}>✕ Decline Request</Text>
+              <Text style={styles.declineButtonText}><Ionicons name="close" size={16} color="#fff" /> Decline Request</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -836,7 +836,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
@@ -844,21 +844,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: C.border,
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
     fontSize: 24,
-    color: '#2563eb',
+    color: C.ink2,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 40,
@@ -867,56 +867,56 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     padding: 16,
     marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 16,
   },
   studentCard: {
     flexDirection: 'row',
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: C.border,
   },
   studentAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   studentInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 6,
   },
   requestSubject: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '400' as const,
+    color: C.ink1,
     marginBottom: 8,
   },
   requestDescription: {
     fontSize: 13,
-    color: '#6b7280',
+    color: C.ink3,
     lineHeight: 18,
     marginBottom: 12,
   },
@@ -926,18 +926,18 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
     marginRight: 6,
   },
   metaValue: {
     fontSize: 12,
-    color: '#374151',
+    color: C.ink1,
     flex: 1,
   },
   urgentBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#ef4444',
+    backgroundColor: C.ink2,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 4,
@@ -945,11 +945,11 @@ const styles = StyleSheet.create({
   },
   urgentText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600' as const,
     color: '#fff',
   },
   calendarContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     overflow: 'hidden',
     elevation: 2,
@@ -960,17 +960,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   existingConsultations: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: C.surfaceAlt,
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#fbbf24',
+    borderColor: C.border,
   },
   existingTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#92400e',
+    fontWeight: '600' as const,
+    color: C.ink3,
     marginBottom: 8,
   },
   existingItem: {
@@ -980,15 +980,15 @@ const styles = StyleSheet.create({
   },
   existingTime: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#92400e',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   existingStudent: {
     fontSize: 12,
-    color: '#92400e',
+    color: C.ink3,
   },
   calendarPlaceholder: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 40,
     alignItems: 'center',
@@ -1000,13 +1000,13 @@ const styles = StyleSheet.create({
   },
   calendarText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
     marginBottom: 4,
   },
   calendarSubtext: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: C.ink4,
     textAlign: 'center',
   },
   inputGroup: {
@@ -1014,24 +1014,24 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: C.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1f2937',
+    color: C.ink1,
   },
   pickerButton: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: C.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 14,
@@ -1041,8 +1041,8 @@ const styles = StyleSheet.create({
   },
   pickerButtonText: {
     fontSize: 16,
-    color: '#1f2937',
-    fontWeight: '500',
+    color: C.ink1,
+    fontWeight: '400' as const,
   },
   pickerIcon: {
     fontSize: 20,
@@ -1056,10 +1056,10 @@ const styles = StyleSheet.create({
   },
   timeNote: {
     fontSize: 12,
-    color: '#92400e',
+    color: C.ink3,
     fontStyle: 'italic',
     marginTop: 8,
-    backgroundColor: '#fef3c7',
+    backgroundColor: C.surfaceAlt,
     padding: 8,
     borderRadius: 6,
   },
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   approveButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: C.action,
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1076,10 +1076,10 @@ const styles = StyleSheet.create({
   approveButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   declineButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: C.ink4,
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
   declineButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -1099,7 +1099,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   timePickerModal: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -1107,8 +1107,8 @@ const styles = StyleSheet.create({
   },
   timePickerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -1122,36 +1122,36 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
     marginBottom: 10,
     textAlign: 'center',
   },
   timePickerScroll: {
     maxHeight: 200,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: C.border,
     borderRadius: 8,
   },
   timePickerOption: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: C.surfaceAlt,
   },
   timePickerOptionSelected: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.surfaceAlt,
   },
   timePickerOptionText: {
     fontSize: 16,
-    color: '#374151',
+    color: C.ink1,
     textAlign: 'center',
   },
   timePickerOptionTextSelected: {
-    color: '#1e40af',
-    fontWeight: '700',
+    color: C.ink1,
+    fontWeight: '600' as const,
   },
   timePickerDoneButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.action,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -1159,11 +1159,11 @@ const styles = StyleSheet.create({
   timePickerDoneText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600' as const,
   },
   helperText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: C.ink3,
     marginTop: 6,
     fontStyle: 'italic',
   },
@@ -1174,25 +1174,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   smartBriefCard: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: C.border,
   },
   briefSection: {
     gap: 8,
   },
   briefLabel: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 8,
   },
   briefText: {
     fontSize: 14,
-    color: '#4b5563',
+    color: C.ink2,
     lineHeight: 20,
   },
   bulletPoint: {
@@ -1202,12 +1202,12 @@ const styles = StyleSheet.create({
   },
   bullet: {
     fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '700',
+    color: C.ink2,
+    fontWeight: '600' as const,
   },
   bulletText: {
     fontSize: 14,
-    color: '#4b5563',
+    color: C.ink2,
     lineHeight: 20,
     flex: 1,
   },
@@ -1218,35 +1218,35 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   concernChip: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#F2F2F2',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#f59e0b',
+    borderColor: '#6B6B6B',
   },
   concernText: {
     fontSize: 13,
     color: '#92400e',
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   durationText: {
     fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '700',
+    color: '#3D3D3D',
+    fontWeight: '600' as const,
   },
   confidenceBadge: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.surfaceAlt,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: C.border,
   },
   confidenceText: {
     fontSize: 11,
-    color: '#1e40af',
-    fontWeight: '700',
+    color: C.ink1,
+    fontWeight: '600' as const,
   },
   loadingBrief: {
     flexDirection: 'row',
@@ -1254,7 +1254,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     padding: 20,
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderRadius: 12,
   },
   loadingBriefText: {
@@ -1263,17 +1263,17 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   documentBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: C.surfaceAlt,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#16a34a',
+    borderColor: C.border,
   },
   documentBadgeText: {
     fontSize: 11,
-    color: '#15803d',
-    fontWeight: '700',
+    color: C.ink2,
+    fontWeight: '600' as const,
   },
   documentsSubtext: {
     fontSize: 13,
@@ -1284,9 +1284,9 @@ const styles = StyleSheet.create({
   documentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: C.border,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
   documentIcon: {
     width: 40,
     height: 40,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surfaceAlt,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1308,28 +1308,28 @@ const styles = StyleSheet.create({
   },
   documentName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 2,
   },
   documentMeta: {
     fontSize: 12,
-    color: '#6b7280',
+    color: C.ink3,
   },
   documentArrow: {
     fontSize: 18,
-    color: '#3b82f6',
+    color: C.ink2,
     marginLeft: 8,
   },
   noDataCard: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
   },
   noDataText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: C.ink3,
     textAlign: 'center',
     fontStyle: 'italic',
   },

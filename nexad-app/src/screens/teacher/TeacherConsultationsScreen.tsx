@@ -16,7 +16,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { notificationService } from '../../services/notificationService';
 import { profileService } from '../../services/profileService';
+import { Ionicons } from '@expo/vector-icons';
 import type { ConsultationRequest } from '../../types';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -79,7 +81,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           const date = consultation.scheduled_start_time.split('T')[0];
           marks[date] = {
             marked: true,
-            dotColor: '#3b82f6',
+            dotColor: C.ink2,
           };
         }
       });
@@ -113,7 +115,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
       updatedMarks[key] = {
         ...markedDates[key],
         selected: key === date,
-        selectedColor: key === date ? '#3b82f6' : undefined,
+        selectedColor: key === date ? C.ink2 : undefined,
       };
     });
     
@@ -121,9 +123,9 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
     if (!updatedMarks[date]) {
       updatedMarks[date] = {
         marked: false,
-        dotColor: '#3b82f6',
+        dotColor: C.ink2,
         selected: true,
-        selectedColor: '#3b82f6',
+        selectedColor: C.ink2,
       };
     }
     
@@ -241,15 +243,15 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
 
   const getStatusDisplay = (consultation: ConsultationWithStudent) => {
     if (consultation.status === 'completed') {
-      return { text: 'Done', color: '#10b981', bgColor: '#dcfce7' };
+      return { text: 'Done', color: '#fff', bgColor: C.ink2 };
     }
     if (consultation.status === 'cancelled') {
-      return { text: 'Cancelled', color: '#ef4444', bgColor: '#fee2e2' };
+      return { text: 'Cancelled', color: C.ink3, bgColor: C.surfaceAlt };
     }
     if (checkIfMissed(consultation)) {
-      return { text: 'Missed', color: '#f59e0b', bgColor: '#fef3c7' };
+      return { text: 'Missed', color: C.ink3, bgColor: C.surfaceAlt };
     }
-    return { text: 'Scheduled', color: '#3b82f6', bgColor: '#dbeafe' };
+    return { text: 'Scheduled', color: C.ink2, bgColor: C.surfaceAlt };
   };
 
   const selectedDateConsultations = selectedDate ? getConsultationsForDate(selectedDate) : [];
@@ -258,7 +260,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading consultations...</Text>
         </View>
       </SafeAreaView>
@@ -273,7 +275,8 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={18} color={C.ink2} />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Consultations</Text>
         <View style={styles.placeholder} />
@@ -290,18 +293,18 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
             markedDates={markedDates}
             onDayPress={onDayPress}
             theme={{
-              backgroundColor: '#ffffff',
-              calendarBackground: '#ffffff',
-              textSectionTitleColor: '#1f2937',
-              selectedDayBackgroundColor: '#3b82f6',
+              backgroundColor: C.surface,
+              calendarBackground: C.surface,
+              textSectionTitleColor: C.ink1,
+              selectedDayBackgroundColor: C.ink1,
               selectedDayTextColor: '#ffffff',
-              todayTextColor: '#3b82f6',
-              dayTextColor: '#1f2937',
-              textDisabledColor: '#d1d5db',
-              dotColor: '#3b82f6',
+              todayTextColor: C.ink1,
+              dayTextColor: C.ink1,
+              textDisabledColor: C.border,
+              dotColor: C.ink2,
               selectedDotColor: '#ffffff',
-              arrowColor: '#3b82f6',
-              monthTextColor: '#1f2937',
+              arrowColor: C.ink1,
+              monthTextColor: C.ink1,
               textMonthFontWeight: 'bold',
               textDayFontSize: 16,
               textMonthFontSize: 18,
@@ -313,7 +316,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
         {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
+            <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
             <Text style={styles.legendText}>Has Consultations</Text>
           </View>
         </View>
@@ -464,7 +467,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
                     onPress={() => setShowDetailModal(false)}
                     style={styles.closeButton}
                   >
-                    <Text style={styles.closeButtonText}>✕</Text>
+                    <Ionicons name="close" size={18} color={C.ink3} />
                   </TouchableOpacity>
                 </View>
 
@@ -516,22 +519,31 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
                         style={styles.modalActionButton}
                         onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
                       >
-                        <Text style={styles.modalActionButtonText}>✓ Mark as Done</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark" size={18} color="#fff" />
+                          <Text style={styles.modalActionButtonText}>Mark as Done</Text>
+                        </View>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.modalActionButton, styles.cancelButton]}
                         onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
                       >
-                        <Text style={[styles.modalActionButtonText, styles.cancelButtonText]}>✕ Cancel Consultation</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="close" size={18} color="#fff" />
+                          <Text style={[styles.modalActionButtonText, styles.cancelButtonText]}>Cancel Consultation</Text>
+                        </View>
                       </TouchableOpacity>
                     </View>
                   )}
 
                   {checkIfMissed(selectedConsultation) && (
                     <View style={styles.missedNotice}>
-                      <Text style={styles.missedNoticeText}>
-                        ⚠️ This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <Ionicons name="alert-circle-outline" size={18} color={C.ink3} style={{ marginTop: 1 }} />
+                        <Text style={[styles.missedNoticeText, { flex: 1 }]}>
+                          This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
+                        </Text>
+                      </View>
                     </View>
                   )}
                 </ScrollView>
@@ -547,7 +559,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -556,56 +568,54 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#6b7280',
+    color: C.ink3,
     fontSize: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.xl,
+    paddingVertical: S.lg,
+    backgroundColor: C.bg,
   },
   backButton: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: S.sm,
   },
   backButtonText: {
-    color: '#3b82f6',
+    color: C.ink2,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '400' as const,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 60,
   },
   calendarContainer: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
+    backgroundColor: C.surface,
+    margin: S.xl,
+    borderRadius: R.xl,
     overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...shadow.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: S.lg,
+    marginBottom: S.lg,
+    gap: S.lg,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 8,
   },
   legendDot: {
     width: 8,
@@ -615,215 +625,209 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: C.ink3,
   },
   selectedDateSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingHorizontal: S.xl,
+    marginBottom: S.xl2,
   },
   selectedDateTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.md,
   },
   noSelectionContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: S.xl,
     paddingVertical: 32,
     alignItems: 'center',
   },
   noSelectionText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: C.ink3,
     textAlign: 'center',
   },
   allConsultationsSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingHorizontal: S.xl,
+    marginBottom: S.xl2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.md,
   },
   consultationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.lg,
+    marginBottom: S.md,
+    ...shadow.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   consultationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: S.md,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     flex: 1,
   },
   statusBadge: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: C.accentSoft,
+    paddingHorizontal: S.md,
+    paddingVertical: 5,
+    borderRadius: R.full,
   },
   statusText: {
-    color: '#16a34a',
+    color: C.accent,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   consultationDetails: {
-    gap: 8,
+    gap: S.sm,
   },
   detailRow: {
     flexDirection: 'row',
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
+    color: C.ink3,
+    fontWeight: '400' as const,
     width: 100,
   },
   detailValue: {
     fontSize: 14,
-    color: '#1f2937',
+    color: C.ink1,
     flex: 1,
   },
   noConsultationsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.xl2,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...shadow.soft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   noConsultationsText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: C.ink3,
     textAlign: 'center',
   },
   tapToManageText: {
-    marginTop: 8,
+    marginTop: S.sm,
     fontSize: 13,
-    color: '#3b82f6',
-    fontWeight: '600',
+    color: C.accentMid,
+    fontWeight: '600' as const,
     textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: C.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: C.surface,
+    borderTopLeftRadius: R.xxl,
+    borderTopRightRadius: R.xxl,
     maxHeight: '80%',
-    paddingBottom: 20,
+    paddingBottom: S.xl,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    padding: S.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderLight,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 20,
-    color: '#6b7280',
+    color: C.ink3,
   },
   modalBody: {
-    padding: 20,
+    padding: S.xl,
   },
   modalSection: {
-    marginBottom: 20,
+    marginBottom: S.xl,
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink4,
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   modalValue: {
     fontSize: 16,
-    color: '#1f2937',
+    color: C.ink1,
     lineHeight: 24,
   },
   modalStatusContainer: {
     flexDirection: 'row',
   },
   modalStatusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: S.lg,
+    paddingVertical: S.sm,
+    borderRadius: R.full,
   },
   modalStatusText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   modalActions: {
-    marginTop: 20,
-    gap: 12,
+    marginTop: S.xl,
+    gap: S.md,
   },
   modalActionButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: C.accent,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: R.lg,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...shadow.card,
   },
   modalActionButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   cancelButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: C.surfaceAlt,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: C.ink2,
   },
   missedNotice: {
-    backgroundColor: '#fef3c7',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#fbbf24',
+    backgroundColor: C.warmLight,
+    padding: S.lg,
+    borderRadius: R.lg,
+    marginTop: S.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.warm + '30',
   },
   missedNoticeText: {
     fontSize: 14,
-    color: '#92400e',
+    color: C.ink2,
     lineHeight: 20,
   },
 });

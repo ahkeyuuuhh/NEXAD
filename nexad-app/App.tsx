@@ -5,6 +5,7 @@
 import 'react-native-gesture-handler'; // MUST be at the very top
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useFonts } from 'expo-font';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -47,11 +48,15 @@ import CreateClassroomScreen from './src/screens/teacher/CreateClassroomScreen';
 import ClassroomDetailScreen from './src/screens/teacher/ClassroomDetailScreen';
 import CreateAnnouncementScreen from './src/screens/teacher/CreateAnnouncementScreen';
 import CreateAttachmentBinScreen from './src/screens/teacher/CreateAttachmentBinScreen';
+import TeacherBinReviewScreen from './src/screens/teacher/TeacherBinReviewScreen';
 
 // Classroom Hub Screens - Student
 import StudentClassroomsScreen from './src/screens/student/StudentClassroomsScreen';
 import StudentClassroomDetailScreen from './src/screens/student/StudentClassroomDetailScreen';
 import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSubmissionScreen';
+
+// Shared
+import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -204,6 +209,16 @@ function AppStack() {
       <Stack.Screen 
         name="AttachmentBinSubmission" 
         component={AttachmentBinSubmissionScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="TeacherBinReview" 
+        component={TeacherBinReviewScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="BinComments" 
+        component={BinCommentsScreen} 
         options={{ headerShown: false }} 
       />
     </Stack.Navigator>
@@ -364,6 +379,12 @@ function Navigation() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'Milker':       require('./assets/fonts/Milker.otf'),
+    'Garet-Book':   require('./assets/fonts/garet.book.ttf'),
+    'Garet-Heavy':  require('./assets/fonts/garet.heavy.ttf'),
+  });
+
   useEffect(() => {
     // Check for OTA updates on app start
     async function checkForUpdates() {
@@ -388,6 +409,14 @@ export default function App() {
     
     checkForUpdates();
   }, []);
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0A0A0A" />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>

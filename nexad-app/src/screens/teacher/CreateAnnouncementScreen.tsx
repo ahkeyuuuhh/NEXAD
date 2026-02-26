@@ -9,12 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { notificationService } from '../../services/notificationService';
 import { Ionicons } from '@expo/vector-icons';
+import { C, F, S, R, shadow } from '../../config/theme';
 
 export default function CreateAnnouncementScreen({ navigation, route }: any) {
   const { classroomId, classroomName = 'your classroom' } = route.params as { classroomId: string; classroomName?: string };
@@ -83,10 +86,12 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
   };
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.title}>New Announcement</Text>
       </View>
@@ -99,7 +104,7 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
             value={title}
             onChangeText={setTitle}
             placeholder="e.g., Quiz on Friday"
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             maxLength={200}
           />
           <Text style={styles.hint}>{title.length}/200</Text>
@@ -112,7 +117,7 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
             value={content}
             onChangeText={setContent}
             placeholder="Write your announcement here..."
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             multiline
             numberOfLines={8}
             textAlignVertical="top"
@@ -123,7 +128,7 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
 
         <View style={styles.switchGroup}>
           <View style={styles.switchInfo}>
-            <Ionicons name="pin" size={20} color={isPinned ? '#FF3B30' : '#999'} />
+            <Ionicons name="pin" size={20} color={isPinned ? C.ink1 : C.ink4} />
             <View style={styles.switchTextContainer}>
               <Text style={styles.switchLabel}>Pin to Top</Text>
               <Text style={styles.switchHint}>Make this announcement stand out</Text>
@@ -132,8 +137,8 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
           <Switch
             value={isPinned}
             onValueChange={setIsPinned}
-            trackColor={{ false: '#ccc', true: '#007AFF' }}
-            thumbColor="#fff"
+            trackColor={{ false: C.borderLight, true: C.ink3 }}
+            thumbColor={C.surface}
           />
         </View>
 
@@ -143,10 +148,10 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={C.actionText} />
           ) : (
             <>
-              <Ionicons name="megaphone" size={20} color="#fff" />
+              <Ionicons name="megaphone" size={20} color={C.actionText} />
               <Text style={styles.postButtonText}>Post Announcement</Text>
             </>
           )}
@@ -161,76 +166,90 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: C.surface,
+    paddingHorizontal: S.xl,
+    paddingTop: S.xxl,
+    paddingBottom: S.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: S.md,
+    ...shadow.soft,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700' as const,
+    color: C.ink1,
   },
   form: {
-    padding: 20,
+    padding: S.xl,
   },
   inputGroup: {
-    marginBottom: 24,
+    marginBottom: S.xl2,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginBottom: S.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.lg,
     fontSize: 16,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    fontWeight: '400' as const,
+    color: C.ink1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   textArea: {
     minHeight: 200,
-    paddingTop: 16,
+    paddingTop: S.lg,
   },
   hint: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    fontWeight: '400' as const,
+    color: C.ink4,
+    marginTop: S.xs,
     textAlign: 'right',
   },
   switchGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.lg,
+    marginBottom: S.xl2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   switchInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: S.md,
     flex: 1,
   },
   switchTextContainer: {
@@ -238,40 +257,42 @@ const styles = StyleSheet.create({
   },
   switchLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   switchHint: {
     fontSize: 12,
-    color: '#666',
+    fontWeight: '400' as const,
+    color: C.ink3,
     marginTop: 2,
   },
   postButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: C.action,
+    borderRadius: R.lg,
+    paddingVertical: S.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: S.sm,
+    marginTop: S.sm,
+    ...shadow.lift,
   },
   postButtonDisabled: {
     opacity: 0.6,
   },
   postButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   cancelButton: {
-    paddingVertical: 16,
+    paddingVertical: S.lg,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: S.md,
   },
   cancelButtonText: {
-    color: '#007AFF',
+    color: C.ink3,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
 });

@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import type { ConsultationRequest } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 export default function RequestManagementScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function RequestManagementScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading requests...</Text>
         </View>
       </SafeAreaView>
@@ -89,7 +91,7 @@ export default function RequestManagementScreen({ navigation }: any) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink2} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Consultation Requests</Text>
         <View style={styles.placeholder} />
@@ -180,7 +182,7 @@ export default function RequestManagementScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -190,7 +192,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6b7280',
+    color: C.ink3,
   },
   header: {
     flexDirection: 'row',
@@ -198,32 +200,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#2563eb',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 40,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: C.border,
   },
   filterButton: {
     flex: 1,
@@ -233,15 +237,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   filterButtonActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.action,
   },
   filterText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   filterTextActive: {
-    color: '#fff',
+    color: C.actionText,
   },
   requestsList: {
     flex: 1,
@@ -249,8 +253,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#2563eb',
+    fontWeight: '600' as const,
+    color: C.ink2,
     marginBottom: 12,
   },
   emptyState: {
@@ -260,11 +264,11 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: C.ink4,
     textAlign: 'center',
   },
   requestCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -281,34 +285,34 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   requestInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 4,
   },
   requestSubject: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: '400' as const,
+    color: C.ink1,
     marginBottom: 4,
   },
   requestDescription: {
     fontSize: 13,
-    color: '#6b7280',
+    color: C.ink3,
     marginBottom: 8,
     lineHeight: 18,
   },
@@ -318,18 +322,18 @@ const styles = StyleSheet.create({
   },
   requestDate: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: C.ink4,
     marginRight: 8,
   },
   urgentBadge: {
-    backgroundColor: '#ef4444',
+    backgroundColor: C.ink2,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
   },
   urgentText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: '600' as const,
+    color: C.actionText,
   },
 });

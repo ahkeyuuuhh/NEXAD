@@ -11,14 +11,18 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { notificationService } from '../../services/notificationService';
 import { aiService } from '../../services/aiService';
 import { profileService } from '../../services/profileService';
 import { documentService } from '../../services/documentService';
+import { classroomService } from '../../services/classroomService';
 import type { ConsultationTopic, UrgencyLevel, TimeSlot, UploadedDocument } from '../../types';
 
 const REASON_PRESETS = [
@@ -40,7 +44,7 @@ interface AIMessage {
 }
 
 export default function ConsultationRequestScreen({ navigation, route }: any) {
-  const { teacher } = route.params;
+  const { teacher, sourceDocumentId, sourceBinId } = route.params;
   const { user } = useAuth();
 
   const [helpNeeded, setHelpNeeded] = useState('');
@@ -281,13 +285,26 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
       // NOTE: DB trigger (notify_teacher_new_request) automatically notifies the teacher
       // on INSERT into consultation_requests, so no manual notification call is needed here.
 
+      // If triggered from an attachment bin, mark the document as consultation_requested
+      // so the bin screen immediately reflects the booking.
+      if (sourceDocumentId) {
+        await classroomService.updateSubmissionStatus(sourceDocumentId, 'consultation_requested');
+      }
+
       Alert.alert(
         'Request Submitted',
         `Your consultation request has been sent to ${teacher.first_name} ${teacher.last_name}. You'll be notified when they respond.`,
         [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('StudentDashboard'),
+            onPress: () => {
+              if (sourceBinId) {
+                // Go back to the bin screen so the student sees the updated status
+                navigation.navigate('AttachmentBinSubmission', { binId: sourceBinId });
+              } else {
+                navigation.navigate('StudentDashboard');
+              }
+            },
           },
         ]
       );
@@ -305,10 +322,11 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <StatusBar barStyle="dark-content" />
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>←</Text>
+            <Ionicons name="chevron-back" size={22} color={C.ink1} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Request Consultation</Text>
           <View style={styles.placeholder} />
@@ -344,7 +362,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 placeholder="e.g., Understanding calculus concepts"
                 value={helpNeeded}
                 onChangeText={setHelpNeeded}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={C.ink4}
               />
             </View>
 
@@ -393,9 +411,12 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                   disabled={isAIThinking || !helpNeeded || !reason}
                 >
                   {isAIThinking ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
+                    <ActivityIndicator size="small" color={C.actionText} />
                   ) : (
-                    <Text style={styles.doneButtonText}>✓ Done</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.xs }}>
+                      <Ionicons name="checkmark" size={14} color={C.actionText} />
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               </View>
@@ -407,13 +428,16 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={C.ink4}
               />
             </View>
 
             {/* File Upload Section */}
             <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>📎 Upload Documents (Optional)</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.xs, marginBottom: S.xs }}>
+                <Ionicons name="attach" size={16} color={C.ink2} />
+                <Text style={styles.uploadLabel}>Upload Documents (Optional)</Text>
+              </View>
               <Text style={styles.uploadHint}>PDF or DOCX, up to 5MB</Text>
               
               <TouchableOpacity
@@ -422,10 +446,10 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 disabled={isUploadingFile}
               >
                 {isUploadingFile ? (
-                  <ActivityIndicator size="small" color="#2563eb" />
+                  <ActivityIndicator size="small" color={C.action} />
                 ) : (
                   <>
-                    <Text style={styles.uploadButtonIcon}>📄</Text>
+                    <Ionicons name="document-outline" size={20} color={C.action} />
                     <Text style={styles.uploadButtonText}>Choose File</Text>
                   </>
                 )}
@@ -435,13 +459,16 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 <View style={styles.uploadedFilesList}>
                   {uploadedDocuments.map((doc, index) => (
                     <View key={index} style={styles.uploadedFileItem}>
-                      <Text style={styles.uploadedFileName}>✓ {doc.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.xs, flex: 1 }}>
+                        <Ionicons name="checkmark" size={16} color={C.ink1} />
+                        <Text style={styles.uploadedFileName}>{doc.name}</Text>
+                      </View>
                       <TouchableOpacity
                         onPress={() => {
                           setUploadedDocuments(prev => prev.filter((_, i) => i !== index));
                         }}
                       >
-                        <Text style={styles.removeFileButton}>✕</Text>
+                        <Ionicons name="close" size={18} color={C.ink4} style={{ paddingHorizontal: S.sm }} />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -453,12 +480,15 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
             {showAiSuggestions && (
               <View style={styles.aiSuggestionsCard}>
                 <View style={styles.aiSuggestionsHeader}>
-                  <Text style={styles.aiSuggestionsTitle}>🤖 Nexad AI Suggestions</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+                    <Ionicons name="sparkles-outline" size={18} color={C.ink1} />
+                    <Text style={styles.aiSuggestionsTitle}>Nexad AI Suggestions</Text>
+                  </View>
                   <TouchableOpacity
                     onPress={() => setShowAiSuggestions(false)}
                     style={styles.closeSuggestionsButton}
                   >
-                    <Text style={styles.closeSuggestionsText}>✕</Text>
+                    <Ionicons name="close" size={20} color={C.ink3} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.aiSuggestionsText}>{aiSuggestions}</Text>
@@ -466,7 +496,10 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                   style={styles.chatWithAiButton}
                   onPress={() => setShowAIAssistant(true)}
                 >
-                  <Text style={styles.chatWithAiButtonText}>💬 Chat with Nexad for More Help</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm }}>
+                    <Ionicons name="chatbubbles-outline" size={16} color={C.actionText} />
+                    <Text style={styles.chatWithAiButtonText}>Chat with Nexad for More Help</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}
@@ -478,7 +511,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={C.actionText} />
               ) : (
                 <Text style={styles.submitButtonText}>Submit Request</Text>
               )}
@@ -500,7 +533,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 onPress={() => setShowAIAssistant(false)}
                 style={styles.closeButton}
               >
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Ionicons name="close" size={24} color={C.ink3} />
               </TouchableOpacity>
             </View>
 
@@ -525,7 +558,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               ))}
               {isAIThinking && (
                 <View style={[styles.messageBubble, styles.aiMessage]}>
-                  <ActivityIndicator size="small" color="#2563eb" />
+                  <ActivityIndicator size="small" color={C.ink1} />
                   <Text style={styles.thinkingText}>Nexad is thinking...</Text>
                 </View>
               )}
@@ -537,7 +570,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 placeholder="Ask Nexad..."
                 value={aiInput}
                 onChangeText={setAiInput}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={C.ink4}
                 multiline
               />
               <TouchableOpacity
@@ -545,7 +578,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 onPress={handleAISubmit}
                 disabled={!aiInput.trim() || isAIThinking}
               >
-                <Text style={styles.sendButtonText}>→</Text>
+                <Ionicons name="arrow-forward" size={22} color={C.actionText} />
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -558,7 +591,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   keyboardView: {
     flex: 1,
@@ -567,23 +600,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#2563eb',
+    width: 40,
+    height: 40,
+    borderRadius: R.full,
+    backgroundColor: C.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 40,
@@ -594,396 +629,413 @@ const styles = StyleSheet.create({
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 8,
+    backgroundColor: C.surface,
+    padding: S.lg,
+    marginBottom: S.sm,
+    ...shadow.card,
   },
   teacherAvatar: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#e5e7eb',
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: S.md,
   },
   teacherAvatarText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   teacherInfo: {
     flex: 1,
   },
   teacherName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.xs,
   },
   teacherDepartment: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   formSection: {
-    backgroundColor: '#fff',
-    padding: 16,
+    backgroundColor: C.surface,
+    padding: S.lg,
   },
   formTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 20,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.xl,
     textAlign: 'center',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: S.xl,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginBottom: S.sm,
   },
   textInput: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    backgroundColor: C.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    borderRadius: R.sm,
+    paddingHorizontal: S.md,
+    paddingVertical: S.md,
     fontSize: 16,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
   },
   textArea: {
     minHeight: 100,
-    paddingTop: 12,
+    paddingTop: S.md,
   },
   dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    backgroundColor: C.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    borderRadius: R.sm,
+    paddingHorizontal: S.md,
+    paddingVertical: S.md,
   },
   dropdownButtonText: {
     fontSize: 16,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
   },
   dropdownIcon: {
     fontSize: 12,
-    color: '#6b7280',
+    color: C.ink3,
   },
   dropdown: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: C.surface,
+    borderRadius: R.sm,
+    marginTop: S.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
     maxHeight: 200,
     overflow: 'hidden',
+    ...shadow.card,
   },
   dropdownScroll: {
     maxHeight: 200,
   },
   dropdownOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    paddingVertical: S.md,
+    paddingHorizontal: S.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderLight,
   },
   dropdownOptionText: {
     fontSize: 16,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
   },
   selectedOptionText: {
-    color: '#2563eb',
-    fontWeight: '600',
+    color: C.action,
+    fontWeight: '600' as const,
   },
   aiPromptCard: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.md,
+    padding: S.lg,
+    marginBottom: S.xl2,
     alignItems: 'center',
+    ...shadow.soft,
   },
   aiPromptTitle: {
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 16,
+    fontWeight: '400' as const,
+    color: C.ink3,
+    marginBottom: S.lg,
     textAlign: 'center',
   },
   aiCharacterPlaceholder: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: S.lg,
   },
   aiIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#e5e7eb',
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: S.sm,
   },
   aiIconText: {
     fontSize: 40,
   },
   aiPlaceholderText: {
     fontSize: 14,
-    color: '#9ca3af',
+    fontWeight: '400' as const,
+    color: C.ink4,
     textAlign: 'center',
   },
   openAIButton: {
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: S.xl,
   },
   openAIButtonText: {
     fontSize: 16,
-    color: '#2563eb',
-    fontWeight: '600',
+    fontWeight: '600' as const,
+    color: C.action,
   },
   submitButton: {
-    backgroundColor: '#ef4444',
-    borderRadius: 8,
-    paddingVertical: 16,
+    backgroundColor: C.action,
+    borderRadius: R.sm,
+    paddingVertical: S.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: S.sm,
   },
   submitButtonDisabled: {
-    backgroundColor: '#fca5a5',
+    backgroundColor: C.ink5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   // AI Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   closeButton: {
-    padding: 8,
+    padding: S.sm,
   },
   closeButtonText: {
     fontSize: 24,
-    color: '#6b7280',
+    color: C.ink3,
   },
   chatContainer: {
     flex: 1,
-    padding: 16,
+    padding: S.lg,
   },
   messageBubble: {
     maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: S.md,
+    borderRadius: R.lg,
+    marginBottom: S.md,
   },
   userMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#2563eb',
+    backgroundColor: C.action,
   },
   aiMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surfaceAlt,
   },
   messageText: {
     fontSize: 16,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
     lineHeight: 22,
   },
   userMessageText: {
-    color: '#fff',
+    color: C.actionText,
   },
   thinkingText: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: '400' as const,
+    color: C.ink3,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: S.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    padding: S.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+    backgroundColor: C.surface,
   },
   chatInput: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.full,
+    paddingHorizontal: S.lg,
     paddingVertical: 10,
     fontSize: 16,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
     maxHeight: 100,
-    marginRight: 8,
+    marginRight: S.sm,
   },
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2563eb',
+    borderRadius: R.full,
+    backgroundColor: C.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#93c5fd',
+    backgroundColor: C.ink5,
   },
   sendButtonText: {
     fontSize: 24,
-    color: '#fff',
-    fontWeight: '600',
+    color: C.actionText,
+    fontWeight: '600' as const,
   },
   // Done Button Styles
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: S.sm,
   },
   doneButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
+    backgroundColor: C.action,
+    paddingHorizontal: S.lg,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: R.xs,
     minWidth: 70,
     alignItems: 'center',
   },
   doneButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   // File Upload Styles
   uploadSection: {
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    marginBottom: S.xl,
+    padding: S.lg,
+    backgroundColor: C.surfaceRaised,
+    borderRadius: R.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
   },
   uploadLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink2,
   },
   uploadHint: {
     fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 12,
+    fontWeight: '400' as const,
+    color: C.ink3,
+    marginBottom: S.md,
   },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    gap: S.sm,
+    backgroundColor: C.surface,
     borderWidth: 2,
-    borderColor: '#2563eb',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderColor: C.action,
+    borderRadius: R.sm,
+    paddingVertical: S.md,
+    paddingHorizontal: S.lg,
     borderStyle: 'dashed',
+    ...shadow.soft,
   },
   uploadButtonIcon: {
     fontSize: 20,
-    marginRight: 8,
+    marginRight: S.sm,
   },
   uploadButtonText: {
     fontSize: 16,
-    color: '#2563eb',
-    fontWeight: '600',
+    fontWeight: '600' as const,
+    color: C.action,
   },
   uploadedFilesList: {
-    marginTop: 12,
+    marginTop: S.md,
   },
   uploadedFileItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: C.surface,
+    padding: S.md,
+    borderRadius: R.xs,
+    marginBottom: S.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   uploadedFileName: {
     fontSize: 14,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink1,
     flex: 1,
   },
   removeFileButton: {
     fontSize: 18,
-    color: '#ef4444',
-    paddingHorizontal: 8,
+    color: C.ink4,
+    paddingHorizontal: S.sm,
   },
   // AI Suggestions Styles
   aiSuggestionsCard: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#2563eb',
+    backgroundColor: C.surfaceRaised,
+    borderRadius: R.md,
+    padding: S.lg,
+    marginBottom: S.xl2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.ink1,
+    ...shadow.soft,
   },
   aiSuggestionsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: S.md,
   },
   aiSuggestionsTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1e40af',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   closeSuggestionsButton: {
-    padding: 4,
+    padding: S.xs,
   },
   closeSuggestionsText: {
     fontSize: 20,
-    color: '#6b7280',
+    color: C.ink3,
   },
   aiSuggestionsText: {
     fontSize: 14,
-    color: '#1f2937',
+    fontWeight: '400' as const,
+    color: C.ink2,
     lineHeight: 22,
-    marginBottom: 12,
+    marginBottom: S.md,
   },
   chatWithAiButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
+    backgroundColor: C.action,
+    borderRadius: R.sm,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: S.lg,
     alignItems: 'center',
   },
   chatWithAiButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
 });

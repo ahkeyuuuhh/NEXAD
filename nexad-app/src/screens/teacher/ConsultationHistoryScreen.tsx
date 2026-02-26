@@ -16,6 +16,8 @@ import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import { documentService } from '../../services/documentService';
 import type { ConsultationRequest } from '../../types';
+import { C, F, T, S, R, shadow } from '../../config/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -136,12 +138,12 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
 
   const getStatusDisplay = (consultation: ConsultationWithStudent) => {
     if (consultation.status === 'completed') {
-      return { text: 'Done', color: '#10b981', bgColor: '#dcfce7' };
+      return { text: 'Done', color: '#fff', bgColor: C.ink2 };
     }
     if (consultation.status === 'cancelled') {
-      return { text: 'Cancelled', color: '#ef4444', bgColor: '#fee2e2' };
+      return { text: 'Cancelled', color: C.ink3, bgColor: C.surfaceAlt };
     }
-    return { text: 'Unknown', color: '#6b7280', bgColor: '#f3f4f6' };
+    return { text: 'Unknown', color: C.ink3, bgColor: C.surfaceAlt };
   };
 
   const handleViewConsultation = (consultation: ConsultationWithStudent) => {
@@ -159,7 +161,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading history...</Text>
         </View>
       </SafeAreaView>
@@ -174,7 +176,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Consultation History</Text>
         <View style={styles.placeholder} />
@@ -252,13 +254,13 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                     <Text style={styles.detailValue} numberOfLines={1}>{consultation.subject_line}</Text>
                   </View>
                 </View>
-                <Text style={styles.tapToViewText}>Tap to view details →</Text>
+                <Text style={styles.tapToViewText}>Tap to view details <Ionicons name="chevron-forward" size={14} color={C.ink3} /></Text>
               </TouchableOpacity>
             );
           })
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateIcon}>📋</Text>
+            <Ionicons name="clipboard-outline" size={48} color={C.ink5} />
             <Text style={styles.emptyStateText}>No consultation history</Text>
             <Text style={styles.emptyStateSubtext}>
               {selectedFilter === 'all' 
@@ -287,7 +289,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                     onPress={() => setShowDetailModal(false)}
                     style={styles.closeButton}
                   >
-                    <Text style={styles.closeButtonText}>✕</Text>
+                    <Ionicons name="close" size={20} color={C.ink3} />
                   </TouchableOpacity>
                 </View>
 
@@ -348,13 +350,11 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
                   <View style={styles.modalSection}>
                     <Text style={styles.modalLabel}>Student Files</Text>
                     {isLoadingDocuments ? (
-                      <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 8 }} />
+                      <ActivityIndicator size="small" color={C.ink2} style={{ marginTop: 8 }} />
                     ) : selectedConsultationDocuments.length > 0 ? (
                       selectedConsultationDocuments.map((doc, index) => (
                         <View key={doc.id || index} style={styles.docItem}>
-                          <Text style={styles.docIcon}>
-                            {doc.file_name?.endsWith('.pdf') ? '📄' : '📝'}
-                          </Text>
+                          <Ionicons name={doc.file_name?.endsWith('.pdf') ? 'document-outline' : 'document-text-outline'} size={16} color={C.ink3} style={styles.docIcon} />
                           <View style={styles.docInfo}>
                             <Text style={styles.docName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
                             <Text style={styles.docMeta}>
@@ -382,7 +382,7 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#6b7280',
+    color: C.ink3,
     fontSize: 16,
   },
   header: {
@@ -400,29 +400,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
-    color: '#3b82f6',
+    color: C.ink2,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '400' as const,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 60,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
@@ -433,16 +432,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surfaceAlt,
     alignItems: 'center',
   },
   filterTabActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: C.action,
   },
   filterTabText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   filterTabTextActive: {
     color: '#fff',
@@ -452,7 +451,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   consultationCard: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -470,8 +469,8 @@ const styles = StyleSheet.create({
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     flex: 1,
   },
   statusBadge: {
@@ -481,7 +480,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   consultationDetails: {
     gap: 8,
@@ -491,20 +490,20 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
+    color: C.ink3,
+    fontWeight: '400' as const,
     width: 80,
   },
   detailValue: {
     fontSize: 14,
-    color: '#1f2937',
+    color: C.ink1,
     flex: 1,
   },
   tapToViewText: {
     marginTop: 8,
     fontSize: 13,
-    color: '#3b82f6',
-    fontWeight: '600',
+    color: C.ink2,
+    fontWeight: '600' as const,
     textAlign: 'center',
   },
   emptyState: {
@@ -519,13 +518,13 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 8,
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: '#6b7280',
+    color: C.ink3,
     textAlign: 'center',
     paddingHorizontal: 32,
   },
@@ -535,7 +534,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -547,24 +546,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: C.border,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 20,
-    color: '#6b7280',
+    color: C.ink3,
   },
   modalBody: {
     padding: 20,
@@ -574,13 +573,13 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
     marginBottom: 6,
   },
   modalValue: {
     fontSize: 16,
-    color: '#1f2937',
+    color: C.ink1,
     lineHeight: 24,
   },
   modalStatusContainer: {
@@ -593,20 +592,19 @@ const styles = StyleSheet.create({
   },
   modalStatusText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   docItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: C.bg,
     borderRadius: 8,
     padding: 10,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: C.border,
   },
   docIcon: {
-    fontSize: 22,
     marginRight: 10,
   },
   docInfo: {
@@ -614,17 +612,17 @@ const styles = StyleSheet.create({
   },
   docName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   docMeta: {
     fontSize: 12,
-    color: '#6b7280',
+    color: C.ink3,
     marginTop: 2,
   },
   noDocText: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: C.ink4,
     fontStyle: 'italic',
     marginTop: 4,
   },

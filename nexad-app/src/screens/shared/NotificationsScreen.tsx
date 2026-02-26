@@ -15,6 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { AppNotification } from '../../hooks/useRealtimeNotifications';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 
 export default function NotificationsScreen({ navigation }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -24,6 +26,7 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
+  const userRole = authContext.user?.role;
 
   const {
     notifications,
@@ -50,13 +53,76 @@ export default function NotificationsScreen({ navigation }: any) {
     await markAsRead(notificationId);
   }, [markAsRead]);
 
+  // Returns a label + screen name for actionable deep-link notifications.
+  // Navigates directly on tap — no modal needed for actionable items.
+  const getDeepLinkAction = useCallback(
+    (notification: AppNotification): { label: string; screen: string; params: object } | null => {
+      const rid = notification.related_id;
+
+      // ── Student-side ────────────────────────────────────────────────
+      if (userRole === 'student' || !userRole) {
+        switch (notification.type) {
+          case 'submission_for_consultation':
+            // With rid → jump straight to the bin so they can tap "Request Consultation"
+            // Without rid (old notification) → classrooms list so they can locate the bin
+            return rid
+              ? { label: 'Request Consultation →', screen: 'AttachmentBinSubmission', params: { binId: rid } }
+              : { label: 'Go to Classrooms →', screen: 'StudentClassrooms', params: {} };
+          case 'submission_revised':
+            // With rid → jump straight to the bin to re-submit
+            // Without rid → classrooms list
+            return rid
+              ? { label: 'Re-submit Now →', screen: 'AttachmentBinSubmission', params: { binId: rid } }
+              : { label: 'Go to Classrooms →', screen: 'StudentClassrooms', params: {} };
+          case 'submission_approved':
+            return rid
+              ? { label: 'View Submission →', screen: 'AttachmentBinSubmission', params: { binId: rid } }
+              : { label: 'Go to Classrooms →', screen: 'StudentClassrooms', params: {} };
+          case 'request_accepted':
+            // Go to the active consultations screen pre-filtered to Approved
+            // so the student immediately sees the scheduled date/time/room.
+            return { label: 'View Approved Consultation →', screen: 'StudentConsultations', params: { initialFilter: 'approved' } };
+          case 'request_declined':
+            return { label: 'View History →', screen: 'ConsultationHistory', params: { initialFilter: 'declined' } };
+          case 'consultation_completed':
+            // Navigate directly to the Completed tab so they see the finished session
+            return { label: 'View Completed →', screen: 'ConsultationHistory', params: { initialFilter: 'completed' } };
+          default:
+            return null;
+        }
+      }
+
+      // ── Teacher-side ────────────────────────────────────────────────
+      switch (notification.type) {
+        case 'request_submitted':
+          return { label: 'Review Request →', screen: 'RequestManagement', params: {} };
+        case 'document_uploaded':
+        case 'attachment_bin_created':
+          return rid
+            ? { label: 'Review Submission →', screen: 'TeacherBinReview', params: { binId: rid } }
+            : null;
+        default:
+          return null;
+      }
+    },
+    [userRole]
+  );
+
   const handleNotificationPress = useCallback((notification: AppNotification) => {
-    setSelectedNotification(notification);
-    setShowDetailModal(true);
+    // Always mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-  }, [markAsRead]);
+    // For actionable notifications: navigate directly, skip the modal
+    const action = getDeepLinkAction(notification);
+    if (action) {
+      navigation.navigate(action.screen as never, action.params as never);
+    } else {
+      // Non-actionable: show detail modal
+      setSelectedNotification(notification);
+      setShowDetailModal(true);
+    }
+  }, [markAsRead, getDeepLinkAction]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     await markAllAsReadHook();
@@ -88,55 +154,31 @@ export default function NotificationsScreen({ navigation }: any) {
     }
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string): string => {
     switch (type) {
-      case 'request_accepted':
-        return '🎉';
-      case 'request_submitted':
-        return '📝';
-      case 'request_declined':
-        return '🚫';
-      case 'consultation_cancelled':
-        return '❌';
-      case 'consultation_completed':
-        return '✅';
-      case 'new_message':
-        return '💬';
-      case 'consultation_reminder':
-        return '⏰';
+      case 'request_accepted':           return 'checkmark-circle-outline';
+      case 'request_submitted':          return 'document-text-outline';
+      case 'request_declined':           return 'close-circle-outline';
+      case 'consultation_cancelled':     return 'close-outline';
+      case 'consultation_completed':     return 'checkmark-done-outline';
+      case 'new_message':                return 'chatbubble-outline';
+      case 'consultation_reminder':      return 'alarm-outline';
       case 'classroom_announcement':
-      case 'new_announcement':
-        return '📢';
-      case 'ai_brief_ready':
-        return '🤖';
-      default:
-        return '🔔';
+      case 'new_announcement':           return 'megaphone-outline';
+      case 'ai_brief_ready':             return 'sparkles-outline';
+      case 'submission_approved':        return 'checkmark-circle-outline';
+      case 'submission_revised':         return 'create-outline';
+      case 'submission_for_consultation':return 'chatbubbles-outline';
+      case 'student_joined_classroom':   return 'school-outline';
+      default:                           return 'notifications-outline';
     }
   };
 
   const getNotificationColor = (type: string) => {
     switch (type) {
-      case 'request_accepted':
-        return '#10b981';
-      case 'request_submitted':
-        return '#3b82f6';
       case 'request_declined':
-        return '#ef4444';
-      case 'consultation_cancelled':
-        return '#ef4444';
-      case 'consultation_completed':
-        return '#8b5cf6';
-      case 'new_message':
-        return '#f59e0b';
-      case 'consultation_reminder':
-        return '#6366f1';
-      case 'classroom_announcement':
-      case 'new_announcement':
-        return '#3b82f6';
-      case 'ai_brief_ready':
-        return '#8b5cf6';
-      default:
-        return '#6b7280';
+      case 'consultation_cancelled':     return C.ink4;
+      default:                           return C.ink2;
     }
   };
 
@@ -148,7 +190,7 @@ export default function NotificationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
       </SafeAreaView>
@@ -165,7 +207,7 @@ export default function NotificationsScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink2} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity
@@ -207,7 +249,7 @@ export default function NotificationsScreen({ navigation }: any) {
       >
         {filteredNotifications.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🔔</Text>
+            <Ionicons name="notifications-outline" size={56} color={C.ink5} />
             <Text style={styles.emptyText}>
               {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
             </Text>
@@ -225,16 +267,8 @@ export default function NotificationsScreen({ navigation }: any) {
               ]}
               onPress={() => handleNotificationPress(notification)}
             >
-              <View style={styles.notificationIcon}>
-                <Text style={styles.notificationIconText}>
-                  {getNotificationIcon(notification.type)}
-                </Text>
-                <View 
-                  style={[
-                    styles.notificationIconBorder, 
-                    { borderColor: getNotificationColor(notification.type) }
-                  ]} 
-                />
+              <View style={[styles.notificationIcon, { borderColor: getNotificationColor(notification.type) }]}>
+                <Ionicons name={getNotificationIcon(notification.type) as any} size={22} color={getNotificationColor(notification.type)} />
               </View>
 
               <View style={styles.notificationContent}>
@@ -264,12 +298,10 @@ export default function NotificationsScreen({ navigation }: any) {
             {selectedNotification && (
               <>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalIcon}>
-                    {getNotificationIcon(selectedNotification.type)}
-                  </Text>
+                  <Ionicons name={getNotificationIcon(selectedNotification.type) as any} size={28} color={C.ink2} />
                   <Text style={styles.modalTitle}>{selectedNotification.title}</Text>
                   <TouchableOpacity onPress={closeDetailModal} style={styles.modalCloseBtn}>
-                    <Text style={styles.modalCloseBtnText}>✕</Text>
+                    <Ionicons name="close" size={22} color={C.ink3} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.modalBody}>
@@ -278,7 +310,22 @@ export default function NotificationsScreen({ navigation }: any) {
                     {formatTimeAgo(selectedNotification.created_at)}
                   </Text>
                 </View>
-                <TouchableOpacity style={styles.modalDoneBtn} onPress={closeDetailModal}>
+                {/* Contextual deep-link CTA (replaces dead-end 'Done' for actionable notifications) */}
+                {(() => {
+                  const action = getDeepLinkAction(selectedNotification);
+                  return action ? (
+                    <TouchableOpacity
+                      style={styles.modalActionBtn}
+                      onPress={() => {
+                        closeDetailModal();
+                        navigation.navigate(action.screen as never, action.params as never);
+                      }}
+                    >
+                      <Text style={styles.modalActionBtnText}>{action.label}</Text>
+                    </TouchableOpacity>
+                  ) : null;
+                })()}
+                <TouchableOpacity style={[styles.modalDoneBtn, { marginTop: 8 }]} onPress={closeDetailModal}>
                   <Text style={styles.modalDoneBtnText}>Done</Text>
                 </TouchableOpacity>
               </>
@@ -293,7 +340,7 @@ export default function NotificationsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -301,111 +348,101 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: S.md,
     fontSize: 16,
-    color: '#6b7280',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    backgroundColor: C.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: '#3b82f6',
-    fontSize: 16,
-    fontWeight: '500',
+    width: 40,
+    height: 40,
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadow.soft,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '700' as const,
+    color: C.ink1,
   },
   markAllButton: {
-    padding: 8,
+    paddingVertical: S.xs,
+    paddingHorizontal: S.sm,
   },
   markAllText: {
-    color: '#3b82f6',
+    fontWeight: '600' as const,
     fontSize: 14,
-    fontWeight: '600',
+    color: C.ink2,
   },
   markAllTextDisabled: {
-    color: '#d1d5db',
+    color: C.ink5,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: C.surface,
+    paddingHorizontal: S.lg,
+    paddingTop: S.md,
+    paddingBottom: S.sm,
+    gap: S.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   filterTab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: R.sm,
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surfaceAlt,
   },
   filterTabActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: C.action,
   },
   filterTabText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   filterTabTextActive: {
-    color: '#fff',
+    color: C.actionText,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: S.lg,
   },
   notificationCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.lg,
+    marginBottom: S.md,
     flexDirection: 'row',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    ...shadow.card,
   },
   notificationCardUnread: {
-    backgroundColor: '#eff6ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
+    backgroundColor: C.surfaceRaised,
   },
   notificationIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    position: 'relative',
-  },
-  notificationIconText: {
-    fontSize: 24,
-  },
-  notificationIconBorder: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
+    marginRight: S.md,
   },
   notificationContent: {
     flex: 1,
@@ -414,30 +451,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: S.xs,
   },
   notificationTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     flex: 1,
   },
   unreadDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3b82f6',
-    marginLeft: 8,
+    borderRadius: R.full,
+    backgroundColor: C.ink1,
+    marginLeft: S.sm,
   },
   notificationMessage: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: '400' as const,
+    color: C.ink3,
     lineHeight: 20,
-    marginBottom: 8,
+    marginBottom: S.sm,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#9ca3af',
+    fontWeight: '400' as const,
+    color: C.ink4,
   },
   emptyState: {
     alignItems: 'center',
@@ -445,89 +484,89 @@ const styles = StyleSheet.create({
     paddingVertical: 80,
     paddingHorizontal: 40,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    fontWeight: '600' as const,
+    color: C.ink2,
+    marginTop: S.lg,
+    marginBottom: S.sm,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9ca3af',
+    fontWeight: '400' as const,
+    color: C.ink4,
     textAlign: 'center',
   },
   // ─── Detail Modal ───────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: C.scrim,
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 8,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    backgroundColor: C.surface,
+    borderTopLeftRadius: R.xxl,
+    borderTopRightRadius: R.xxl,
+    paddingHorizontal: S.xl,
+    paddingBottom: S.xxl,
+    paddingTop: S.sm,
+    ...shadow.float,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    gap: 12,
-  },
-  modalIcon: {
-    fontSize: 28,
+    paddingVertical: S.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+    gap: S.md,
   },
   modalTitle: {
     flex: 1,
     fontSize: 17,
-    fontWeight: '700',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   modalCloseBtn: {
-    padding: 4,
-  },
-  modalCloseBtnText: {
-    fontSize: 18,
-    color: '#6b7280',
-    fontWeight: '600',
+    padding: S.xs,
   },
   modalBody: {
-    paddingVertical: 20,
-    gap: 8,
+    paddingVertical: S.xl,
+    gap: S.sm,
   },
   modalMessage: {
     fontSize: 15,
-    color: '#374151',
+    fontWeight: '400' as const,
+    color: C.ink2,
     lineHeight: 22,
   },
   modalTime: {
     fontSize: 13,
-    color: '#9ca3af',
-    marginTop: 4,
+    fontWeight: '400' as const,
+    color: C.ink4,
+    marginTop: S.xs,
+  },
+  modalActionBtn: {
+    backgroundColor: C.action,
+    borderRadius: R.lg,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  modalActionBtnText: {
+    color: C.actionText,
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
   modalDoneBtn: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 10,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.lg,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalDoneBtnText: {
-    color: '#fff',
+    color: C.ink2,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600' as const,
   },
 });

@@ -8,11 +8,14 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
+import { C, F, S, R, shadow } from '../../config/theme';
 
 export default function ClassroomHubScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -85,7 +88,7 @@ export default function ClassroomHubScreen({ navigation }: any) {
     >
       <View style={styles.classroomHeader}>
         <View style={styles.classroomIcon}>
-          <Ionicons name="school" size={24} color="#007AFF" />
+          <Ionicons name="school" size={24} color={C.ink1} />
         </View>
         <View style={styles.classroomInfo}>
           <Text style={styles.classroomName}>{item.name}</Text>
@@ -96,11 +99,11 @@ export default function ClassroomHubScreen({ navigation }: any) {
           )}
           <View style={styles.classroomMeta}>
             <View style={styles.metaItem}>
-              <Ionicons name="people" size={14} color="#666" />
+              <Ionicons name="people" size={14} color={C.ink3} />
               <Text style={styles.metaText}>{item.memberCount} students</Text>
             </View>
             <View style={styles.metaItem}>
-              <Ionicons name="key" size={14} color="#666" />
+              <Ionicons name="key" size={14} color={C.ink3} />
               <Text style={styles.metaText}>{item.invite_code}</Text>
             </View>
           </View>
@@ -109,7 +112,7 @@ export default function ClassroomHubScreen({ navigation }: any) {
           onPress={() => handleDeleteClassroom(item.id, item.name)}
           style={styles.deleteButton}
         >
-          <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+          <Ionicons name="trash-outline" size={20} color={C.ink4} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -118,14 +121,15 @@ export default function ClassroomHubScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={C.ink3} />
         <Text style={styles.loadingText}>Loading classrooms...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
       <View style={styles.header}>
         <Text style={styles.title}>Classroom Hub</Text>
         <Text style={styles.subtitle}>Manage your virtual classrooms</Text>
@@ -141,7 +145,7 @@ export default function ClassroomHubScreen({ navigation }: any) {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="school-outline" size={64} color="#ccc" />
+            <Ionicons name="school-outline" size={56} color={C.ink5} />
             <Text style={styles.emptyText}>No classrooms yet</Text>
             <Text style={styles.emptySubtext}>Create your first classroom to get started</Text>
           </View>
@@ -152,61 +156,61 @@ export default function ClassroomHubScreen({ navigation }: any) {
         style={styles.createButton}
         onPress={() => navigation.navigate('CreateClassroom')}
       >
-        <Ionicons name="add" size={24} color="#fff" />
+        <Ionicons name="add" size={24} color={C.actionText} />
         <Text style={styles.createButtonText}>Create Classroom</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: S.md,
     fontSize: 16,
-    color: '#666',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: C.surface,
+    paddingHorizontal: S.xl,
+    paddingTop: S.xxl,
+    paddingBottom: S.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '700' as const,
+    color: C.ink1,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontWeight: '400' as const,
+    color: C.ink3,
+    marginTop: S.xs,
   },
   listContainer: {
-    padding: 16,
+    padding: S.lg,
     paddingBottom: 100,
   },
   classroomCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    padding: S.lg,
+    marginBottom: S.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    ...shadow.card,
   },
   classroomHeader: {
     flexDirection: 'row',
@@ -215,41 +219,43 @@ const styles = StyleSheet.create({
   classroomIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E3F2FD',
+    borderRadius: R.full,
+    backgroundColor: C.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: S.md,
   },
   classroomInfo: {
     flex: 1,
   },
   classroomName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginBottom: S.xs,
   },
   classroomDescription: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    fontWeight: '400' as const,
+    color: C.ink3,
+    marginBottom: S.sm,
   },
   classroomMeta: {
     flexDirection: 'row',
-    gap: 16,
+    gap: S.lg,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: S.xs,
   },
   metaText: {
     fontSize: 12,
-    color: '#666',
+    fontWeight: '400' as const,
+    color: C.ink3,
   },
   deleteButton: {
-    padding: 8,
+    padding: S.sm,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -258,36 +264,33 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#999',
-    marginTop: 16,
+    fontWeight: '600' as const,
+    color: C.ink4,
+    marginTop: S.lg,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#bbb',
-    marginTop: 8,
+    fontWeight: '400' as const,
+    color: C.ink5,
+    marginTop: S.sm,
   },
   createButton: {
     position: 'absolute',
-    bottom: 24,
-    left: 24,
-    right: 24,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    bottom: S.xl2,
+    left: S.xl2,
+    right: S.xl2,
+    backgroundColor: C.action,
+    borderRadius: R.lg,
+    paddingVertical: S.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    ...shadow.lift,
   },
   createButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '600' as const,
+    marginLeft: S.sm,
   },
 });

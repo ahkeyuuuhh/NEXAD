@@ -15,6 +15,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import type { ConsultationRequest } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -145,7 +147,7 @@ export default function AllRequestsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={C.ink2} />
           <Text style={styles.loadingText}>Loading requests...</Text>
         </View>
       </SafeAreaView>
@@ -160,7 +162,7 @@ export default function AllRequestsScreen({ navigation }: any) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Ionicons name="chevron-back" size={20} color={C.ink2} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>All Requests</Text>
         <View style={styles.placeholder} />
@@ -202,7 +204,7 @@ export default function AllRequestsScreen({ navigation }: any) {
       >
         {filteredRequests.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📋</Text>
+            <Ionicons name="clipboard-outline" size={64} color={C.ink4} style={{ marginBottom: 16 }} />
             <Text style={styles.emptyText}>No requests found</Text>
           </View>
         ) : (
@@ -244,7 +246,10 @@ export default function AllRequestsScreen({ navigation }: any) {
                     {request.status === 'pending' ? 'Pending Review' : 'Awaiting Response'}
                   </Text>
                 </View>
-                <Text style={styles.viewDetailsText}>View Details →</Text>
+                <View style={styles.viewDetailsRow}>
+                  <Text style={styles.viewDetailsText}>View Details</Text>
+                  <Ionicons name="chevron-forward" size={16} color={C.ink2} />
+                </View>
               </View>
             </TouchableOpacity>
           ))
@@ -257,7 +262,7 @@ export default function AllRequestsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -267,76 +272,73 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6b7280',
+    color: C.ink3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: S.xl,
+    paddingVertical: S.lg,
+    backgroundColor: C.bg,
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: '#2563eb',
-    fontSize: 16,
-    fontWeight: '500',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   placeholder: {
     width: 60,
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    backgroundColor: C.bg,
+    paddingHorizontal: S.xl,
+    paddingTop: S.md,
+    paddingBottom: S.sm,
+    gap: S.sm,
   },
   filterTab: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: S.sm + 2,
+    borderRadius: R.full,
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: C.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   filterTabActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: C.action,
   },
   filterTabText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: '600' as const,
+    color: C.ink3,
   },
   filterTabTextActive: {
-    color: '#fff',
+    color: C.actionText,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: S.xl,
   },
   requestCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.lg,
+    marginBottom: S.md,
+    ...shadow.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
   },
   requestHeader: {
     flexDirection: 'row',
@@ -346,50 +348,50 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#dbeafe',
+    backgroundColor: C.accentSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   studentAvatarText: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#2563eb',
+    fontWeight: '600' as const,
+    color: C.accent,
   },
   requestInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 4,
   },
   requestSubject: {
     fontSize: 14,
-    color: '#374151',
+    color: C.ink1,
     marginBottom: 4,
   },
   requestTime: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: C.ink4,
   },
   urgentBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#ef4444',
+    backgroundColor: C.warmLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   urgentText: {
-    color: '#fff',
+    color: C.warm,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600' as const,
   },
   requestDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: C.ink3,
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -399,20 +401,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBadge: {
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 12,
+    backgroundColor: C.accentSoft,
+    paddingHorizontal: S.md,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: R.full,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#f59e0b',
+    fontWeight: '600' as const,
+    color: C.accent,
+  },
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   viewDetailsText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#2563eb',
+    fontWeight: '600' as const,
+    color: C.ink2,
   },
   emptyState: {
     alignItems: 'center',
@@ -425,7 +432,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
-    fontWeight: '500',
+    color: C.ink4,
+    fontWeight: '400' as const,
   },
 });

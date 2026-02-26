@@ -235,6 +235,33 @@ export const consultationService = {
   },
 
   /**
+   * Get the most recent consultation request from a student to a specific teacher
+   * Used to show booking/approval status on the bin submission screen
+   */
+  async getStudentConsultationForTeacher(
+    studentId: string,
+    teacherId: string
+  ): Promise<ApiResponse<ConsultationRequest | null>> {
+    try {
+      const { data, error } = await supabase
+        .from('consultation_requests')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('teacher_id', teacherId)
+        .in('status', ['pending', 'ai_processing', 'awaiting_teacher', 'accepted'])
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return { data: data ?? null };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to fetch consultation request' };
+    }
+  },
+
+  /**
    * Check and mark missed consultations
    * This should be called periodically to mark consultations as missed
    * if they weren't completed or cancelled after their end time

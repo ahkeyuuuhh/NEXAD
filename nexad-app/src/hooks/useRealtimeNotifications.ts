@@ -11,6 +11,7 @@ export interface AppNotification {
   is_read: boolean;
   created_at: string;
   read_at?: string;
+  related_id?: string; // binId / requestId – used for deep-link navigation
 }
 
 // Generate a stable instance ID once per module load – not per render

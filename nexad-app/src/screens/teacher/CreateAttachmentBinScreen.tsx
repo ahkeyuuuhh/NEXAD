@@ -15,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { C, F, T, S, R, shadow } from '../../config/theme';
 
 export default function CreateAttachmentBinScreen({ navigation, route }: any) {
   const { classroomId } = route.params as { classroomId: string };
@@ -76,14 +77,14 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="chevron-back" size={20} color={C.ink2} />
         </TouchableOpacity>
         <Text style={styles.title}>Create Attachment Bin</Text>
       </View>
 
       <View style={styles.form}>
         <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color="#FF9500" />
+          <Ionicons name="information-circle" size={20} color={C.ink2} />
           <Text style={styles.infoText}>
             Attachment bins help you collect and organize documents from students. All submissions will be analyzed by AI.
           </Text>
@@ -96,10 +97,9 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
             value={title}
             onChangeText={setTitle}
             placeholder="e.g., Project Proposal Drafts"
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             maxLength={200}
           />
-          <Text style={styles.hint}>{title.length}/200</Text>
         </View>
 
         <View style={styles.inputGroup}>
@@ -109,7 +109,7 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
             value={description}
             onChangeText={setDescription}
             placeholder="Add instructions or requirements..."
-            placeholderTextColor="#999"
+            placeholderTextColor={C.ink4}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -124,7 +124,7 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
             style={styles.dateButton}
             onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={20} color="#666" />
+            <Ionicons name="calendar-outline" size={20} color={C.ink3} />
             <Text style={styles.dateButtonText}>
               {deadline
                 ? deadline.toLocaleDateString('en-US', {
@@ -139,7 +139,7 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
                 onPress={() => setDeadline(null)}
                 style={styles.clearButton}
               >
-                <Ionicons name="close-circle" size={20} color="#999" />
+                <Ionicons name="close-circle" size={20} color={C.ink4} />
               </TouchableOpacity>
             )}
           </TouchableOpacity>
@@ -161,10 +161,10 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={C.actionText} />
           ) : (
             <>
-              <Ionicons name="folder-open" size={20} color="#fff" />
+              <Ionicons name="folder-open" size={20} color={C.actionText} />
               <Text style={styles.createButtonText}>Create Bin</Text>
             </>
           )}
@@ -185,32 +185,39 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: C.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: C.border,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 16,
+    ...shadow.soft,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '600' as const,
+    color: C.ink1,
   },
   form: {
     padding: 20,
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: C.surfaceAlt,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -219,7 +226,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#E65100',
+    color: C.ink2,
     lineHeight: 20,
   },
   inputGroup: {
@@ -227,18 +234,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '600' as const,
+    color: C.ink1,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    color: '#333',
+    color: C.ink1,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: C.border,
   },
   textArea: {
     minHeight: 100,
@@ -246,30 +253,30 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#999',
+    color: C.ink4,
     marginTop: 4,
     textAlign: 'right',
   },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: C.surface,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: C.border,
     gap: 12,
   },
   dateButtonText: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: C.ink1,
   },
   clearButton: {
     padding: 4,
   },
   createButton: {
-    backgroundColor: '#FF9500',
+    backgroundColor: C.action,
     borderRadius: 12,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -282,9 +289,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   createButtonText: {
-    color: '#fff',
+    color: C.actionText,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   cancelButton: {
     paddingVertical: 16,
@@ -292,8 +299,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   cancelButtonText: {
-    color: '#007AFF',
+    color: C.ink2,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
 });

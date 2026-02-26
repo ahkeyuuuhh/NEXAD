@@ -1,132 +1,227 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  Dimensions,
+  Animated,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, S, R, shadow } from '../../config/theme';
+
+const { width } = Dimensions.get('window');
 
 interface RoleSelectionScreenProps {
   navigation: any;
 }
 
 export default function RoleSelectionScreen({ navigation }: RoleSelectionScreenProps) {
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(30)).current;
+  const cardScale1 = useRef(new Animated.Value(0.92)).current;
+  const cardScale2 = useRef(new Animated.Value(0.92)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(150),
+      Animated.parallel([
+        Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ]),
+    ]).start();
+
+    Animated.stagger(120, [
+      Animated.spring(cardScale1, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.spring(cardScale2, { toValue: 1, friction: 6, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   const handleRoleSelect = (role: 'student' | 'teacher') => {
-    // Navigate to Login screen with the selected role
     navigation.navigate('Login', { role });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Logo/Icon Area */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoIcon}>📚</Text>
-          </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+
+        {/* Back button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={22} color={C.ink1} />
+        </TouchableOpacity>
+
+        {/* Header */}
+        <Animated.View style={[styles.headerArea, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
+          <Text style={styles.brandMark}>NEXAD</Text>
+          <Text style={styles.title}>Choose Your{'\n'}Portal</Text>
+          <Text style={styles.subtitle}>
+            Select how you'd like to sign in to continue.
+          </Text>
+        </Animated.View>
+
+        {/* Role cards */}
+        <View style={styles.cardsArea}>
+          {/* Student card */}
+          <Animated.View style={{ transform: [{ scale: cardScale1 }] }}>
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelect('student')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.roleIconCircle}>
+                <Ionicons name="school-outline" size={28} color={C.ink1} />
+              </View>
+              <View style={styles.roleTextBlock}>
+                <Text style={styles.roleTitle}>Student Portal</Text>
+                <Text style={styles.roleDesc}>
+                  Request consultations, track schedules, and access classroom resources.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={C.ink4} />
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Faculty card */}
+          <Animated.View style={{ transform: [{ scale: cardScale2 }] }}>
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelect('teacher')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.roleIconCircle, styles.roleIconDark]}>
+                <Ionicons name="briefcase-outline" size={28} color="#FFFFFF" />
+              </View>
+              <View style={styles.roleTextBlock}>
+                <Text style={styles.roleTitle}>Faculty Portal</Text>
+                <Text style={styles.roleDesc}>
+                  Manage requests, review submissions, and organize your classroom.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={C.ink4} />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
-        {/* Header Text */}
-        <View style={styles.header}>
-          <Text style={styles.title}>IDENTIFY YOUR</Text>
-          <Text style={styles.titleBold}>ACCOUNT</Text>
-          <Text style={styles.subtitle}>Please select your role to continue to login</Text>
+        {/* Footer hint */}
+        <View style={styles.footer}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={C.ink4} />
+          <Text style={styles.footerText}>
+            Your data is secured with end-to-end encryption
+          </Text>
         </View>
 
-        {/* Role Buttons */}
-        <View style={styles.roleContainer}>
-          {/* Student Portal Button */}
-          <TouchableOpacity
-            style={styles.roleButton}
-            onPress={() => handleRoleSelect('student')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.roleButtonText}>Student Portal</Text>
-          </TouchableOpacity>
-
-          {/* Faculty Portal Button */}
-          <TouchableOpacity
-            style={[styles.roleButton, styles.facultyButton]}
-            onPress={() => handleRoleSelect('teacher')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.roleButtonText}>Faculty Portal</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: C.bg,
   },
-  content: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 28,
   },
-  logoContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 60,
-  },
-  logoPlaceholder: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#333',
-    borderRadius: 8,
-    justifyContent: 'center',
+
+  // ── Back ──────────────────────────────────────────────────────────────────
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.surface,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: S.sm,
+    ...shadow.soft,
   },
-  logoIcon: {
-    fontSize: 24,
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  headerArea: {
+    marginTop: 32,
+    marginBottom: 40,
   },
-  header: {
-    marginBottom: 48,
+  brandMark: {
+    fontWeight: '700' as const,
+    fontSize: 16,
+    color: C.ink4,
+    letterSpacing: 2,
+    marginBottom: S.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 2,
-  },
-  titleBold: {
+    fontWeight: '700' as const,
     fontSize: 36,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 3,
-    marginBottom: 16,
+    color: C.ink1,
+    lineHeight: 44,
+    marginBottom: S.md,
   },
   subtitle: {
+    fontWeight: '400' as const,
     fontSize: 14,
-    color: '#9ca3af',
-    lineHeight: 22,
+    color: C.ink3,
+    lineHeight: 21,
+    maxWidth: 260,
   },
-  roleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingBottom: 100,
+
+  // ── Role cards ────────────────────────────────────────────────────────────
+  cardsArea: {
+    gap: S.lg,
   },
-  roleButton: {
-    backgroundColor: '#4a4a4a',
-    borderRadius: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+  roleCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#5a5a5a',
+    backgroundColor: C.surface,
+    borderRadius: R.xl,
+    padding: S.xl2,
+    gap: S.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.borderLight,
+    ...shadow.card,
   },
-  facultyButton: {
-    backgroundColor: '#3a3a3a',
+  roleIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  roleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-    letterSpacing: 1,
+  roleIconDark: {
+    backgroundColor: C.ink1,
+  },
+  roleTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  roleTitle: {
+    fontWeight: '600' as const,
+    fontSize: 17,
+    color: C.ink1,
+    letterSpacing: -0.1,
+  },
+  roleDesc: {
+    fontWeight: '400' as const,
+    fontSize: 12,
+    color: C.ink3,
+    lineHeight: 17,
+  },
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 'auto' as any,
+    paddingBottom: S.lg,
+  },
+  footerText: {
+    fontWeight: '400' as const,
+    fontSize: 12,
+    color: C.ink4,
   },
 });
