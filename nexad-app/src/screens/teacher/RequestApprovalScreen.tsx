@@ -58,6 +58,8 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const [isLoadingConsultations, setIsLoadingConsultations] = useState(true);
   const [smartBrief, setSmartBrief] = useState<any>(null);
   const [isLoadingBrief, setIsLoadingBrief] = useState(true);
+  const [consultationBrief, setConsultationBrief] = useState<any>(null);
+  const [isLoadingConsultationBrief, setIsLoadingConsultationBrief] = useState(true);
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
 
@@ -66,6 +68,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     loadExistingConsultations();
     loadSmartBrief();
     loadUploadedDocuments();
+    loadConsultationBrief();
   }, []);
 
   const loadExistingConsultations = async () => {
@@ -133,15 +136,31 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     try {
       const result = await aiService.getSmartBrief(request.id);
       if (result.data) {
-        console.log('Smart Brief loaded:', result.data);
         setSmartBrief(result.data);
-      } else {
-        console.log('No smart brief found for request:', request.id);
       }
     } catch (error) {
       console.error('Error loading smart brief:', error);
     } finally {
       setIsLoadingBrief(false);
+    }
+  };
+
+  const loadConsultationBrief = async () => {
+    try {
+      // Get document name from uploaded docs or fall back to subject line
+      const docs = await documentService.getConsultationDocuments(request.id);
+      const fileName = docs.data?.[0]?.file_name || request.subject_line || 'Student Document';
+      const brief = await aiService.generateConsultationBrief({
+        fileName,
+        studentDescription: request.description || '',
+        subjectLine: request.subject_line || '',
+        topic: request.topic || 'academic',
+      });
+      setConsultationBrief(brief);
+    } catch (error) {
+      console.error('Error generating consultation brief:', error);
+    } finally {
+      setIsLoadingConsultationBrief(false);
     }
   };
 
@@ -377,102 +396,102 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* AI Smart Brief Section */}
-        {isLoadingBrief ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI Smart Brief</Text>
-            <View style={styles.loadingBrief}>
-              <ActivityIndicator size="small" color={C.ink2} />
-              <Text style={styles.loadingBriefText}>Generating smart brief...</Text>
+        {/* AI Consultation Prep Brief */}
+        <View style={styles.section}>
+          <View style={styles.smartBriefHeader}>
+            <Text style={styles.sectionTitle}>AI Consultation Prep Brief</Text>
+            <View style={styles.confidenceBadge}>
+              <Text style={styles.confidenceText}>AI Generated</Text>
             </View>
           </View>
-        ) : smartBrief ? (
-          <View style={styles.section}>
-            <View style={styles.smartBriefHeader}>
-              <Text style={styles.sectionTitle}>AI Smart Brief</Text>
-              <View style={styles.confidenceBadge}>
-                <Text style={styles.confidenceText}>AI Generated</Text>
-              </View>
+
+          {isLoadingConsultationBrief ? (
+            <View style={styles.loadingBrief}>
+              <ActivityIndicator size="small" color={C.ink2} />
+              <Text style={styles.loadingBriefText}>Analyzing document...</Text>
             </View>
-
-            {/* Summary */}
-            {smartBrief.summary && (
-              <View style={styles.smartBriefCard}>
+          ) : consultationBrief ? (
+            <>
+              {/* File Overview */}
+              <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#4F46E5' }]}>
                 <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}><Ionicons name="clipboard-outline" size={16} color={C.ink2} /> Summary</Text>
-                  <Text style={styles.briefText}>{smartBrief.summary}</Text>
+                  <Text style={styles.briefLabel}>
+                    <Ionicons name="information-circle-outline" size={15} color="#4F46E5" /> File Overview
+                  </Text>
+                  <Text style={styles.briefText}>{consultationBrief.file_overview}</Text>
                 </View>
               </View>
-            )}
 
-            {/* Key Points */}
-            {smartBrief.key_points && smartBrief.key_points.length > 0 && (
-              <View style={styles.smartBriefCard}>
-                <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>🎯 Key Points</Text>
-                  {smartBrief.key_points.map((point: string, index: number) => (
-                    <View key={index} style={styles.bulletPoint}>
-                      <Text style={styles.bullet}>•</Text>
-                      <Text style={styles.bulletText}>{point}</Text>
+              {/* Academic Integrity */}
+              {(() => {
+                const integrity = consultationBrief.academic_integrity;
+                const pct = integrity?.percentage_match ?? 0;
+                const status = integrity?.status ?? 'Clean';
+                const isHigh = pct >= 66;
+                const isMid = pct >= 41;
+                const cardColor = isHigh ? '#FEF2F2' : isMid ? '#FFFBEB' : '#F0FDF4';
+                const badgeColor = isHigh ? '#DC2626' : isMid ? '#D97706' : '#16A34A';
+                const iconName = isHigh ? 'warning-outline' : isMid ? 'alert-circle-outline' : 'shield-checkmark-outline';
+                return (
+                  <View style={[styles.smartBriefCard, { backgroundColor: cardColor, borderLeftWidth: 3, borderLeftColor: badgeColor }]}>
+                    <View style={styles.briefSection}>
+                      <Text style={[styles.briefLabel, { color: badgeColor }]}>
+                        <Ionicons name={iconName as any} size={15} color={badgeColor} /> Academic Integrity
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+                        <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
+                          <Text style={[styles.concernText, { color: badgeColor, fontWeight: '700' }]}>{pct}% match estimate</Text>
+                        </View>
+                        <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
+                          <Text style={[styles.concernText, { color: badgeColor }]}>{status}</Text>
+                        </View>
+                        {integrity?.source_type && integrity.source_type !== 'Clean' && (
+                          <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
+                            <Text style={[styles.concernText, { color: badgeColor }]}>{integrity.source_type}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.briefText}>{integrity?.analysis}</Text>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
+                  </View>
+                );
+              })()}
 
-            {/* Student Concerns */}
-            {smartBrief.student_concerns && smartBrief.student_concerns.length > 0 && (
-              <View style={styles.smartBriefCard}>
-                <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}><Ionicons name="alert-circle-outline" size={16} color={C.ink2} /> Student Concerns</Text>
-                  <View style={styles.concernsContainer}>
-                    {smartBrief.student_concerns.map((concern: string, index: number) => (
-                      <View key={index} style={styles.concernChip}>
-                        <Text style={styles.concernText}>{concern}</Text>
+              {/* Primary Concerns / Gaps */}
+              {consultationBrief.primary_concerns?.length > 0 && (
+                <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#7C3AED' }]}>
+                  <View style={styles.briefSection}>
+                    <Text style={[styles.briefLabel, { color: '#7C3AED' }]}>
+                      <Ionicons name="alert-circle-outline" size={15} color="#7C3AED" /> Primary Concerns / Gaps
+                    </Text>
+                    {consultationBrief.primary_concerns.map((concern: string, i: number) => (
+                      <View key={i} style={styles.bulletPoint}>
+                        <Text style={[styles.bullet, { color: '#7C3AED' }]}>•</Text>
+                        <Text style={styles.bulletText}>{concern}</Text>
                       </View>
                     ))}
                   </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Suggested Prep Materials */}
-            {smartBrief.suggested_prep_materials && smartBrief.suggested_prep_materials.length > 0 && (
-              <View style={styles.smartBriefCard}>
-                <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>📚 Suggested Prep Materials</Text>
-                  {smartBrief.suggested_prep_materials.map((material: string, index: number) => (
-                    <View key={index} style={styles.bulletPoint}>
-                      <Text style={styles.bullet}>•</Text>
-                      <Text style={styles.bulletText}>{material}</Text>
-                    </View>
-                  ))}
+              {/* Recommended Consultation Focus */}
+              {consultationBrief.consultation_focus && (
+                <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#0891B2' }]}>
+                  <View style={styles.briefSection}>
+                    <Text style={[styles.briefLabel, { color: '#0891B2' }]}>
+                      <Ionicons name="chatbubble-outline" size={15} color="#0891B2" /> Recommended Consultation Focus
+                    </Text>
+                    <Text style={styles.briefText}>{consultationBrief.consultation_focus}</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-
-            {/* Estimated Duration */}
-            {smartBrief.estimated_consultation_duration_minutes && (
-              <View style={styles.smartBriefCard}>
-                <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>⏱️ Estimated Duration</Text>
-                  <Text style={styles.durationText}>
-                    {smartBrief.estimated_consultation_duration_minutes} minutes
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI Smart Brief</Text>
+              )}
+            </>
+          ) : (
             <View style={styles.noDataCard}>
-              <Text style={styles.noDataText}>
-                No AI Smart Brief available yet. The summary may still be generating or wasn't created for this request.
-              </Text>
+              <Text style={styles.noDataText}>Could not generate brief. Please review the request manually.</Text>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Uploaded Documents/Drafts Section */}
         {isLoadingDocuments ? (

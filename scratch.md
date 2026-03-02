@@ -10,5 +10,9 @@ BACKENDS TO-DO LIST:
     messages. File sharing in chat (PDF/Docx up to 5MB).
 
 MODIFICATIONS NEEDED: 
-[] Teacher Interface Classroom: There's no student enrolled detected even though I tried joining the class and it successfully joined. 
-[] When the student joined the classes, it must also notify the teachers. As well as when the teachers posted anything, it must notify the student. (FOR YOUR INFORMATION: Everything must be notified. From consultations, to classrooms, to consultation updates, and even to the messaging. though the messaging is not yet integrated)
+[] Accounts: When the account is already signed in as teacher/student it cannot be logged in on another way around. 
+
+
+UI: 
+[] The pending request on dashboard: Instead of "No Date" indicated, just indicate when it is submitted [Date and time]
+[] 
