@@ -438,7 +438,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 <Ionicons name="attach" size={16} color={C.ink2} />
                 <Text style={styles.uploadLabel}>Upload Documents (Optional)</Text>
               </View>
-              <Text style={styles.uploadHint}>PDF or DOCX, up to 5MB</Text>
+              <Text style={styles.uploadHint}>DOCX only, up to 5MB</Text>
               
               <TouchableOpacity
                 style={styles.uploadButton}

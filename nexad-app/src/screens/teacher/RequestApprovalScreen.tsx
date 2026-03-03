@@ -10,8 +10,11 @@ import {
   Alert,
   Platform,
   Modal,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Calendar, DateData } from 'react-native-calendars';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +65,23 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const [isLoadingConsultationBrief, setIsLoadingConsultationBrief] = useState(true);
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
+    fileOverview: true,
+    contentAnalysis: false,
+    academicIntegrity: false,
+    primaryConcerns: false,
+    consultationFocus: false,
+  });
+
+  // Enable LayoutAnimation on Android
+  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+
+  const toggleCard = (key: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedCards(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     loadStudentProfile();
@@ -149,12 +169,24 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     try {
       // Get document name from uploaded docs or fall back to subject line
       const docs = await documentService.getConsultationDocuments(request.id);
-      const fileName = docs.data?.[0]?.file_name || request.subject_line || 'Student Document';
+      const firstDoc = docs.data?.[0];
+      const fileName = firstDoc?.file_name || request.subject_line || 'Student Document';
+
+      // Extract file text if a document was uploaded
+      let fileContent: string | undefined;
+      if (firstDoc?.storage_path) {
+        fileContent = await documentService.extractTextFromFile(
+          firstDoc.storage_path,
+          firstDoc.file_type || 'pdf'
+        );
+      }
+
       const brief = await aiService.generateConsultationBrief({
         fileName,
         studentDescription: request.description || '',
         subjectLine: request.subject_line || '',
         topic: request.topic || 'academic',
+        fileContent,
       });
       setConsultationBrief(brief);
     } catch (error) {
@@ -354,73 +386,137 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Request Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pending Requests</Text>
-
-          <View style={styles.studentCard}>
-            <View style={styles.studentAvatar}>
-              <Text style={styles.avatarText}>
-                {studentName[0] || 'S'}
-              </Text>
-            </View>
-            <View style={styles.studentInfo}>
-              <Text style={styles.studentName}>
-                {isLoadingStudent ? 'Loading...' : studentName}
-              </Text>
-              <Text style={styles.requestSubject} numberOfLines={3}>
-                {request.subject_line}
-              </Text>
-              <Text style={styles.requestDescription}>
-                {request.description}
-              </Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Submitted:</Text>
-                <Text style={styles.metaValue}>{formatDate(request.submitted_at)}</Text>
-              </View>
-              {request.urgency === 'urgent' && (
-                <View style={styles.urgentBadge}>
-                  <Text style={styles.urgentText}>URGENT</Text>
-                </View>
-              )}
-              {request.preferred_time_slots && request.preferred_time_slots.length > 0 && (
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Preferred Time:</Text>
-                  <Text style={styles.metaValue}>
-                    {formatDate(request.preferred_time_slots[0].start)} at{' '}
-                    {formatTime(request.preferred_time_slots[0].start)}
+        {/* ─── Student card — dark gradient hero ─── */}
+        <LinearGradient
+          colors={['#0f0f0f', '#1a1a1a', '#2a2a2a', '#1a1a1a']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {/* Student info — glass card within dark gradient */}
+          <View style={styles.heroSection}>
+            <Text style={styles.gradientSectionLabel}>PENDING REQUEST</Text>
+            <View style={styles.heroGlassCard}>
+              <View style={styles.gradientStudentRow}>
+                <View style={styles.gradientAvatar}>
+                  <Text style={styles.gradientAvatarText}>
+                    {(isLoadingStudent ? '?' : studentName)[0]?.toUpperCase() || 'S'}
                   </Text>
                 </View>
+                <View style={styles.gradientStudentInfo}>
+                  <Text style={styles.gradientStudentName}>
+                    {isLoadingStudent ? 'Loading...' : studentName}
+                  </Text>
+                  <Text style={styles.gradientSubject} numberOfLines={2}>
+                    {request.subject_line}
+                  </Text>
+                </View>
+                {request.urgency === 'urgent' && (
+                  <View style={styles.gradientUrgentBadge}>
+                    <Text style={styles.gradientUrgentText}>⚡ URGENT</Text>
+                  </View>
+                )}
+              </View>
+              {!!request.description && (
+                <View style={styles.heroCardDivider} />
               )}
+              {!!request.description && (
+                <Text style={styles.gradientDescription} numberOfLines={3}>
+                  {request.description}
+                </Text>
+              )}
+              <View style={styles.gradientMetaRow}>
+                <View style={styles.gradientMetaChip}>
+                  <Ionicons name="calendar-outline" size={11} color="rgba(255,255,255,0.55)" />
+                  <Text style={styles.gradientMetaText}>{formatDate(request.submitted_at)}</Text>
+                </View>
+                {request.preferred_time_slots && request.preferred_time_slots.length > 0 && (
+                  <View style={styles.gradientMetaChip}>
+                    <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.55)" />
+                    <Text style={styles.gradientMetaText}>
+                      {formatTime(request.preferred_time_slots[0].start)}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* AI Consultation Prep Brief */}
+        </LinearGradient>
+
+        {/* ─── AI Consultation Prep Brief (white section) ─── */}
         <View style={styles.section}>
           <View style={styles.smartBriefHeader}>
             <Text style={styles.sectionTitle}>AI Consultation Prep Brief</Text>
-            <View style={styles.confidenceBadge}>
-              <Text style={styles.confidenceText}>AI Generated</Text>
+            <View style={styles.aiGeneratedBadge}>
+              <Ionicons name="sparkles" size={10} color="#7C3AED" />
+              <Text style={styles.aiGeneratedText}>AI Generated</Text>
             </View>
           </View>
 
           {isLoadingConsultationBrief ? (
             <View style={styles.loadingBrief}>
               <ActivityIndicator size="small" color={C.ink2} />
-              <Text style={styles.loadingBriefText}>Analyzing document...</Text>
+              <Text style={styles.loadingBriefText}>Analyzing document content...</Text>
             </View>
           ) : consultationBrief ? (
             <>
               {/* File Overview */}
-              <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#4F46E5' }]}>
-                <View style={styles.briefSection}>
-                  <Text style={styles.briefLabel}>
-                    <Ionicons name="information-circle-outline" size={15} color="#4F46E5" /> File Overview
-                  </Text>
-                  <Text style={styles.briefText}>{consultationBrief.file_overview}</Text>
+              <TouchableOpacity style={styles.lightGlassCard} onPress={() => toggleCard('fileOverview')} activeOpacity={0.8}>
+                <View style={styles.accordionHeader}>
+                  <View style={styles.accordionHeaderLeft}>
+                    <View style={[styles.accordionIconBadge, { backgroundColor: '#EEF2FF' }]}>
+                      <Ionicons name="information-circle" size={15} color="#4F46E5" />
+                    </View>
+                    <Text style={styles.accordionTitle}>File Overview</Text>
+                  </View>
+                  <Ionicons name={expandedCards.fileOverview ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} />
                 </View>
-              </View>
+                {expandedCards.fileOverview && (
+                  <View style={styles.accordionBody}>
+                    <Text style={styles.briefText}>{consultationBrief.file_overview}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Content Analysis */}
+              {consultationBrief.content_analysis && (
+                <TouchableOpacity style={styles.lightGlassCard} onPress={() => toggleCard('contentAnalysis')} activeOpacity={0.8}>
+                  <View style={styles.accordionHeader}>
+                    <View style={styles.accordionHeaderLeft}>
+                      <View style={[styles.accordionIconBadge, { backgroundColor: '#ECFDF5' }]}>
+                        <Ionicons name="document-text" size={15} color="#059669" />
+                      </View>
+                      <Text style={styles.accordionTitle}>Content Analysis</Text>
+                    </View>
+                    <View style={styles.accordionHeaderRight}>
+                      {consultationBrief.content_analysis.word_count > 0 && (
+                        <Text style={styles.accordionMeta}>~{consultationBrief.content_analysis.word_count} words</Text>
+                      )}
+                      <Ionicons name={expandedCards.contentAnalysis ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} />
+                    </View>
+                  </View>
+                  {expandedCards.contentAnalysis && (
+                    <View style={styles.accordionBody}>
+                      <Text style={styles.briefText}>{consultationBrief.content_analysis.summary}</Text>
+                      {consultationBrief.content_analysis.key_topics?.length > 0 && (
+                        <View style={styles.chipRow}>
+                          {consultationBrief.content_analysis.key_topics.map((t: string, i: number) => (
+                            <View key={i} style={styles.topicChip}>
+                              <Text style={styles.topicChipText}>{t}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                      {consultationBrief.content_analysis.flags?.map((flag: string, i: number) => (
+                        <View key={i} style={styles.flagRow}>
+                          <Text style={styles.flagIcon}>⚠</Text>
+                          <Text style={styles.flagText}>{flag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
 
               {/* Academic Integrity */}
               {(() => {
@@ -429,61 +525,99 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 const status = integrity?.status ?? 'Clean';
                 const isHigh = pct >= 66;
                 const isMid = pct >= 41;
-                const cardColor = isHigh ? '#FEF2F2' : isMid ? '#FFFBEB' : '#F0FDF4';
-                const badgeColor = isHigh ? '#DC2626' : isMid ? '#D97706' : '#16A34A';
-                const iconName = isHigh ? 'warning-outline' : isMid ? 'alert-circle-outline' : 'shield-checkmark-outline';
+                const scaleColor = isHigh ? '#DC2626' : isMid ? '#D97706' : '#16A34A';
+                const scaleIconBg = isHigh ? '#FEF2F2' : isMid ? '#FFFBEB' : '#F0FDF4';
                 return (
-                  <View style={[styles.smartBriefCard, { backgroundColor: cardColor, borderLeftWidth: 3, borderLeftColor: badgeColor }]}>
-                    <View style={styles.briefSection}>
-                      <Text style={[styles.briefLabel, { color: badgeColor }]}>
-                        <Ionicons name={iconName as any} size={15} color={badgeColor} /> Academic Integrity
-                      </Text>
-                      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-                        <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
-                          <Text style={[styles.concernText, { color: badgeColor, fontWeight: '700' }]}>{pct}% match estimate</Text>
+                  <TouchableOpacity style={styles.lightGlassCard} onPress={() => toggleCard('academicIntegrity')} activeOpacity={0.8}>
+                    <View style={styles.accordionHeader}>
+                      <View style={styles.accordionHeaderLeft}>
+                        <View style={[styles.accordionIconBadge, { backgroundColor: scaleIconBg }]}>
+                          <Ionicons name={isHigh ? 'warning' : isMid ? 'alert-circle' : 'shield-checkmark'} size={15} color={scaleColor} />
                         </View>
-                        <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
-                          <Text style={[styles.concernText, { color: badgeColor }]}>{status}</Text>
-                        </View>
-                        {integrity?.source_type && integrity.source_type !== 'Clean' && (
-                          <View style={[styles.concernChip, { backgroundColor: badgeColor + '22', borderColor: badgeColor, borderWidth: 1 }]}>
-                            <Text style={[styles.concernText, { color: badgeColor }]}>{integrity.source_type}</Text>
-                          </View>
-                        )}
+                        <Text style={styles.accordionTitle}>Academic Integrity</Text>
                       </View>
-                      <Text style={styles.briefText}>{integrity?.analysis}</Text>
+                      <View style={styles.accordionHeaderRight}>
+                        <Text style={[styles.accordionMetaBold, { color: scaleColor }]}>{pct}%</Text>
+                        <Ionicons name={expandedCards.academicIntegrity ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} />
+                      </View>
                     </View>
-                  </View>
+                    <View style={styles.integrityScaleWrap}>
+                      <View style={styles.integrityTrackBg}>
+                        <View style={[styles.integrityTrackFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: scaleColor }]} />
+                        <View style={[styles.integrityMarker, { left: '41%' as any }]} />
+                        <View style={[styles.integrityMarker, { left: '66%' as any }]} />
+                      </View>
+                      <View style={styles.integrityScaleRow}>
+                        <Text style={styles.integrityScaleLabel}>0%</Text>
+                        <Text style={[styles.integrityScaleLabel, { color: '#16A34A' }]}>Clean</Text>
+                        <Text style={[styles.integrityScaleLabel, { color: '#D97706' }]}>Review</Text>
+                        <Text style={[styles.integrityScaleLabel, { color: '#DC2626' }]}>High Risk</Text>
+                        <Text style={styles.integrityScaleLabel}>100%</Text>
+                      </View>
+                    </View>
+                    {expandedCards.academicIntegrity && (
+                      <View style={styles.accordionBody}>
+                        <View style={styles.integrityChipRow}>
+                          <View style={[styles.integrityChip, { backgroundColor: scaleColor + '18', borderColor: scaleColor }]}>
+                            <Text style={[styles.integrityChipText, { color: scaleColor }]}>{pct}% match estimate</Text>
+                          </View>
+                          <View style={[styles.integrityChip, { backgroundColor: scaleColor + '18', borderColor: scaleColor }]}>
+                            <Text style={[styles.integrityChipText, { color: scaleColor }]}>{status}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.briefText}>{integrity?.analysis}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 );
               })()}
 
-              {/* Primary Concerns / Gaps */}
+              {/* Primary Concerns */}
               {consultationBrief.primary_concerns?.length > 0 && (
-                <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#7C3AED' }]}>
-                  <View style={styles.briefSection}>
-                    <Text style={[styles.briefLabel, { color: '#7C3AED' }]}>
-                      <Ionicons name="alert-circle-outline" size={15} color="#7C3AED" /> Primary Concerns / Gaps
-                    </Text>
-                    {consultationBrief.primary_concerns.map((concern: string, i: number) => (
-                      <View key={i} style={styles.bulletPoint}>
-                        <Text style={[styles.bullet, { color: '#7C3AED' }]}>•</Text>
-                        <Text style={styles.bulletText}>{concern}</Text>
+                <TouchableOpacity style={styles.lightGlassCard} onPress={() => toggleCard('primaryConcerns')} activeOpacity={0.8}>
+                  <View style={styles.accordionHeader}>
+                    <View style={styles.accordionHeaderLeft}>
+                      <View style={[styles.accordionIconBadge, { backgroundColor: '#F5F3FF' }]}>
+                        <Ionicons name="alert-circle" size={15} color="#7C3AED" />
                       </View>
-                    ))}
+                      <Text style={styles.accordionTitle}>Primary Concerns</Text>
+                    </View>
+                    <View style={styles.accordionHeaderRight}>
+                      <Text style={styles.accordionMeta}>{consultationBrief.primary_concerns.length} item{consultationBrief.primary_concerns.length !== 1 ? 's' : ''}</Text>
+                      <Ionicons name={expandedCards.primaryConcerns ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} />
+                    </View>
                   </View>
-                </View>
+                  {expandedCards.primaryConcerns && (
+                    <View style={styles.accordionBody}>
+                      {consultationBrief.primary_concerns.map((concern: string, i: number) => (
+                        <View key={i} style={styles.bulletPoint}>
+                          <Text style={[styles.bullet, { color: '#7C3AED' }]}>•</Text>
+                          <Text style={styles.bulletText}>{concern}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
               )}
 
-              {/* Recommended Consultation Focus */}
+              {/* Consultation Focus */}
               {consultationBrief.consultation_focus && (
-                <View style={[styles.smartBriefCard, { borderLeftWidth: 3, borderLeftColor: '#0891B2' }]}>
-                  <View style={styles.briefSection}>
-                    <Text style={[styles.briefLabel, { color: '#0891B2' }]}>
-                      <Ionicons name="chatbubble-outline" size={15} color="#0891B2" /> Recommended Consultation Focus
-                    </Text>
-                    <Text style={styles.briefText}>{consultationBrief.consultation_focus}</Text>
+                <TouchableOpacity style={styles.lightGlassCard} onPress={() => toggleCard('consultationFocus')} activeOpacity={0.8}>
+                  <View style={styles.accordionHeader}>
+                    <View style={styles.accordionHeaderLeft}>
+                      <View style={[styles.accordionIconBadge, { backgroundColor: '#E0F7FA' }]}>
+                        <Ionicons name="chatbubble" size={15} color="#0891B2" />
+                      </View>
+                      <Text style={styles.accordionTitle}>Consultation Focus</Text>
+                    </View>
+                    <Ionicons name={expandedCards.consultationFocus ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} />
                   </View>
-                </View>
+                  {expandedCards.consultationFocus && (
+                    <View style={styles.accordionBody}>
+                      <Text style={styles.briefText}>{consultationBrief.consultation_focus}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               )}
             </>
           ) : (
@@ -493,7 +627,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           )}
         </View>
 
-        {/* Uploaded Documents/Drafts Section */}
+        {/* ─── Student Documents ─── */}
         {isLoadingDocuments ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents</Text>
@@ -510,13 +644,12 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 <Text style={styles.documentBadgeText}>{uploadedDocuments.length} file(s)</Text>
               </View>
             </View>
-            <Text style={styles.documentsSubtext}>
-              Student has uploaded the following materials for review:
-            </Text>
+            <Text style={styles.documentsSubtext}>Student has uploaded the following materials for review:</Text>
             {uploadedDocuments.map((doc, index) => (
-              <TouchableOpacity 
-                key={doc.id || index} 
+              <TouchableOpacity
+                key={doc.id || index}
                 style={styles.documentCard}
+                activeOpacity={0.75}
                 onPress={async () => {
                   try {
                     const urlResult = await documentService.getDocumentUrl(doc.storage_path);
@@ -536,15 +669,12 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 }}
               >
                 <View style={styles.documentIcon}>
-                  <Ionicons name={doc.file_name?.endsWith('.pdf') ? 'document-outline' : 'document-text-outline'} size={16} color={C.ink3} />
+                  <Ionicons name="document-text-outline" size={16} color={C.ink3} />
                 </View>
                 <View style={styles.documentInfo}>
-                  <Text style={styles.documentName} numberOfLines={1}>
-                    {doc.file_name || 'Document'}
-                  </Text>
+                  <Text style={styles.documentName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
                   <Text style={styles.documentMeta}>
-                    {doc.file_size_bytes ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'} • 
-                    {doc.uploaded_at ? ` Uploaded ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
+                    {doc.file_size_bytes ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}{doc.uploaded_at ? ` · Uploaded ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={C.ink4} style={{ marginLeft: 8 }} />
@@ -555,18 +685,15 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents & Drafts</Text>
             <View style={styles.noDataCard}>
-              <Text style={styles.noDataText}>
-                No documents uploaded for this consultation.
-              </Text>
+              <Text style={styles.noDataText}>No documents uploaded for this consultation.</Text>
             </View>
           </View>
         )}
 
-        {/* Calendar Section */}
+        {/* ─── Calendar Section ─── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Schedule - Available Times</Text>
           <Text style={styles.calendarSubtext}>Red dots indicate existing consultations</Text>
-          
           {isLoadingConsultations ? (
             <ActivityIndicator size="large" color={C.ink2} style={{ marginVertical: 20 }} />
           ) : (
@@ -580,9 +707,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                     selectedColor: C.ink1,
                   },
                 }}
-                onDayPress={(day: DateData) => {
-                  setSelectedDate(new Date(day.dateString));
-                }}
+                onDayPress={(day: DateData) => setSelectedDate(new Date(day.dateString))}
                 minDate={new Date().toISOString().split('T')[0]}
                 theme={{
                   backgroundColor: C.surface,
@@ -602,9 +727,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               />
             </View>
           )}
-
-          {/* Show consultations for selected date */}
-          {existingConsultations.filter(c => 
+          {existingConsultations.filter(c =>
             c.scheduled_start_time?.split('T')[0] === selectedDate.toISOString().split('T')[0]
           ).length > 0 && (
             <View style={styles.existingConsultations}>
@@ -618,57 +741,38 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                     </Text>
                     <Text style={styles.existingStudent}>{consultation.studentName}</Text>
                   </View>
-                ))
-              }
+                ))}
             </View>
           )}
         </View>
 
-        {/* Date and Time Selection */}
+        {/* ─── Date and Time Selection ─── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Schedule Consultation</Text>
 
-          {/* Show Selected Date */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Selected Date *</Text>
             <View style={styles.pickerButton}>
               <Text style={styles.pickerButtonText}>
-                {selectedDate.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+                {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </Text>
               <Text style={styles.pickerIcon}>📅</Text>
             </View>
             <Text style={styles.helperText}>Tap a date on the calendar above to change</Text>
           </View>
 
-          {/* Time Pickers */}
           <View style={styles.timeRow}>
             <View style={[styles.inputGroup, styles.timeInput]}>
               <Text style={styles.inputLabel}>Start Time *</Text>
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowStartTimePicker(true)}
-              >
-                <Text style={styles.pickerButtonText}>
-                  {`${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`}
-                </Text>
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setShowStartTimePicker(true)}>
+                <Text style={styles.pickerButtonText}>{`${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`}</Text>
                 <Text style={styles.pickerIcon}>🕐</Text>
               </TouchableOpacity>
             </View>
-
             <View style={[styles.inputGroup, styles.timeInput]}>
               <Text style={styles.inputLabel}>End Time *</Text>
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowEndTimePicker(true)}
-              >
-                <Text style={styles.pickerButtonText}>
-                  {`${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`}
-                </Text>
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setShowEndTimePicker(true)}>
+                <Text style={styles.pickerButtonText}>{`${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`}</Text>
                 <Text style={styles.pickerIcon}>🕐</Text>
               </TouchableOpacity>
             </View>
@@ -809,7 +913,6 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             <Ionicons name="alert-circle-outline" size={12} color={C.ink3} /> System will check for conflicts with existing consultations
           </Text>
 
-          {/* Classroom Number Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Classroom Number *</Text>
             <TextInput
@@ -823,7 +926,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Action Buttons */}
+        {/* ─── Action Buttons ─── */}
         <View style={styles.section}>
           <View style={styles.actionSection}>
             <TouchableOpacity
@@ -837,7 +940,6 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 <Text style={styles.approveButtonText}><Ionicons name="checkmark" size={16} color="#fff" /> Approve & Schedule</Text>
               )}
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.declineButton, isSubmitting && styles.buttonDisabled]}
               onPress={handleDecline}
@@ -884,11 +986,174 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: C.bg,
   },
   section: {
     backgroundColor: C.surface,
     padding: 16,
     marginBottom: 8,
+  },
+  // ── Dark section (used for all lower sections) ────────────────────────────
+  darkSection: {
+    backgroundColor: '#0a0a0a',
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  darkSectionTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.88)',
+    marginBottom: 4,
+  },
+  darkSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.30)',
+    marginBottom: 14,
+    fontStyle: 'italic' as const,
+  },
+  darkBadge: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  darkBadgeText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600' as const,
+  },
+  darkDocCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+  },
+  darkDocIcon: {
+    width: 38,
+    height: 38,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginRight: 12,
+  },
+  darkDocName: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 2,
+  },
+  darkDocMeta: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.32)',
+  },
+  darkCalendarWrap: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.09)',
+    overflow: 'hidden' as const,
+    marginBottom: 12,
+  },
+  darkExistingWrap: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 12,
+    marginTop: 4,
+  },
+  darkExistingTitle: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.45)',
+    marginBottom: 8,
+  },
+  darkExistingItem: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    paddingVertical: 4,
+  },
+  darkExistingTime: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.60)',
+    fontWeight: '600' as const,
+  },
+  darkExistingStudent: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.40)',
+  },
+  darkLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.60)',
+    marginBottom: 8,
+  },
+  darkPickerButton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  darkPickerText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.75)',
+  },
+  darkHelperText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.25)',
+    marginTop: 5,
+    marginBottom: 12,
+  },
+  darkTextInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#fff',
+  },
+  darkApproveButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  darkApproveText: {
+    color: '#0a0a0a',
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  darkDeclineButton: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  darkDeclineText: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
   sectionTitle: {
     fontSize: 16,
@@ -1351,5 +1616,356 @@ const styles = StyleSheet.create({
     color: C.ink3,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+
+  // ── Hero (dark gradient) outer layout ─────────────────────────────────────
+  heroSection: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 0,
+  },
+  heroGlassCard: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+  },
+  heroCardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 12,
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginHorizontal: 18,
+    marginBottom: 4,
+  },
+  gradientSectionLabel: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: 'rgba(255,255,255,0.38)',
+    letterSpacing: 1.8,
+    marginBottom: 10,
+  },
+  // ── Light glass accordion card (visible on white bg) ─────────────────────────────
+  lightGlassCard: {
+    backgroundColor: 'rgba(0,0,0,0.11)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.15)',
+    marginBottom: 10,
+    overflow: 'hidden' as const,
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  gradientCard: {
+    marginHorizontal: 0,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 18,
+  },
+  gradientStudentRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 10,
+  },
+  gradientAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginRight: 14,
+  },
+  gradientAvatarText: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  gradientStudentInfo: {
+    flex: 1,
+  },
+  gradientStudentName: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: '#fff',
+    marginBottom: 3,
+  },
+  gradientSubject: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.72)',
+    fontWeight: '500' as const,
+  },
+  gradientUrgentBadge: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginLeft: 8,
+    alignSelf: 'flex-start' as const,
+  },
+  gradientUrgentText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  gradientDescription: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.60)',
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  gradientMetaRow: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    flexWrap: 'wrap' as const,
+  },
+  gradientMetaChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  gradientMetaText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.75)',
+    fontWeight: '500' as const,
+  },
+
+  // ── AI Brief section wrapper (on dark gradient) ──────────────────────────
+  darkBriefWrap: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  // kept for compat
+  briefSection2: {
+    backgroundColor: C.surface,
+    padding: 16,
+    marginBottom: 8,
+  },
+
+  // ── AI Generated badge ────────────────────────────────────────────────────
+  aiGeneratedBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    backgroundColor: '#F5F3FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  aiGeneratedText: {
+    fontSize: 11,
+    color: '#7C3AED',
+    fontWeight: '600' as const,
+  },
+
+  // ── Dark glass accordion cards ────────────────────────────────────────────
+  darkCard: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.11)',
+    marginBottom: 10,
+    overflow: 'hidden' as const,
+  },
+  darkCardTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: 'rgba(255,255,255,0.90)',
+  },
+  darkCardBody: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.58)',
+    lineHeight: 20,
+  },
+  darkCardMeta: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.38)',
+    fontWeight: '500' as const,
+  },
+  darkTopicChip: {
+    backgroundColor: 'rgba(52,211,153,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  darkTopicChipText: {
+    fontSize: 12,
+    color: '#34D399',
+    fontWeight: '600' as const,
+  },
+  // kept for compat
+  glassCard: {
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.07)',
+    marginBottom: 10,
+    overflow: 'hidden' as const,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  accordionHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  accordionHeaderLeft: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+    flex: 1,
+  },
+  accordionHeaderRight: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  },
+  accordionIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  accordionTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: C.ink1,
+  },
+  accordionMeta: {
+    fontSize: 11,
+    color: C.ink3,
+    fontWeight: '500' as const,
+  },
+  accordionMetaBold: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  accordionBody: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 10,
+    gap: 8,
+  },
+
+  // ── Integrity scale bar ───────────────────────────────────────────────────
+  integrityScaleWrap: {
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  integrityTrackBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden' as const,
+    position: 'relative' as const,
+  },
+  integrityTrackFill: {
+    position: 'absolute' as const,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 3,
+  },
+  integrityMarker: {
+    position: 'absolute' as const,
+    top: -1,
+    bottom: -1,
+    width: 1.5,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  integrityScaleRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    marginTop: 5,
+  },
+  integrityScaleLabel: {
+    fontSize: 9,
+    color: C.ink4,
+    fontWeight: '600' as const,
+  },
+  integrityChipRow: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 6,
+    marginBottom: 6,
+  },
+  integrityChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  integrityChipText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+
+  // ── Topic chips & flags ───────────────────────────────────────────────────
+  chipRow: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 6,
+    marginTop: 8,
+  },
+  topicChip: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  topicChipText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '600' as const,
+  },
+  flagRow: {
+    flexDirection: 'row' as const,
+    gap: 6,
+    alignItems: 'flex-start' as const,
+    marginTop: 4,
+  },
+  flagIcon: {
+    fontSize: 13,
+    color: '#D97706',
+  },
+  flagText: {
+    fontSize: 13,
+    color: '#D97706',
+    flex: 1,
+    lineHeight: 18,
   },
 });

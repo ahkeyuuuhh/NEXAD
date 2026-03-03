@@ -467,7 +467,7 @@ export const aiService = {
       let response = `For your consultation about "${subjectLine}", consider bringing these materials:\n\n${this.suggestDocuments(text, category).map((d, i) => `• ${d}`).join('\n')}`;
       
       if (isProject) {
-        response += `\n\n🎯 PROJECT DRAFT RECOMMENDATION:\n\nSince this is about a project, please upload your current draft or work-in-progress. This allows your teacher to:\n✓ Review your progress ahead of time\n✓ Identify specific areas needing improvement\n✓ Prepare detailed feedback\n✓ Make the consultation more productive\n\nYou can upload files (PDF, DOCX, up to 5MB) in the consultation request form.`;
+        response += `\n\n🎯 PROJECT DRAFT RECOMMENDATION:\n\nSince this is about a project, please upload your current draft or work-in-progress. This allows your teacher to:\n✓ Review your progress ahead of time\n✓ Identify specific areas needing improvement\n✓ Prepare detailed feedback\n✓ Make the consultation more productive\n\nYou can upload a DOCX file (up to 5MB) in the consultation request form.`;
       }
       
       return response + `\n\nHaving these ready will help your teacher provide better guidance.`;
@@ -625,6 +625,60 @@ export const aiService = {
   },
 
   /**
+   * On-device content analysis — keyword analysis of extracted file text.
+   */
+  localContentAnalysis(text: string, fileName: string, studentDescription: string = '', subjectLine: string = ''): {
+    summary: string;
+    key_topics: string[];
+    word_count: number;
+    flags: string[];
+  }  {
+    const baseName = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const hasText = text.trim().length > 20;
+    const meta = (baseName + ' ' + studentDescription + ' ' + subjectLine).toLowerCase();
+    const T: Record<string, string> = {
+      'climate change': 'Climate Change', 'global warming': 'Global Warming',
+      'artificial intelligence': 'AI/Machine Learning', 'machine learning': 'Machine Learning',
+      'mental health': 'Mental Health', 'social media': 'Social Media',
+      'economic': 'Economics', 'political': 'Politics', 'histor': 'History',
+      'environment': 'Environment', 'technolog': 'Technology', 'education': 'Education',
+      'health': 'Health & Medicine', 'culture': 'Culture', 'psycholog': 'Psychology',
+      'algorithm': 'Algorithms', 'database': 'Databases', 'network': 'Networking',
+      'security': 'Cybersecurity', 'programming': 'Programming', 'software': 'Software',
+      'math': 'Mathematics', 'physic': 'Physics', 'biolog': 'Biology',
+    };
+    if (!hasText) {
+      const tops = Object.entries(T).filter(function(e) { return meta.includes(e[0]); }).map(function(e) { return e[1]; }).filter(function(x, i, a) { return a.indexOf(x) === i; }).slice(0, 4);
+      return {
+        summary: 'File "' + baseName + '" was uploaded but its text could not be extracted. It may be a scanned or image-based document. Analysis is based on the filename and student description only.',
+        key_topics: tops.length ? tops : ['See filename/description'],
+        word_count: 0,
+        flags: [
+          'Document text could not be read — may be a scanned or image-based file',
+          'Ask student to share an editable DOCX for deeper analysis',
+        ],
+      };
+    }
+    const words = text.split(/\s+/).filter(Boolean);
+    const wordCount = words.length;
+    const lowerText = text.toLowerCase();
+    const aiPhrases = [
+      'in order to', 'plays a crucial role', 'it is important to note',
+      'this essay explores', "in today's world", 'furthermore', 'moreover',
+      'in conclusion', 'significant impact', 'a wide range of', 'has been shown to',
+    ];
+    const aiFound = aiPhrases.filter(function(p) { return lowerText.includes(p); });
+    const topics = Object.entries(T).filter(function(e) { return lowerText.includes(e[0]); }).map(function(e) { return e[1]; }).filter(function(x, i, a) { return a.indexOf(x) === i; }).slice(0, 4);
+    const flags: string[] = [];
+    if (aiFound.length >= 2) flags.push('AI writing style phrases detected: ' + aiFound.slice(0, 3).join(', '));
+    if (!/\breferences?\b|\bbibliograph/.test(lowerText) && wordCount > 100) flags.push('No citations or references detected in the document');
+    if (wordCount < 50) flags.push('Very little text extracted — document may be partially image-based');
+    const ex = text.substring(0, 250).replace(/\s+/g, ' ').trim();
+    const summary = ex.length > 30 ? 'Document begins: "' + ex + '..."' : 'Text extracted from "' + baseName + '".';
+    return { summary, key_topics: topics, word_count: wordCount, flags };
+  },
+
+  /**
    * On-device fallback scoring — used when HF API is unavailable.
    * Separately detects AI-Generated content vs Uncited/Plagiarised content.
    */
@@ -633,6 +687,7 @@ export const aiService = {
     studentDescription: string;
     subjectLine: string;
     topic: string;
+    fileContent?: string;
   }) {
     const { fileName, studentDescription, subjectLine, topic } = params;
     const descLower = studentDescription.trim().toLowerCase();
@@ -678,6 +733,33 @@ export const aiService = {
     if (descWordCount < 5) plagiarismScore += 20;
     else if (descWordCount < 11) plagiarismScore += 8;
     if (!hasPersonalVoice && !isLongDesc) plagiarismScore += 12; // short + no personal = generic copy
+
+    // ── Boost scores from actual extracted file content ─────────────────
+    const fileContent = params.fileContent || '';
+    if (fileContent.trim().length > 50) {
+      const fcLower = fileContent.toLowerCase();
+      const fcWords = fileContent.split(/\s+/).filter(Boolean);
+      const fcLen = fcWords.length;
+
+      // AI phrase density in actual content (stronger signal than description)
+      const fcAIPhraseMatches = aiPhrases.filter(p => fcLower.includes(p)).length;
+      aiScore += fcAIPhraseMatches * 15;
+
+      // Copy-paste / encyclopedic signals in content
+      // Definition-style openers: "X is a", "X refers to", "X is defined as"
+      const definitionStyle = /(\bis a\b|\bis an\b|\brefers to\b|\bis defined as\b|\bwas founded\b|\binvolves\b|\bconsists of\b)/.test(fcLower);
+      const hasPersonalVoiceInContent = /\b(i |my |me |we |our |i'm|i've|i need|i want)\/b/i.test(fileContent);
+      const hasCitationInContent = /\breferences?\b|\bbibliograph|et al\.?|\[\d+\]|\(\d{4}\)/.test(fcLower);
+
+      if (definitionStyle && !hasPersonalVoiceInContent) plagiarismScore += 20;
+      if (!hasCitationInContent && fcLen > 150) plagiarismScore += 15;
+      if (!hasPersonalVoiceInContent && fcLen > 100) plagiarismScore += 10;
+
+      // Content with lots of formal structure words
+      const formalWords = ['therefore', 'however', 'furthermore', 'consequently', 'regarding', 'additionally', 'notably', 'specifically', 'typically', 'generally'];
+      const formalCount = formalWords.filter(w => fcLower.includes(w)).length;
+      if (formalCount >= 3) plagiarismScore += 10;
+    }
 
     // ── Combined risk ─────────────────────────────────────────────────────
     aiScore = Math.min(100, aiScore);
@@ -732,6 +814,12 @@ export const aiService = {
     return {
       file_overview: `Document covers: "${baseName}". Student is seeking academic guidance related to ${topic || subjectLine}.`,
       academic_integrity: { percentage_match: matchPct, status: integrityStatus, analysis: integrityAnalysis, source_type: sourceType },
+      content_analysis: this.localContentAnalysis(
+        params.fileContent || '',
+        fileName,
+        studentDescription,
+        subjectLine
+      ),
       primary_concerns: concerns.slice(0, 3),
       consultation_focus: isAIDetected
         ? `Verify the student's genuine understanding of "${baseName}" — ask them to explain key sections verbally without referring to their document.`
@@ -751,6 +839,7 @@ export const aiService = {
     studentDescription: string;
     subjectLine: string;
     topic: string;
+    fileContent?: string;
   }): Promise<{
     file_overview: string;
     academic_integrity: {
@@ -759,15 +848,65 @@ export const aiService = {
       analysis: string;
       source_type: string;
     };
+    content_analysis: {
+      summary: string;
+      key_topics: string[];
+      word_count: number;
+      flags: string[];
+    } | null;
     primary_concerns: string[];
     consultation_focus: string;
   }> {
     const HF_KEY = process.env.EXPO_PUBLIC_HF_API_KEY;
-    const { fileName, studentDescription, subjectLine, topic } = params;
+    const { fileName, studentDescription, subjectLine, topic, fileContent } = params;
 
     if (HF_KEY && HF_KEY !== 'your-hf-api-key-here') {
       try {
-        const prompt = `<s>[INST] You are an academic integrity assistant helping a teacher review a student submission before a consultation.
+        const hasContent = fileContent && fileContent.trim().length > 50;
+        const contentSnippet = hasContent ? fileContent!.substring(0, 2500) : null;
+
+        const prompt = hasContent
+          ? `<s>[INST] You are an academic integrity assistant helping a teacher review a student submission.
+
+You have access to BOTH the file metadata AND the actual document content. Analyze everything carefully.
+
+Return ONLY a JSON object — no markdown, no explanation, nothing outside the JSON.
+
+File name: "${fileName}"
+Subject: ${subjectLine}
+Topic: ${topic}
+Student's description: "${studentDescription}"
+
+ACTUAL DOCUMENT CONTENT (first 2500 characters):
+"""
+${contentSnippet}
+"""
+
+Return this exact JSON:
+{
+  "file_overview": "Document covers: [concise summary of what the content actually discusses].",
+  "academic_integrity": {
+    "percentage_match": <integer 0-100>,
+    "status": "<Clean|Low Risk|Warning|High Risk>",
+    "analysis": "<1-2 sentences based on the document content: note any AI phrases, lack of citations, or similarity to known online text>",
+    "source_type": "<Clean|AI-Generated|Uncited Website|Mixed|Direct Quote>"
+  },
+  "content_analysis": {
+    "summary": "<2-3 sentences summarizing what the document actually contains based on the text>",
+    "key_topics": ["<topic 1>", "<topic 2>", "<topic 3>"],
+    "word_count": <estimated total word count>,
+    "flags": ["<flag if AI phrases found>", "<flag if no citations>"] 
+  },
+  "primary_concerns": ["<concern 1>", "<concern 2>", "<concern 3>"],
+  "consultation_focus": "<one actionable sentence for the teacher based on the actual content>"
+}
+
+Scoring guide for academic_integrity percentage_match:
+- Clean (0-19%): Original writing, personal voice, cited sources.
+- Low Risk (20-40%): Mostly original but some vague sections.
+- Warning (41-65%): Significant AI style phrases found, or no citations detected.
+- High Risk (66-100%): Heavy AI patterns like “in order to”, “plays a crucial role”, “furthermore”, “in today’s world”, “it is important to note”; OR explicit AI tool mention; OR content is clearly copied from web sources. [/INST]`
+          : `<s>[INST] You are an academic integrity assistant helping a teacher review a student submission before a consultation.
 
 You are given ONLY the file metadata — NOT the actual file content. Base your analysis on:
 1. Whether the document title/filename looks like AI-generated or plagiarised work
@@ -790,6 +929,7 @@ Return this exact JSON:
     "analysis": "<1-2 sentences: state what signals you found and why you assigned this risk level>",
     "source_type": "<Clean|AI-Generated|Uncited Website|Mixed|Direct Quote>"
   },
+  "content_analysis": null,
   "primary_concerns": ["<concern 1>", "<concern 2>", "<concern 3>"],
   "consultation_focus": "<one actionable sentence for the teacher>"
 }
@@ -798,12 +938,7 @@ Scoring guide:
 - Clean (0-19%): Student writes in personal voice, explains their specific challenge, provides context.
 - Low Risk (20-40%): Some vagueness but student shows personal engagement.
 - Warning (41-65%): Description is generic, formal, or reads like AI text; OR title is suspiciously polished.
-- High Risk (66-100%): Strong AI text signals (uses "in order to", "plays a crucial role", "it is important to note", "this essay explores", "furthermore", "in today's world" etc.); OR explicit AI tool mention; OR student provides NO personal context at all.
-
-For source_type:
-- Use "AI-Generated" when the title or description has AI writing style patterns.
-- Use "Uncited Website" when description is very short/absent and topic is generic.
-- Use "Clean" when student clearly explains their own thinking. [/INST]`;
+- High Risk (66-100%): Strong AI text signals; OR explicit AI tool mention; OR student provides NO personal context. [/INST]`;
 
         const response = await fetch(
           'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
@@ -858,6 +993,14 @@ For source_type:
               analysis: retryParsed.academic_integrity?.analysis || 'No integrity concerns detected.',
               source_type: retryParsed.academic_integrity?.source_type || 'Clean',
             },
+            content_analysis: retryParsed.content_analysis && retryParsed.content_analysis !== null
+              ? {
+                  summary: retryParsed.content_analysis.summary || '',
+                  key_topics: Array.isArray(retryParsed.content_analysis.key_topics) ? retryParsed.content_analysis.key_topics.slice(0, 5) : [],
+                  word_count: parseInt(String(retryParsed.content_analysis.word_count)) || 0,
+                  flags: Array.isArray(retryParsed.content_analysis.flags) ? retryParsed.content_analysis.flags.slice(0, 4) : [],
+                }
+              : this.localContentAnalysis(fileContent || '', fileName, studentDescription, topic),
             primary_concerns: Array.isArray(retryParsed.primary_concerns) ? retryParsed.primary_concerns.slice(0, 3) : [],
             consultation_focus: retryParsed.consultation_focus || 'Focus on understanding the student\'s core challenge.',
           };
@@ -891,6 +1034,14 @@ For source_type:
             analysis: parsed.academic_integrity?.analysis || 'No integrity concerns detected.',
             source_type: parsed.academic_integrity?.source_type || 'Clean',
           },
+          content_analysis: parsed.content_analysis && parsed.content_analysis !== null
+            ? {
+                summary: parsed.content_analysis.summary || '',
+                key_topics: Array.isArray(parsed.content_analysis.key_topics) ? parsed.content_analysis.key_topics.slice(0, 5) : [],
+                word_count: parseInt(String(parsed.content_analysis.word_count)) || 0,
+                flags: Array.isArray(parsed.content_analysis.flags) ? parsed.content_analysis.flags.slice(0, 4) : [],
+              }
+            : this.localContentAnalysis(fileContent || '', fileName, studentDescription, topic),
           primary_concerns: Array.isArray(parsed.primary_concerns) ? parsed.primary_concerns.slice(0, 3) : [],
           consultation_focus: parsed.consultation_focus || 'Focus on understanding the student\'s core challenge.',
         };
@@ -904,3 +1055,4 @@ For source_type:
     return this.localFallbackBrief(params);
   },
 };
+
