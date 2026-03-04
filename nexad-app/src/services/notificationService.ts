@@ -237,6 +237,24 @@ export const notificationService = {
   },
 
   /**
+   * Delete a single notification row
+   */
+  async deleteNotification(notificationId: string): Promise<ApiResponse<null>> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+
+      return { data: null };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to delete notification' };
+    }
+  },
+
+  /**
    * Get unread notification count
    */
   async getUnreadCount(userId: string): Promise<ApiResponse<number>> {

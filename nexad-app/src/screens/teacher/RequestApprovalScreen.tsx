@@ -386,14 +386,8 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* ─── Student card — dark gradient hero ─── */}
-        <LinearGradient
-          colors={['#0f0f0f', '#1a1a1a', '#2a2a2a', '#1a1a1a']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {/* Student info — glass card within dark gradient */}
-          <View style={styles.heroSection}>
+        {/* ─── Student card ─── */}
+        <View style={styles.heroSection}>
             <Text style={styles.gradientSectionLabel}>PENDING REQUEST</Text>
             <View style={styles.heroGlassCard}>
               <View style={styles.gradientStudentRow}>
@@ -439,12 +433,10 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 )}
               </View>
             </View>
-          </View>
+        </View>
 
-        </LinearGradient>
-
-        {/* ─── AI Consultation Prep Brief (white section) ─── */}
-        <View style={styles.section}>
+        {/* ─── AI Consultation Prep Brief ─── */}
+        <View style={[styles.section, { paddingBottom: 20 }]}>
           <View style={styles.smartBriefHeader}>
             <Text style={styles.sectionTitle}>AI Consultation Prep Brief</Text>
             <View style={styles.aiGeneratedBadge}>
@@ -630,16 +622,16 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         {/* ─── Student Documents ─── */}
         {isLoadingDocuments ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents</Text>
+            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink3} /> Student Documents</Text>
             <View style={styles.loadingBrief}>
-              <ActivityIndicator size="small" color={C.ink2} />
+              <ActivityIndicator size="small" color={C.ink3} />
               <Text style={styles.loadingBriefText}>Loading documents...</Text>
             </View>
           </View>
         ) : uploadedDocuments.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.smartBriefHeader}>
-              <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents & Drafts</Text>
+              <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink3} /> Student Documents & Drafts</Text>
               <View style={styles.documentBadge}>
                 <Text style={styles.documentBadgeText}>{uploadedDocuments.length} file(s)</Text>
               </View>
@@ -677,13 +669,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                     {doc.file_size_bytes ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}{doc.uploaded_at ? ` · Uploaded ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={C.ink4} style={{ marginLeft: 8 }} />
+                <Ionicons name="chevron-forward" size={16} color={C.ink3} style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink2} /> Student Documents & Drafts</Text>
+            <Text style={styles.sectionTitle}><Ionicons name="attach" size={16} color={C.ink3} /> Student Documents & Drafts</Text>
             <View style={styles.noDataCard}>
               <Text style={styles.noDataText}>No documents uploaded for this consultation.</Text>
             </View>
@@ -709,20 +701,29 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 }}
                 onDayPress={(day: DateData) => setSelectedDate(new Date(day.dateString))}
                 minDate={new Date().toISOString().split('T')[0]}
+                renderArrow={(direction) => (
+                  <Ionicons
+                    name={direction === 'left' ? 'chevron-back' : 'chevron-forward'}
+                    size={20}
+                    color={C.ink1}
+                  />
+                )}
                 theme={{
                   backgroundColor: C.surface,
                   calendarBackground: C.surface,
-                  textSectionTitleColor: C.ink1,
-                  selectedDayBackgroundColor: C.ink1,
+                  textSectionTitleColor: C.ink3,
+                  selectedDayBackgroundColor: C.action,
                   selectedDayTextColor: '#ffffff',
-                  todayTextColor: C.ink1,
+                  todayTextColor: C.action,
+                  todayBackgroundColor: C.surfaceAlt,
                   dayTextColor: C.ink1,
-                  textDisabledColor: C.border,
-                  dotColor: C.ink4,
+                  textDisabledColor: C.ink5,
+                  dotColor: '#EF4444',
                   selectedDotColor: '#ffffff',
-                  arrowColor: C.ink1,
+                  arrowColor: C.ink2,
                   monthTextColor: C.ink1,
                   textMonthFontWeight: 'bold',
+                  textDayFontWeight: '500',
                 }}
               />
             </View>
@@ -756,7 +757,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               <Text style={styles.pickerButtonText}>
                 {selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </Text>
-              <Text style={styles.pickerIcon}>📅</Text>
+              <Ionicons name="calendar-outline" size={18} color={C.ink2} />
             </View>
             <Text style={styles.helperText}>Tap a date on the calendar above to change</Text>
           </View>
@@ -766,14 +767,14 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               <Text style={styles.inputLabel}>Start Time *</Text>
               <TouchableOpacity style={styles.pickerButton} onPress={() => setShowStartTimePicker(true)}>
                 <Text style={styles.pickerButtonText}>{`${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`}</Text>
-                <Text style={styles.pickerIcon}>🕐</Text>
+                <Ionicons name="time-outline" size={18} color={C.ink2} />
               </TouchableOpacity>
             </View>
             <View style={[styles.inputGroup, styles.timeInput]}>
               <Text style={styles.inputLabel}>End Time *</Text>
               <TouchableOpacity style={styles.pickerButton} onPress={() => setShowEndTimePicker(true)}>
                 <Text style={styles.pickerButtonText}>{`${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`}</Text>
-                <Text style={styles.pickerIcon}>🕐</Text>
+                <Ionicons name="time-outline" size={18} color={C.ink2} />
               </TouchableOpacity>
             </View>
           </View>
@@ -918,6 +919,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             <TextInput
               style={styles.textInput}
               placeholder="e.g., 101, A-205, Room 3"
+              placeholderTextColor="#000000"
               value={classroomNumber}
               onChangeText={setClassroomNumber}
               autoCapitalize="characters"
@@ -965,7 +967,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: C.surface,
+    backgroundColor: C.bg,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -989,50 +991,52 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   section: {
-    backgroundColor: C.surface,
+    backgroundColor: C.bg,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
   },
   // ── Dark section (used for all lower sections) ────────────────────────────
   darkSection: {
-    backgroundColor: '#0a0a0a',
+    backgroundColor: C.bg,
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: C.border,
   },
   darkSectionTitle: {
     fontSize: 15,
     fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.88)',
+    color: C.ink1,
     marginBottom: 4,
   },
   darkSubtext: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.30)',
+    color: C.ink3,
     marginBottom: 14,
     fontStyle: 'italic' as const,
   },
   darkBadge: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: C.surfaceAlt,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: C.border,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
   darkBadgeText: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
+    color: C.ink3,
     fontWeight: '600' as const,
   },
   darkDocCard: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: C.border,
     borderRadius: 14,
     padding: 12,
     marginBottom: 8,
@@ -1040,7 +1044,7 @@ const styles = StyleSheet.create({
   darkDocIcon: {
     width: 38,
     height: 38,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: C.surfaceAlt,
     borderRadius: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
@@ -1049,33 +1053,33 @@ const styles = StyleSheet.create({
   darkDocName: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.85)',
+    color: C.ink1,
     marginBottom: 2,
   },
   darkDocMeta: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.32)',
+    color: C.ink3,
   },
   darkCalendarWrap: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
+    borderColor: C.border,
     overflow: 'hidden' as const,
     marginBottom: 12,
   },
   darkExistingWrap: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: C.surfaceAlt,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: C.border,
     padding: 12,
     marginTop: 4,
   },
   darkExistingTitle: {
     fontSize: 12,
     fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.45)',
+    color: C.ink3,
     marginBottom: 8,
   },
   darkExistingItem: {
@@ -1085,23 +1089,23 @@ const styles = StyleSheet.create({
   },
   darkExistingTime: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.60)',
+    color: C.ink1,
     fontWeight: '600' as const,
   },
   darkExistingStudent: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.40)',
+    color: C.ink3,
   },
   darkLabel: {
     fontSize: 13,
     fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.60)',
+    color: C.ink2,
     marginBottom: 8,
   },
   darkPickerButton: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 13,
@@ -1111,55 +1115,56 @@ const styles = StyleSheet.create({
   },
   darkPickerText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
+    color: C.ink1,
   },
   darkHelperText: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
+    color: C.ink3,
     marginTop: 5,
     marginBottom: 12,
   },
   darkTextInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#fff',
+    color: C.ink1,
   },
   darkApproveButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: C.action,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   darkApproveText: {
-    color: '#0a0a0a',
+    color: '#ffffff',
     fontSize: 15,
     fontWeight: '700' as const,
   },
   darkDeclineButton: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: C.surfaceAlt,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: C.border,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   darkDeclineText: {
-    color: 'rgba(255,255,255,0.65)',
+    color: C.ink2,
     fontSize: 15,
     fontWeight: '600' as const,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     color: C.ink1,
     marginBottom: 16,
+    letterSpacing: 0.2,
   },
   studentCard: {
     flexDirection: 'row',
@@ -1234,12 +1239,14 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     backgroundColor: C.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.border,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
     marginBottom: 16,
   },
@@ -1265,7 +1272,7 @@ const styles = StyleSheet.create({
   existingTime: {
     fontSize: 12,
     fontWeight: '600' as const,
-    color: C.ink3,
+    color: C.ink1,
   },
   existingStudent: {
     fontSize: 12,
@@ -1290,8 +1297,9 @@ const styles = StyleSheet.create({
   },
   calendarSubtext: {
     fontSize: 13,
-    color: C.ink4,
+    color: C.ink3,
     textAlign: 'center',
+    marginBottom: 12,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1299,25 +1307,25 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: C.ink1,
+    color: C.ink2,
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: C.bg,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderColor: C.ink1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     fontSize: 16,
     color: C.ink1,
   },
   pickerButton: {
-    backgroundColor: C.bg,
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderColor: C.ink1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1352,25 +1360,32 @@ const styles = StyleSheet.create({
   },
   approveButton: {
     backgroundColor: C.action,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   approveButtonText: {
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   declineButton: {
-    backgroundColor: C.ink4,
-    borderRadius: 8,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.ink1,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   declineButtonText: {
-    color: '#fff',
+    color: C.ink1,
     fontSize: 16,
     fontWeight: '600' as const,
   },
@@ -1486,7 +1501,7 @@ const styles = StyleSheet.create({
   },
   bullet: {
     fontSize: 16,
-    color: C.ink2,
+    color: C.ink3,
     fontWeight: '600' as const,
   },
   bulletText: {
@@ -1538,12 +1553,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     padding: 20,
-    backgroundColor: C.bg,
+    backgroundColor: C.surfaceAlt,
     borderRadius: 12,
   },
   loadingBriefText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: C.ink3,
     fontStyle: 'italic',
   },
   documentBadge: {
@@ -1561,7 +1576,7 @@ const styles = StyleSheet.create({
   },
   documentsSubtext: {
     fontSize: 13,
-    color: '#6b7280',
+    color: C.ink3,
     marginBottom: 12,
     fontStyle: 'italic',
   },
@@ -1580,6 +1595,8 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: C.surfaceAlt,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1606,7 +1623,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   noDataCard: {
-    backgroundColor: C.bg,
+    backgroundColor: C.surfaceAlt,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -1621,49 +1638,50 @@ const styles = StyleSheet.create({
   // ── Hero (dark gradient) outer layout ─────────────────────────────────────
   heroSection: {
     paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 0,
+    paddingTop: 22,
+    paddingBottom: 22,
+    backgroundColor: C.bg,
   },
   heroGlassCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#1E1E1E',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
+    borderColor: 'rgba(255,255,255,0.10)',
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 14,
   },
   heroCardDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     marginVertical: 12,
   },
   heroDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginHorizontal: 18,
     marginBottom: 4,
   },
   gradientSectionLabel: {
     fontSize: 10,
     fontWeight: '700' as const,
-    color: 'rgba(255,255,255,0.38)',
+    color: 'rgba(255,255,255,0.40)',
     letterSpacing: 1.8,
     marginBottom: 10,
   },
-  // ── Light glass accordion card (visible on white bg) ─────────────────────────────
+  // ── Dark glass accordion card ─────────────────────────────────────────────
   lightGlassCard: {
-    backgroundColor: 'rgba(0,0,0,0.11)',
+    backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.15)',
+    borderColor: C.border,
     marginBottom: 10,
     overflow: 'hidden' as const,
     shadowColor: '#000',
-    shadowOpacity: 0.10,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    elevation: 2,
   },
   gradientCard: {
     marginHorizontal: 0,
@@ -1682,7 +1700,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: 'rgba(255,255,255,0.28)',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     marginRight: 14,
@@ -1690,7 +1708,7 @@ const styles = StyleSheet.create({
   gradientAvatarText: {
     fontSize: 20,
     fontWeight: '700' as const,
-    color: '#fff',
+    color: '#ffffff',
   },
   gradientStudentInfo: {
     flex: 1,
@@ -1698,12 +1716,12 @@ const styles = StyleSheet.create({
   gradientStudentName: {
     fontSize: 17,
     fontWeight: '700' as const,
-    color: '#fff',
+    color: '#ffffff',
     marginBottom: 3,
   },
   gradientSubject: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(255,255,255,0.70)',
     fontWeight: '500' as const,
   },
   gradientUrgentBadge: {
@@ -1722,7 +1740,7 @@ const styles = StyleSheet.create({
   },
   gradientDescription: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.60)',
+    color: 'rgba(255,255,255,0.55)',
     lineHeight: 19,
     marginBottom: 14,
   },
@@ -1781,47 +1799,47 @@ const styles = StyleSheet.create({
 
   // ── Dark glass accordion cards ────────────────────────────────────────────
   darkCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
+    borderColor: C.border,
     marginBottom: 10,
     overflow: 'hidden' as const,
   },
   darkCardTitle: {
     fontSize: 14,
     fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.90)',
+    color: C.ink1,
   },
   darkCardBody: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.58)',
+    color: C.ink2,
     lineHeight: 20,
   },
   darkCardMeta: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.38)',
+    color: C.ink3,
     fontWeight: '500' as const,
   },
   darkTopicChip: {
-    backgroundColor: 'rgba(52,211,153,0.15)',
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.35)',
+    borderColor: '#BBF7D0',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
   darkTopicChipText: {
     fontSize: 12,
-    color: '#34D399',
+    color: '#059669',
     fontWeight: '600' as const,
   },
   // kept for compat
   glassCard: {
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.07)',
+    borderColor: C.border,
     marginBottom: 10,
     overflow: 'hidden' as const,
     shadowColor: '#000',
@@ -1872,7 +1890,7 @@ const styles = StyleSheet.create({
   accordionBody: {
     backgroundColor: 'transparent',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopColor: C.border,
     paddingHorizontal: 14,
     paddingBottom: 14,
     paddingTop: 10,
@@ -1887,7 +1905,7 @@ const styles = StyleSheet.create({
   integrityTrackBg: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'rgba(0,0,0,0.10)',
     overflow: 'hidden' as const,
     position: 'relative' as const,
   },
@@ -1912,7 +1930,7 @@ const styles = StyleSheet.create({
   },
   integrityScaleLabel: {
     fontSize: 9,
-    color: C.ink4,
+    color: C.ink3,
     fontWeight: '600' as const,
   },
   integrityChipRow: {

@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   FlatList,
   TextInput,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,14 +28,32 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   };
 
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     loadComments();
+
+    // keyboardDidShow gives height from physical screen bottom.
+    // We use it directly as paddingBottom (replacing the bottom inset).
+    // keyboardDidHide resets to 0 so we fall back to insets.bottom.
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
+      (e) => {
+        setKeyboardOffset(e.endCoordinates.height);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide',
+      () => setKeyboardOffset(0)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
   const loadComments = async () => {
@@ -93,14 +111,16 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
+    // edges=["top"] only: SafeAreaView handles status bar (keeps header unchanged),
+    // but does NOT absorb bottom inset — so the view extends to physical screen
+    // bottom and keyboardOffset (measured from physical bottom) maps 1:1.
+    <SafeAreaView
+      edges={["top"]}
+      style={[styles.container, { paddingBottom: keyboardOffset > 0 ? keyboardOffset : insets.bottom }]}
     >
-      {/* Header */}
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+
+      {/* Fixed header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={C.ink1} />
@@ -113,65 +133,69 @@ export default function BinCommentsScreen({ navigation, route }: any) {
         </View>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={C.ink3} />
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={comments}
-          keyExtractor={(item) => item.id}
-          renderItem={renderComment}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Ionicons name="chatbubbles-outline" size={48} color={C.ink5} />
-              <Text style={styles.emptyText}>No comments yet. Start the conversation!</Text>
-            </View>
-          }
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-        />
-      )}
+      {/* Content */}
+      <View style={styles.body}>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={C.ink3} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={comments}
+            keyExtractor={(item) => item.id}
+            renderItem={renderComment}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Ionicons name="chatbubbles-outline" size={48} color={C.ink5} />
+                <Text style={styles.emptyText}>No comments yet. Start the conversation!</Text>
+              </View>
+            }
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          />
+        )}
 
-      {/* Input row */}
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={message}
-          onChangeText={setMessage}
-          placeholder="Type a comment..."
-          placeholderTextColor={C.ink4}
-          multiline
-          maxLength={1000}
-          returnKeyType="default"
-        />
-        <TouchableOpacity
-          style={[styles.sendBtn, (!message.trim() || sending) && styles.sendBtnDisabled]}
-          onPress={handleSend}
-          disabled={!message.trim() || sending}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color={C.actionText} />
-          ) : (
-            <Ionicons name="send" size={18} color={C.actionText} />
-          )}
-        </TouchableOpacity>
+        {/* Input row */}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Type a comment..."
+            placeholderTextColor={C.ink4}
+            multiline
+            maxLength={1000}
+            returnKeyType="default"
+          />
+          <TouchableOpacity
+            style={[styles.sendBtn, (!message.trim() || sending) && styles.sendBtnDisabled]}
+            onPress={handleSend}
+            disabled={!message.trim() || sending}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={C.actionText} />
+            ) : (
+              <Ionicons name="send" size={18} color={C.actionText} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
-    </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  body: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.xxl },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
     paddingHorizontal: S.lg,
-    paddingTop: S.lg,
+    paddingTop: S.xxl,
     paddingBottom: S.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: C.border,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,16 +16,14 @@ import { documentService } from '../../services/documentService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 
-// Status config — monochromatic: only shade and icon differ, never hue color
 const STATUS_CONFIG: Record<string, { label: string; icon: string; bg: string; fg: string }> = {
-  pending_review:         { label: 'Pending Review',       icon: 'time-outline',          bg: C.surfaceAlt, fg: C.ink3 },
-  approved:               { label: 'Approved',             icon: 'checkmark-circle',      bg: C.ink1,       fg: C.actionText },
-  revised:                { label: 'Revision Needed',      icon: 'pencil',                bg: C.ink2,       fg: C.actionText },
-  for_consultation:       { label: 'Consult Suggested',    icon: 'chatbubbles-outline',   bg: C.ink3,       fg: C.actionText },
-  consultation_requested: { label: 'Consult Requested',    icon: 'calendar-outline',      bg: C.ink2,       fg: C.actionText },
+  pending_review:         { label: 'Pending Review',    icon: 'time-outline',        bg: C.surfaceAlt, fg: C.ink3 },
+  approved:               { label: 'Approved',          icon: 'checkmark-circle',    bg: C.ink1,       fg: C.actionText },
+  revised:                { label: 'Revision Needed',   icon: 'pencil',              bg: C.ink2,       fg: C.actionText },
+  for_consultation:       { label: 'Consult Suggested', icon: 'chatbubbles-outline', bg: C.ink3,       fg: C.actionText },
+  consultation_requested: { label: 'Consult Requested', icon: 'calendar-outline',    bg: C.ink2,       fg: C.actionText },
 };
 
-// Status notice messages — shown below the locked card
 const STATUS_NOTICE: Record<string, string> = {
   approved:               'Submission finalised — no further action needed.',
   revised:                'Waiting for student to re-submit.',
@@ -46,28 +44,45 @@ function StatusBadge({ status }: { status: string }) {
 export default function TeacherBinReviewScreen({ navigation, route }: any) {
   const { binId } = route.params as { binId: string };
 
-  const [bin, setBin] = useState<any>(null);
+  const [bin,         setBin]         = useState<any>(null);
+  const [members,     setMembers]     = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [updatingId,  setUpdatingId]  = useState<string | null>(null);
+  const [activeTab,   setActiveTab]   = useState<'details' | 'students'>('details');
+  const [expandedId,  setExpandedId]  = useState<string | null>(null);
 
   useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [binId])
+    useCallback(() => { loadData(); }, [binId])
   );
 
   const loadData = async () => {
-    const [binResult, subResult] = await Promise.all([
-      classroomService.getAttachmentBin(binId),
+    const binRes = await classroomService.getAttachmentBin(binId);
+    const binData = binRes.data;
+    if (binData) setBin(binData);
+
+    const classroomId = binData?.classroom_id;
+    if (!classroomId) { setLoading(false); setRefreshing(false); return; }
+
+    const [membersRes, subsRes] = await Promise.all([
+      classroomService.getClassroomMembers(classroomId),
       classroomService.getAttachmentBinSubmissions(binId),
     ]);
-    if (binResult.data) setBin(binResult.data);
-    if (subResult.data) setSubmissions(subResult.data);
+
+    const allMembers  = membersRes.data || [];
+    const assignedTo: string[] | null = binData?.assigned_to ?? null;
+    const filtered = assignedTo && assignedTo.length > 0
+      ? allMembers.filter((m: any) => assignedTo.includes(m.id))
+      : allMembers;
+
+    setMembers(filtered);
+    if (subsRes.data) setSubmissions(subsRes.data);
     setLoading(false);
     setRefreshing(false);
   };
+
+  const onRefresh = () => { setRefreshing(true); loadData(); };
 
   const handleSetStatus = async (
     documentId: string,
@@ -78,30 +93,36 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
     if (result.error) {
       Alert.alert('Error', result.error);
     } else {
-      // Update local state immediately
-      setSubmissions((prev) =>
-        prev.map((s) => (s.id === documentId ? { ...s, review_status: status } : s))
+      setSubmissions(prev =>
+        prev.map(s => s.id === documentId ? { ...s, review_status: status } : s)
       );
     }
     setUpdatingId(null);
   };
 
+  const confirmStatus = (
+    submission: any,
+    status: 'approved' | 'revised' | 'for_consultation',
+    label: string
+  ) => {
+    Alert.alert(
+      `Mark as ${label}?`,
+      `This will update the status for ${submission.student?.first_name} ${submission.student?.last_name}'s submission.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: () => handleSetStatus(submission.id, status) },
+      ]
+    );
+  };
+
   const handleViewFile = async (submission: any) => {
     try {
       const result = await documentService.getDocumentUrl(submission.storage_path);
-      if (result.error || !result.data) {
-        Alert.alert('Error', result.error || 'Failed to get file link');
-        return;
-      }
+      if (result.error || !result.data) { Alert.alert('Error', result.error || 'Failed to get file link'); return; }
       const supported = await Linking.canOpenURL(result.data);
-      if (supported) {
-        await Linking.openURL(result.data);
-      } else {
-        Alert.alert('Error', 'Cannot open this file type on your device.');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', 'Failed to open file');
-    }
+      if (supported) await Linking.openURL(result.data);
+      else Alert.alert('Error', 'Cannot open this file type on your device.');
+    } catch { Alert.alert('Error', 'Failed to open file'); }
   };
 
   const openComments = (submission: any) => {
@@ -114,20 +135,14 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
     });
   };
 
-  const confirmStatus = (
-    submission: any,
-    status: 'approved' | 'revised' | 'for_consultation',
-    label: string
-  ) => {
-    Alert.alert(
-      `Mark as ${label}?`,
-      `This will update the status for ${submission.student?.first_name} ${submission.student?.last_name}'s submission and notify them.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => handleSetStatus(submission.id, status) },
-      ]
-    );
-  };
+  const subMap: Record<string, any> = {};
+  submissions.forEach(s => { subMap[s.uploaded_by] = s; });
+
+  const submittedMembers = members.filter(m => subMap[m.id]);
+  const missingMembers   = members.filter(m => !subMap[m.id]);
+
+  const statPending  = submissions.filter(s => s.review_status === 'pending_review').length;
+  const statApproved = submissions.filter(s => s.review_status === 'approved').length;
 
   if (loading) {
     return (
@@ -137,51 +152,37 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
     );
   }
 
-  const pending   = submissions.filter((s) => s.review_status === 'pending_review').length;
-  const approved  = submissions.filter((s) => s.review_status === 'approved').length;
-  const revised   = submissions.filter((s) => s.review_status === 'revised').length;
-  const forConsult= submissions.filter(
-    (s) => s.review_status === 'for_consultation' || s.review_status === 'consultation_requested'
-  ).length;
-
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={C.ink1} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {bin?.title || 'Bin Review'}
-        </Text>
+  const renderDetailsTab = () => (
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.ink1} />}
+    >
+      <View style={styles.detailCard}>
+        <Text style={styles.detailTitle}>{bin?.title || 'Assignment'}</Text>
+        {bin?.description
+          ? <Text style={styles.detailDesc}>{bin.description}</Text>
+          : <Text style={styles.detailDescEmpty}>No description provided.</Text>
+        }
+        {bin?.deadline && (
+          <View style={styles.detailDeadlineRow}>
+            <Ionicons name="time-outline" size={14} color={C.ink3} />
+            <Text style={styles.detailDeadlineText}>
+              Due {new Date(bin.deadline).toLocaleDateString('en-US', {
+                weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+              })}
+            </Text>
+          </View>
+        )}
       </View>
 
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={C.ink1} />}
-      >
-        {/* Bin info strip */}
-        <View style={styles.binStrip}>
-          {bin?.deadline && (
-            <View style={styles.binMeta}>
-              <Ionicons name="time-outline" size={13} color={C.ink3} />
-              <Text style={styles.binMetaText}>
-                Due {new Date(bin.deadline).toLocaleDateString()}
-              </Text>
-            </View>
-          )}
-          {bin?.description ? (
-            <Text style={styles.binDesc}>{bin.description}</Text>
-          ) : null}
-        </View>
-
-        {/* Stats row */}
+      <View style={styles.statsCard}>
+        <Text style={styles.statsHeading}>Summary</Text>
         <View style={styles.statsRow}>
           {[
-            { label: 'Total',    val: submissions.length },
-            { label: 'Pending',  val: pending },
-            { label: 'Approved', val: approved },
-            { label: 'Revised',  val: revised },
-            { label: 'Consult',  val: forConsult },
+            { label: 'Assigned',  val: members.length },
+            { label: 'Submitted', val: submittedMembers.length },
+            { label: 'Missing',   val: missingMembers.length },
+            { label: 'Pending',   val: statPending },
+            { label: 'Approved',  val: statApproved },
           ].map((item, idx) => (
             <View key={item.label} style={[styles.statBox, idx > 0 && styles.statBoxBorder]}>
               <Text style={styles.statNum}>{item.val}</Text>
@@ -189,93 +190,63 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
             </View>
           ))}
         </View>
+      </View>
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
 
-        {/* Submissions */}
-        {submissions.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="document-outline" size={48} color={C.ink5} />
-            <Text style={styles.emptyText}>No submissions yet</Text>
-          </View>
-        ) : (
-          submissions.map((sub) => (
-            <View key={sub.id} style={styles.card}>
-              {/* Student + file info */}
-              <View style={styles.cardTop}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarLetter}>
-                    {sub.student?.first_name?.[0]?.toUpperCase() || '?'}
-                  </Text>
-                </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.studentName}>
-                    {sub.student?.first_name} {sub.student?.last_name}
-                  </Text>
-                  <TouchableOpacity style={styles.fileRow} onPress={() => handleViewFile(sub)}>
-                    <Ionicons name="document-text-outline" size={13} color={C.ink3} />
-                    <Text style={styles.fileName} numberOfLines={1}>{sub.file_name}</Text>
-                    <Ionicons name="open-outline" size={12} color={C.ink4} />
-                  </TouchableOpacity>
-                  <Text style={styles.submittedDate}>
-                    Submitted {new Date(sub.uploaded_at).toLocaleDateString()}
-                  </Text>
-                </View>
-                <StatusBadge status={sub.review_status} />
-              </View>
+  const renderStudentCard = (member: any) => {
+    const sub = subMap[member.id];
+    const isExpanded = expandedId === member.id;
 
-              {/* 
-                ── Action area ────────────────────────────────────────────
-                PENDING  → show 3 action buttons (Approve / Revise / Consult)
-                LOCKED   → replace buttons with a single static status label
-                         so the UI clearly reflects that no change is possible
-              */}
+    if (sub) {
+      return (
+        <View key={member.id} style={styles.studentCard}>
+          <TouchableOpacity
+            style={styles.studentCardTop}
+            onPress={() => setExpandedId(isExpanded ? null : member.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarLetter}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+            </View>
+            <View style={styles.studentCardInfo}>
+              <Text style={styles.studentName}>{member.first_name} {member.last_name}</Text>
+              <Text style={styles.studentSubInfo}>
+                Submitted {new Date(sub.uploaded_at).toLocaleDateString()}
+              </Text>
+            </View>
+            <StatusBadge status={sub.review_status} />
+            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink4} style={{ marginLeft: S.xs }} />
+          </TouchableOpacity>
+
+          {isExpanded && (
+            <View style={styles.expandedArea}>
+              <TouchableOpacity style={styles.fileRow} onPress={() => handleViewFile(sub)}>
+                <Ionicons name="document-text-outline" size={14} color={C.ink3} />
+                <Text style={styles.fileName} numberOfLines={1}>{sub.file_name}</Text>
+                <Ionicons name="open-outline" size={13} color={C.ink4} />
+              </TouchableOpacity>
+
               {sub.review_status === 'pending_review' ? (
-                // ── Actionable state: 3 buttons ──────────────────────────
                 <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    disabled={updatingId === sub.id}
-                    onPress={() => confirmStatus(sub, 'approved', 'Approved')}
-                  >
+                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
+                    onPress={() => confirmStatus(sub, 'approved', 'Approved')}>
                     <Ionicons name="checkmark-circle-outline" size={15} color={C.ink2} />
                     <Text style={styles.actionBtnText}>Approve</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    disabled={updatingId === sub.id}
-                    onPress={() => confirmStatus(sub, 'revised', 'Revision Needed')}
-                  >
+                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
+                    onPress={() => confirmStatus(sub, 'revised', 'Revision Needed')}>
                     <Ionicons name="pencil-outline" size={15} color={C.ink2} />
                     <Text style={styles.actionBtnText}>Revise</Text>
                   </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    disabled={updatingId === sub.id}
-                    onPress={() => confirmStatus(sub, 'for_consultation', 'For Consultation')}
-                  >
+                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
+                    onPress={() => confirmStatus(sub, 'for_consultation', 'For Consultation')}>
                     <Ionicons name="chatbubbles-outline" size={15} color={C.ink2} />
                     <Text style={styles.actionBtnText}>Consult</Text>
                   </TouchableOpacity>
                 </View>
-              ) : null}
-
-              {updatingId === sub.id && (
-                <ActivityIndicator size="small" color={C.ink1} style={{ marginTop: 8 }} />
-              )}
-
-              {/* Comment thread button */}
-              <View style={styles.divider} />
-              <TouchableOpacity style={styles.commentsBtn} onPress={() => openComments(sub)}>
-                <Ionicons name="chatbox-ellipses-outline" size={15} color={C.ink3} />
-                <Text style={styles.commentsBtnText}>Private Comments</Text>
-                <Ionicons name="chevron-forward" size={14} color={C.ink4} />
-              </TouchableOpacity>
-
-              {/* ── Immutable full-width settled footer bar ─────────────────
-                   Spans card edge-to-edge (negative margins cancel card padding).
-                   Not clickable — communicates finality & removes decision burden. */}
-              {sub.review_status !== 'pending_review' && (() => {
+              ) : (() => {
                 const cfg = STATUS_CONFIG[sub.review_status] || STATUS_CONFIG.pending_review;
                 const notice = STATUS_NOTICE[sub.review_status];
                 return (
@@ -284,19 +255,102 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
                       <Ionicons name={cfg.icon as any} size={15} color={cfg.fg} />
                       <Text style={[styles.settledBarStatus, { color: cfg.fg }]}>{cfg.label}</Text>
                     </View>
-                    {notice && (
-                      <Text style={[styles.settledBarNotice, { color: cfg.fg }]} numberOfLines={2}>
-                        {notice}
-                      </Text>
-                    )}
+                    {notice && <Text style={[styles.settledBarNotice, { color: cfg.fg }]} numberOfLines={2}>{notice}</Text>}
                   </View>
                 );
               })()}
+
+              {updatingId === sub.id && <ActivityIndicator size="small" color={C.ink1} style={{ marginTop: 8 }} />}
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.commentsBtn} onPress={() => openComments(sub)}>
+                <Ionicons name="chatbox-ellipses-outline" size={15} color={C.ink3} />
+                <Text style={styles.commentsBtnText}>Private Comments</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.ink4} />
+              </TouchableOpacity>
             </View>
-          ))
-        )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          )}
+        </View>
+      );
+    } else {
+      return (
+        <View key={member.id} style={[styles.studentCard, styles.missingCard]}>
+          <View style={styles.studentCardTop}>
+            <View style={[styles.avatar, styles.missingAvatar]}>
+              <Text style={[styles.avatarLetter, styles.missingAvatarLetter]}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+            </View>
+            <View style={styles.studentCardInfo}>
+              <Text style={[styles.studentName, styles.missingText]}>{member.first_name} {member.last_name}</Text>
+              <Text style={[styles.studentSubInfo, styles.missingText]}>No submission yet</Text>
+            </View>
+            <View style={styles.missingBadge}>
+              <Text style={styles.missingBadgeText}>Missing</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+  };
+
+  const renderStudentsTab = () => (
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.ink1} />}
+    >
+      {members.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="people-outline" size={48} color={C.ink5} />
+          <Text style={styles.emptyText}>No students assigned</Text>
+        </View>
+      ) : (
+        <>
+          {submittedMembers.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText}>Submitted ({submittedMembers.length})</Text>
+              </View>
+              {submittedMembers.map(m => renderStudentCard(m))}
+            </>
+          )}
+          {missingMembers.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderText}>Missing ({missingMembers.length})</Text>
+              </View>
+              {missingMembers.map(m => renderStudentCard(m))}
+            </>
+          )}
+        </>
+      )}
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={C.ink1} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>{bin?.title || 'Bin Review'}</Text>
+      </View>
+
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'details' && styles.tabActive]}
+          onPress={() => setActiveTab('details')}
+        >
+          <Text style={[styles.tabText, activeTab === 'details' && styles.tabTextActive]}>Details</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'students' && styles.tabActive]}
+          onPress={() => setActiveTab('students')}
+        >
+          <Text style={[styles.tabText, activeTab === 'students' && styles.tabTextActive]}>
+            Students ({submittedMembers.length}/{members.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'details' ? renderDetailsTab() : renderStudentsTab()}
     </View>
   );
 }
@@ -304,8 +358,6 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // ── Header ──────────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: C.surface,
@@ -314,99 +366,81 @@ const styles = StyleSheet.create({
   },
   backBtn:     { marginRight: S.md, padding: S.xs },
   headerTitle: { ...T.h2, flex: 1 },
-
-  // ── Info strip (deadline / description) ─────────────────────────────────
-  binStrip: {
-    backgroundColor: C.surfaceAlt,
-    paddingHorizontal: S.lg, paddingVertical: S.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderLight,
-    gap: 2,
-  },
-  binMeta:     { flexDirection: 'row', alignItems: 'center', gap: S.xs },
-  binMetaText: { ...T.small, color: C.ink3 },
-  binDesc:     { ...T.small, color: C.ink3, lineHeight: 18 },
-
-  // ── Stats row ────────────────────────────────────────────────────────────
-  statsRow: {
+  tabBar: {
     flexDirection: 'row',
     backgroundColor: C.surface,
-    marginHorizontal: S.lg, marginTop: S.md,
-    borderRadius: R.lg, padding: S.md,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
-    ...shadow.soft,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
   },
+  tab:           { flex: 1, paddingVertical: S.md + 2, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive:     { borderBottomColor: C.ink1 },
+  tabText:       { ...T.label, color: C.ink4 },
+  tabTextActive: { ...T.label, color: C.ink1 },
+  detailCard: {
+    backgroundColor: C.surface, marginHorizontal: S.lg, marginTop: S.lg,
+    borderRadius: R.lg, padding: S.xl,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight, ...shadow.card,
+  },
+  detailTitle:        { ...T.h2, marginBottom: S.sm },
+  detailDesc:         { ...T.body, color: C.ink2, lineHeight: 22, marginBottom: S.sm },
+  detailDescEmpty:    { ...T.body, color: C.ink4, fontStyle: 'italic', marginBottom: S.sm },
+  detailDeadlineRow:  { flexDirection: 'row', alignItems: 'center', gap: S.xs, marginTop: S.xs },
+  detailDeadlineText: { ...T.small, color: C.ink3 },
+  statsCard: {
+    backgroundColor: C.surface, marginHorizontal: S.lg, marginTop: S.md,
+    borderRadius: R.lg, padding: S.xl,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight, ...shadow.card,
+  },
+  statsHeading:  { ...T.label, color: C.ink3, marginBottom: S.md, textTransform: 'uppercase', letterSpacing: 0.8 },
+  statsRow:      { flexDirection: 'row' },
   statBox:       { flex: 1, alignItems: 'center', paddingVertical: S.xs },
   statBoxBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: C.borderLight },
   statNum:       { ...T.h2, fontSize: 20 },
   statLbl:       { ...T.tiny, marginTop: 2 },
-
-  // ── Empty ────────────────────────────────────────────────────────────────
-  empty:     { alignItems: 'center', paddingVertical: 56 },
-  emptyText: { ...T.body, color: C.ink4, marginTop: S.md },
-
-  // ── Submission card ───────────────────────────────────────────────────────
-  card: {
-    backgroundColor: C.surface,
-    marginHorizontal: S.lg, marginTop: S.md,
-    borderRadius: R.lg,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
-    padding: S.xl2,
-    overflow: 'hidden' as const,
-    ...shadow.card,
+  sectionHeader:     { paddingHorizontal: S.lg, paddingTop: S.lg, paddingBottom: S.xs },
+  sectionHeaderText: { ...T.label, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.8 },
+  studentCard: {
+    backgroundColor: C.surface, marginHorizontal: S.lg, marginTop: S.sm,
+    borderRadius: R.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
+    overflow: 'hidden' as const, ...shadow.soft,
   },
-  cardTop:      { flexDirection: 'row', alignItems: 'flex-start', gap: S.md },
-  avatar:       { width: 40, height: 40, borderRadius: 20, backgroundColor: C.ink1, justifyContent: 'center', alignItems: 'center' },
-  avatarLetter: { color: C.actionText, fontSize: 16, fontWeight: '600' as const },
-  cardInfo:     { flex: 1 },
-  studentName:  { ...T.h3, marginBottom: 4 },
-  fileRow:      { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 3 },
-  fileName:     { ...T.small, color: C.ink3, flex: 1, textDecorationLine: 'underline' as const },
-  submittedDate:{ ...T.tiny },
-
-  // Status badge (top-right of card)
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    paddingHorizontal: 7, paddingVertical: 3,
-    borderRadius: R.full, alignSelf: 'flex-start',
+  missingCard:         { opacity: 0.6 },
+  studentCardTop:      { flexDirection: 'row', alignItems: 'center', padding: S.lg, gap: S.md },
+  studentCardInfo:     { flex: 1 },
+  studentName:         { ...T.h3, marginBottom: 2 },
+  studentSubInfo:      { ...T.tiny, color: C.ink3 },
+  missingText:         { color: C.ink4 },
+  expandedArea: {
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.borderLight,
+    paddingHorizontal: S.lg, paddingBottom: S.md, paddingTop: S.sm,
   },
-  badgeText: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.2 },
-
-  // ── Action buttons (pending_review only) ────────────────────────────────
-  actions: { flexDirection: 'row', gap: S.sm, marginTop: S.md },
+  fileRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: S.sm, backgroundColor: C.surfaceAlt,
+    borderRadius: R.md, paddingHorizontal: S.md, marginBottom: S.sm,
+  },
+  fileName: { ...T.small, color: C.ink3, flex: 1, textDecorationLine: 'underline' as const },
+  actions:   { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 4, paddingVertical: 14,
-    borderRadius: R.md,
-    borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.surfaceAlt,
+    gap: 4, paddingVertical: 12, borderRadius: R.md,
+    borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt,
   },
   actionBtnText: { ...T.label, color: C.ink2 },
-
-  // ── Locked full-width status footer bar ────────────────────────────────
-  settledBar: {
-    // Negative margins pull the bar to the card edges, cancelling padding
-    marginHorizontal: -S.xl2,
-    marginBottom: -S.xl2,
-    marginTop: S.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: S.xl2,
-    paddingVertical: 14,
-    gap: S.sm,
-  },
-  settledBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+  settledBar:       { flexDirection: 'row', alignItems: 'center', borderRadius: R.md, padding: S.md, gap: S.sm, marginBottom: S.sm },
+  settledBarLeft:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   settledBarStatus: { fontSize: 13, fontWeight: '600' as const, letterSpacing: 0.2 },
   settledBarNotice: { flex: 1, fontSize: 11, opacity: 0.80, lineHeight: 16 },
-
-  // ── Divider + Comments ───────────────────────────────────────────────────
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: C.borderLight, marginTop: S.md, marginBottom: S.xs },
-  commentsBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: S.sm,
-    paddingVertical: S.sm,
-  },
+  divider:         { height: StyleSheet.hairlineWidth, backgroundColor: C.borderLight, marginVertical: S.xs },
+  commentsBtn:     { flexDirection: 'row', alignItems: 'center', gap: S.sm, paddingVertical: S.sm },
   commentsBtnText: { flex: 1, ...T.small, color: C.ink3 },
+  avatar:              { width: 40, height: 40, borderRadius: 20, backgroundColor: C.ink1, justifyContent: 'center', alignItems: 'center' },
+  avatarLetter:        { color: C.actionText, fontSize: 16, fontWeight: '600' as const },
+  missingAvatar:       { backgroundColor: C.ink4 },
+  missingAvatarLetter: { color: C.surface },
+  missingBadge:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full, borderWidth: 1, borderColor: C.borderLight },
+  missingBadgeText: { ...T.tiny, color: C.ink4 },
+  badge:     { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: R.full, alignSelf: 'flex-start' },
+  badgeText: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.2 },
+  empty:     { alignItems: 'center', paddingVertical: 56 },
+  emptyText: { ...T.body, color: C.ink4, marginTop: S.md },
 });

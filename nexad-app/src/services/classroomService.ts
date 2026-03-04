@@ -20,7 +20,8 @@ export const classroomService = {
   async createClassroom(
     teacherId: string,
     name: string,
-    description?: string
+    description?: string,
+    coverColor?: string
   ): Promise<ApiResponse<Classroom>> {
     try {
       // Generate unique invite code
@@ -49,6 +50,7 @@ export const classroomService = {
           name,
           description,
           invite_code: inviteCode,
+          ...(coverColor ? { cover_color: coverColor } : {}),
         })
         .select('*')
         .single();
@@ -179,18 +181,21 @@ export const classroomService = {
     teacherId: string,
     title: string,
     content: string,
-    isPinned: boolean = false
+    isPinned: boolean = false,
+    assignedTo: string[] | null = null
   ): Promise<ApiResponse<any>> {
     try {
+      const payload: any = {
+        classroom_id: classroomId,
+        teacher_id: teacherId,
+        title,
+        content,
+        is_pinned: isPinned,
+      };
+      if (assignedTo) payload.assigned_to = assignedTo;
       const { data, error } = await supabase
         .from('announcements')
-        .insert({
-          classroom_id: classroomId,
-          teacher_id: teacherId,
-          title,
-          content,
-          is_pinned: isPinned,
-        })
+        .insert(payload)
         .select()
         .single();
 
@@ -228,20 +233,23 @@ export const classroomService = {
     teacherId: string,
     title: string,
     description: string | null,
-    deadline: string | null
+    deadline: string | null,
+    assignedTo: string[] | null = null
   ): Promise<ApiResponse<any>> {
     try {
+      const payload: any = {
+        classroom_id: classroomId,
+        teacher_id: teacherId,
+        title,
+        description,
+        deadline,
+        is_active: true,
+        require_ai_analysis: true,
+      };
+      if (assignedTo) payload.assigned_to = assignedTo;
       const { data, error } = await supabase
         .from('attachment_bins')
-        .insert({
-          classroom_id: classroomId,
-          teacher_id: teacherId,
-          title,
-          description,
-          deadline,
-          is_active: true,
-          require_ai_analysis: true,
-        })
+        .insert(payload)
         .select()
         .single();
 
@@ -566,6 +574,130 @@ export const classroomService = {
       return { data };
     } catch (error: any) {
       return { error: error.message || 'Failed to fetch submission' };
+    }
+  },
+
+  /** Delete an announcement */
+  async deleteAnnouncement(announcementId: string): Promise<ApiResponse<void>> {
+    try {
+      const { error } = await supabase.from('announcements').delete().eq('id', announcementId);
+      if (error) throw error;
+      return { data: undefined };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to delete announcement' };
+    }
+  },
+
+  /** Update an announcement */
+  async updateAnnouncement(
+    announcementId: string,
+    updates: { title?: string; content?: string; is_pinned?: boolean; assigned_to?: string[] | null }
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .update(updates)
+        .eq('id', announcementId)
+        .select()
+        .single();
+      if (error) throw error;
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to update announcement' };
+    }
+  },
+
+  /** Delete an attachment bin (and its documents via cascade) */
+  async deleteAttachmentBin(binId: string): Promise<ApiResponse<void>> {
+    try {
+      const { error } = await supabase.from('attachment_bins').delete().eq('id', binId);
+      if (error) throw error;
+      return { data: undefined };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to delete bin' };
+    }
+  },
+
+  /** Update an attachment bin's details */
+  async updateAttachmentBin(
+    binId: string,
+    updates: { title?: string; description?: string | null; deadline?: string | null; assigned_to?: string[] | null }
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('attachment_bins')
+        .update(updates)
+        .eq('id', binId)
+        .select()
+        .single();
+      if (error) throw error;
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to update attachment bin' };
+    }
+  },
+
+  /**
+   * Remove (unenroll) a student from a classroom — Teacher action.
+   * Reuses the same membership delete as leaveClassroom.
+   */
+  async removeStudentFromClassroom(
+    classroomId: string,
+    studentId: string
+  ): Promise<ApiResponse<void>> {
+    try {
+      const { error } = await supabase
+        .from('classroom_memberships')
+        .delete()
+        .eq('classroom_id', classroomId)
+        .eq('student_id', studentId);
+
+      if (error) throw error;
+      return { data: undefined };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to remove student' };
+    }
+  },
+
+  /**
+   * Get all submissions by a specific student across all bins in a classroom.
+   */
+  async getStudentSubmissionsForClassroom(
+    classroomId: string,
+    studentId: string
+  ): Promise<ApiResponse<any[]>> {
+    try {
+      // 1. Get all bin IDs for this classroom
+      const { data: bins, error: binsError } = await supabase
+        .from('attachment_bins')
+        .select('id, title, deadline')
+        .eq('classroom_id', classroomId);
+
+      if (binsError) throw binsError;
+      if (!bins || bins.length === 0) return { data: [] };
+
+      const binIds = bins.map((b: any) => b.id);
+      const binMap = new Map(bins.map((b: any) => [b.id, b]));
+
+      // 2. Get all docs uploaded by this student in those bins
+      const { data: docs, error: docsError } = await supabase
+        .from('uploaded_documents')
+        .select('*')
+        .in('attachment_bin_id', binIds)
+        .eq('uploaded_by', studentId)
+        .eq('is_deleted', false)
+        .order('uploaded_at', { ascending: false });
+
+      if (docsError) throw docsError;
+
+      const submissions = (docs || []).map((doc: any) => ({
+        ...doc,
+        bin: binMap.get(doc.attachment_bin_id) || null,
+      }));
+
+      return { data: submissions };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to fetch student submissions' };
     }
   },
 };

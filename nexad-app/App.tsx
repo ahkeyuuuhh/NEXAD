@@ -4,10 +4,10 @@
  */
 import 'react-native-gesture-handler'; // MUST be at the very top
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing } from 'react-native';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators, TransitionSpecs } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Linking from 'expo-linking';
@@ -49,6 +49,9 @@ import ClassroomDetailScreen from './src/screens/teacher/ClassroomDetailScreen';
 import CreateAnnouncementScreen from './src/screens/teacher/CreateAnnouncementScreen';
 import CreateAttachmentBinScreen from './src/screens/teacher/CreateAttachmentBinScreen';
 import TeacherBinReviewScreen from './src/screens/teacher/TeacherBinReviewScreen';
+import EnrolledStudentsScreen from './src/screens/teacher/EnrolledStudentsScreen';
+import InviteCodeScreen from './src/screens/teacher/InviteCodeScreen';
+import StudentWorksScreen from './src/screens/teacher/StudentWorksScreen';
 
 // Classroom Hub Screens - Student
 import StudentClassroomsScreen from './src/screens/student/StudentClassroomsScreen';
@@ -78,10 +81,51 @@ function HomeScreen() {
 
 const Stack = createStackNavigator();
 
+// ─── Shared transition configs ───────────────────────────────────────────────
+const slideTransition = {
+  cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+  transitionSpec: {
+    open:  { animation: 'timing' as const, config: { duration: 280, easing: Easing.out(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
+    close: { animation: 'timing' as const, config: { duration: 240, easing: Easing.in(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
+  },
+};
+
+const fadeSlideTransition = {
+  cardStyleInterpolator: ({ current, next, layouts }: any) => {
+    const translateX = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [layouts.screen.width * 0.08, 0],
+    });
+    const opacity = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+    const overlayOpacity = next
+      ? next.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.1] })
+      : 0;
+    return {
+      cardStyle: { transform: [{ translateX }], opacity },
+      overlayStyle: { opacity: overlayOpacity },
+    };
+  },
+  transitionSpec: {
+    open:  { animation: 'timing' as const, config: { duration: 320, easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)) } },
+    close: { animation: 'timing' as const, config: { duration: 260, easing: Easing.in(Easing.bezier(0.16, 1, 0.3, 1)) } },
+  },
+};
+
+const modalTransition = {
+  cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
+  transitionSpec: {
+    open:  { animation: 'timing' as const, config: { duration: 340, easing: Easing.out(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
+    close: { animation: 'timing' as const, config: { duration: 280, easing: Easing.in(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
+  },
+};
+
 function AuthStack() {
   return (
     <Stack.Navigator 
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, ...fadeSlideTransition }}
       initialRouteName="Welcome"
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -103,7 +147,7 @@ function AppStack() {
     : 'Home';
   
   return (
-    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, ...slideTransition }}>
       <Stack.Screen 
         name="StudentDashboard" 
         component={StudentDashboard} 
@@ -173,27 +217,27 @@ function AppStack() {
       <Stack.Screen 
         name="ClassroomHub" 
         component={ClassroomHubScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...fadeSlideTransition }} 
       />
       <Stack.Screen 
         name="CreateClassroom" 
         component={CreateClassroomScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...modalTransition }} 
       />
       <Stack.Screen 
         name="ClassroomDetail" 
         component={ClassroomDetailScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...fadeSlideTransition }} 
       />
       <Stack.Screen 
         name="CreateAnnouncement" 
         component={CreateAnnouncementScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...modalTransition }} 
       />
       <Stack.Screen 
         name="CreateAttachmentBin" 
         component={CreateAttachmentBinScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...modalTransition }} 
       />
       {/* Classroom Hub - Student Routes */}
       <Stack.Screen 
@@ -214,6 +258,21 @@ function AppStack() {
       <Stack.Screen 
         name="TeacherBinReview" 
         component={TeacherBinReviewScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="EnrolledStudents" 
+        component={EnrolledStudentsScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="InviteCode" 
+        component={InviteCodeScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="StudentWorks" 
+        component={StudentWorksScreen} 
         options={{ headerShown: false }} 
       />
       <Stack.Screen 

@@ -92,6 +92,15 @@ export function useRealtimeNotifications(userId: string | undefined) {
     });
   }, [userId]);
 
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    await notificationService.deleteNotification(notificationId);
+    setNotifications(prev => {
+      const next = prev.filter(n => n.id !== notificationId);
+      setUnreadCount(recalcUnread(next));
+      return next;
+    });
+  }, []);
+
   // ─── realtime subscription ─────────────────────────────────────────────────
 
   useEffect(() => {
@@ -200,6 +209,7 @@ export function useRealtimeNotifications(userId: string | undefined) {
     isLoading,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
     refresh: fetchNotifications,
   };
 }

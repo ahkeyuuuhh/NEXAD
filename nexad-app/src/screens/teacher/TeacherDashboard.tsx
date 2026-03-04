@@ -12,6 +12,7 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // react-native-calendars not used — replaced with custom week strip
@@ -77,21 +78,37 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const { unreadCount: realtimeUnreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(userId);
 
   const menuAnim = useRef(new Animated.Value(300)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
   const openMenu = () => {
     setShowSideMenu(true);
-    Animated.spring(menuAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 10,
-    }).start();
+    menuAnim.setValue(300);
+    backdropAnim.setValue(0);
+    Animated.parallel([
+      Animated.timing(menuAnim, {
+        toValue: 0, duration: 340,
+        easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1, duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
   const closeMenu = () => {
-    Animated.timing(menuAnim, {
-      toValue: 300,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => setShowSideMenu(false));
+    Animated.parallel([
+      Animated.timing(menuAnim, {
+        toValue: 300, duration: 220,
+        easing: Easing.in(Easing.bezier(0.6, 0, 1, 1)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0, duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => { if (finished) setShowSideMenu(false); });
   };
 
   const loadDashboardData = useCallback(async () => {
@@ -757,7 +774,9 @@ export default function TeacherDashboard({ navigation, route }: any) {
       {/* Burger Menu Drawer */}
       <Modal visible={showSideMenu} transparent animationType="none" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
-          <TouchableOpacity style={styles.drawerBackdrop} activeOpacity={1} onPress={closeMenu} />
+          <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
+          </Animated.View>
           <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
             <View style={styles.drawerHeader}>
               <View style={styles.drawerAvatar}>
@@ -1046,9 +1065,9 @@ const styles = StyleSheet.create({
   emptyStateText: { ...T.body, color: C.ink4 },
 
   // ─── Burger Drawer ────────────────────────────────────
-  drawerOverlay:    { flex: 1, flexDirection: 'row', backgroundColor: 'transparent' },
-  drawerBackdrop:   { flex: 1, backgroundColor: C.scrim },
-  drawer:           { width: 300, backgroundColor: C.surface, paddingTop: 60, paddingBottom: 32, borderTopLeftRadius: R.xl, borderBottomLeftRadius: R.xl, ...shadow.lift },
+  drawerOverlay:    { flex: 1 },
+  drawerBackdrop:   { ...StyleSheet.absoluteFillObject, backgroundColor: C.scrim },
+  drawer:           { position: 'absolute', top: 0, bottom: 0, right: 0, width: 300, backgroundColor: C.surface, paddingTop: 60, paddingBottom: 32, borderTopLeftRadius: R.xl, borderBottomLeftRadius: R.xl, ...shadow.lift },
   drawerHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingBottom: S.lg },
   drawerAvatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
   drawerAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },

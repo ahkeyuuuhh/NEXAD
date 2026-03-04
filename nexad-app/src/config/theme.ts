@@ -64,6 +64,12 @@ export const C = {
   // Semantic — destructive (only colour allowed)
   red:    '#DC2626',
   redBg:  '#FEF2F2',
+
+  // Orange accent — warm complement to the blue/dark palette
+  orange:      '#F97316',   // Primary orange (CTA highlights, FAB, active accents)
+  orangeDark:  '#EA6A00',   // Darker shade for pressed states
+  orangeLight: '#FFF0E6',   // Very light tint for badges / pills
+  orangeText:  '#FFFFFF',   // Text on orange fills
 };
 
 // ─── Font Families ────────────────────────────────────────────────────────────

@@ -41,6 +41,8 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithStudent | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [consultationTab, setConsultationTab] = useState<'all' | 'upcoming' | 'missed'>('upcoming');
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -76,12 +78,18 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
       
       // Mark dates on calendar
       const marks: MarkedDates = {};
+      const now = new Date();
       consultationsWithNames.forEach(consultation => {
         if (consultation.scheduled_start_time) {
           const date = consultation.scheduled_start_time.split('T')[0];
+          const isMissed =
+            !!consultation.scheduled_end_time &&
+            new Date(consultation.scheduled_end_time) < now &&
+            consultation.status === 'accepted';
+          const existing = marks[date];
           marks[date] = {
             marked: true,
-            dotColor: C.ink2,
+            dotColor: (isMissed || existing?.dotColor === '#DC2626') ? '#DC2626' : C.ink2,
           };
         }
       });
@@ -292,6 +300,13 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           <Calendar
             markedDates={markedDates}
             onDayPress={onDayPress}
+            renderArrow={(direction) => (
+              <Ionicons
+                name={direction === 'left' ? 'chevron-back' : 'chevron-forward'}
+                size={20}
+                color={C.ink1}
+              />
+            )}
             theme={{
               backgroundColor: C.surface,
               calendarBackground: C.surface,
@@ -317,7 +332,11 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
-            <Text style={styles.legendText}>Has Consultations</Text>
+            <Text style={styles.legendText}>Scheduled</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#DC2626' }]} />
+            <Text style={styles.legendText}>Missed</Text>
           </View>
         </View>
 
@@ -383,70 +402,140 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* All Upcoming Consultations */}
+        {/* Consultations List — Tabs + Accordion */}
         <View style={styles.allConsultationsSection}>
-          <Text style={styles.sectionTitle}>All Upcoming Consultations</Text>
-          {consultations.length > 0 ? (
-            consultations
-              .filter(c => c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date())
-              .sort((a, b) => {
-                const dateA = new Date(a.scheduled_start_time || 0);
-                const dateB = new Date(b.scheduled_start_time || 0);
-                return dateA.getTime() - dateB.getTime();
-              })
-              .map((consultation) => {
-                const status = getStatusDisplay(consultation);
-                return (
+          {/* Tab Bar */}
+          <View style={styles.tabRow}>
+            {(['upcoming', 'all', 'missed'] as const).map((tab) => {
+              const label = tab === 'upcoming' ? 'Upcoming' : tab === 'all' ? 'All' : 'Missed';
+              const count = tab === 'upcoming'
+                ? consultations.filter(c => c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !checkIfMissed(c)).length
+                : tab === 'missed'
+                ? consultations.filter(c => checkIfMissed(c)).length
+                : consultations.length;
+              const isActive = consultationTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.tabItem, isActive && styles.tabItemActive, tab === 'missed' && isActive && styles.tabItemMissedActive]}
+                  onPress={() => { setConsultationTab(tab); setExpandedCardId(null); }}
+                >
+                  <Text style={[styles.tabItemText, isActive && styles.tabItemTextActive]}>
+                    {label} ({count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Accordion Header */}
+          <Text style={[styles.sectionTitle, { marginBottom: S.md }]}>
+            {consultationTab === 'upcoming' ? 'Upcoming Consultations' : consultationTab === 'missed' ? 'Missed Consultations' : 'All Consultations'}
+          </Text>
+
+          {/* Individual Expandable Cards */}
+          {(() => {
+            const filtered = consultationTab === 'upcoming'
+              ? consultations.filter(c => c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !checkIfMissed(c)).sort((a, b) => new Date(a.scheduled_start_time || 0).getTime() - new Date(b.scheduled_start_time || 0).getTime())
+              : consultationTab === 'missed'
+              ? consultations.filter(c => checkIfMissed(c)).sort((a, b) => new Date(b.scheduled_start_time || 0).getTime() - new Date(a.scheduled_start_time || 0).getTime())
+              : [...consultations].sort((a, b) => new Date(b.scheduled_start_time || 0).getTime() - new Date(a.scheduled_start_time || 0).getTime());
+
+            if (filtered.length === 0) {
+              return (
+                <View style={styles.noConsultationsCard}>
+                  <Text style={styles.noConsultationsText}>
+                    {consultationTab === 'missed' ? 'No missed consultations' : consultationTab === 'upcoming' ? 'No upcoming consultations' : 'No consultations'}
+                  </Text>
+                </View>
+              );
+            }
+
+            return filtered.map((consultation) => {
+              const status = getStatusDisplay(consultation);
+              const missed = checkIfMissed(consultation);
+              const isExpanded = expandedCardId === consultation.id;
+              return (
+                <View
+                  key={consultation.id}
+                  style={[styles.consultationCard, missed && styles.consultationCardMissed]}
+                >
+                  {/* Card header row — tap to expand/collapse */}
                   <TouchableOpacity
-                    key={consultation.id}
-                    style={styles.consultationCard}
-                    onPress={() => handleViewConsultation(consultation)}
+                    style={styles.cardHeaderRow}
+                    onPress={() => setExpandedCardId(isExpanded ? null : consultation.id)}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.consultationHeader}>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.studentName}>{consultation.studentName}</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-                        <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
-                      </View>
+                      <Text style={[styles.cardDateLine, missed && { color: '#DC2626' }]}>
+                        {formatDate(consultation.scheduled_start_time || '')} · {formatTime(consultation.scheduled_start_time || '')}
+                      </Text>
                     </View>
-                    
-                    <View style={styles.consultationDetails}>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Date:</Text>
-                        <Text style={styles.detailValue}>
-                          {formatDate(consultation.scheduled_start_time || '')}
-                        </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.statusBadge, { backgroundColor: missed ? '#FEE2E2' : status.bgColor }]}>
+                        <Text style={[styles.statusText, { color: missed ? '#DC2626' : status.color }]}>{status.text}</Text>
                       </View>
-                      
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Time:</Text>
-                        <Text style={styles.detailValue}>
-                          {formatTime(consultation.scheduled_start_time || '')} - {formatTime(consultation.scheduled_end_time || '')}
-                        </Text>
-                      </View>
-                      
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Subject:</Text>
-                        <Text style={styles.detailValue}>{consultation.subject_line}</Text>
-                      </View>
-                      
-                      {consultation.description && (
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink3} />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <View style={styles.cardExpandedBody}>
+                      <View style={styles.cardExpandDivider} />
+                      <View style={styles.consultationDetails}>
                         <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Description:</Text>
-                          <Text style={styles.detailValue} numberOfLines={2}>{consultation.description}</Text>
+                          <Text style={styles.detailLabel}>Subject:</Text>
+                          <Text style={styles.detailValue}>{consultation.subject_line}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Time:</Text>
+                          <Text style={styles.detailValue}>
+                            {formatTime(consultation.scheduled_start_time || '')} – {formatTime(consultation.scheduled_end_time || '')}
+                          </Text>
+                        </View>
+                        {consultation.description && (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Description:</Text>
+                            <Text style={styles.detailValue} numberOfLines={3}>{consultation.description}</Text>
+                          </View>
+                        )}
+                      </View>
+                      {(consultation.status === 'accepted' || missed) && (
+                        <View style={styles.cardActions}>
+                          <TouchableOpacity
+                            style={styles.cardActionBtn}
+                            onPress={() => handleMarkAsCompleted(consultation.id)}
+                          >
+                            <Ionicons name="checkmark" size={15} color="#fff" />
+                            <Text style={styles.cardActionBtnText}>Mark Done</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.cardActionBtn, styles.cardActionBtnCancel]}
+                            onPress={() => handleMarkAsCancelled(consultation.id)}
+                          >
+                            <Ionicons name="close" size={15} color={C.ink2} />
+                            <Text style={[styles.cardActionBtnText, { color: C.ink2 }]}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                      {missed && (
+                        <View style={[styles.missedNotice, { marginTop: S.md }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                            <Ionicons name="alert-circle-outline" size={15} color={C.ink3} style={{ marginTop: 1 }} />
+                            <Text style={[styles.missedNoticeText, { flex: 1, fontSize: 13 }]}>
+                              This consultation has passed its scheduled time. Update its status above.
+                            </Text>
+                          </View>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.tapToManageText}>Tap to manage \u2192</Text>
-                  </TouchableOpacity>
-                );
-              })
-          ) : (
-            <View style={styles.noConsultationsCard}>
-              <Text style={styles.noConsultationsText}>
-                No upcoming consultations
-              </Text>
-            </View>
-          )}
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
       </ScrollView>
 
@@ -459,96 +548,103 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {selectedConsultation && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Consultation Details</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowDetailModal(false)}
-                    style={styles.closeButton}
-                  >
-                    <Ionicons name="close" size={18} color={C.ink3} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.modalBody}>
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Student</Text>
-                    <Text style={styles.modalValue}>{selectedConsultation.studentName}</Text>
-                  </View>
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Subject</Text>
-                    <Text style={styles.modalValue}>{selectedConsultation.subject_line}</Text>
-                  </View>
-
-                  {selectedConsultation.description && (
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>Description</Text>
-                      <Text style={styles.modalValue}>{selectedConsultation.description}</Text>
+            {selectedConsultation && (() => {
+              const missed = checkIfMissed(selectedConsultation);
+              const headerBg = missed ? '#7F1D1D' : '#1C1C1C';
+              const headerDecor = missed ? '#991B1B' : '#2E2E2E';
+              const status = getStatusDisplay(selectedConsultation);
+              return (
+                <>
+                  {/* Dark header band */}
+                  <View style={[styles.dmHeader, { backgroundColor: headerBg }]}>
+                    <View style={[styles.dmHeaderDecor, { backgroundColor: headerDecor }]} />
+                    <View style={[styles.dmHeaderDecor2, { backgroundColor: headerDecor }]} />
+                    <TouchableOpacity style={styles.dmCloseBtn} onPress={() => setShowDetailModal(false)}>
+                      <Ionicons name="close" size={18} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                    <View style={styles.dmAvatarWrap}>
+                      <Text style={styles.dmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
                     </View>
-                  )}
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Date & Time</Text>
-                    <Text style={styles.modalValue}>
-                      {formatDate(selectedConsultation.scheduled_start_time || '')}
-                    </Text>
-                    <Text style={styles.modalValue}>
-                      {formatTime(selectedConsultation.scheduled_start_time || '')} - {formatTime(selectedConsultation.scheduled_end_time || '')}
-                    </Text>
+                    <Text style={styles.dmName}>{selectedConsultation.studentName}</Text>
+                    <Text style={styles.dmSubject} numberOfLines={2}>{selectedConsultation.subject_line}</Text>
+                    <View style={[styles.dmStatusPill, missed && styles.dmStatusPillMissed]}>
+                      <View style={[styles.dmStatusDot, missed && { backgroundColor: '#FCA5A5' }]} />
+                      <Text style={styles.dmStatusPillText}>{status.text}</Text>
+                    </View>
                   </View>
 
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Current Status</Text>
-                    <View style={styles.modalStatusContainer}>
-                      {(() => {
-                        const status = getStatusDisplay(selectedConsultation);
-                        return (
-                          <View style={[styles.modalStatusBadge, { backgroundColor: status.bgColor }]}>
-                            <Text style={[styles.modalStatusText, { color: status.color }]}>{status.text}</Text>
+                  {/* Body */}
+                  <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                    {selectedConsultation.description && (
+                      <View style={styles.dmInfoCard}>
+                        <View style={styles.dmInfoRow}>
+                          <View style={styles.dmIconBox}><Ionicons name="document-text-outline" size={16} color={C.ink2} /></View>
+                          <View style={styles.dmInfoContent}>
+                            <Text style={styles.dmInfoLabel}>Description</Text>
+                            <Text style={styles.dmInfoValue}>{selectedConsultation.description}</Text>
                           </View>
-                        );
-                      })()}
-                    </View>
-                  </View>
-
-                  {(selectedConsultation.status === 'accepted' || checkIfMissed(selectedConsultation)) && (
-                    <View style={styles.modalActions}>
-                      <TouchableOpacity
-                        style={styles.modalActionButton}
-                        onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="checkmark" size={18} color="#fff" />
-                          <Text style={styles.modalActionButtonText}>Mark as Done</Text>
                         </View>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.modalActionButton, styles.cancelButton]}
-                        onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="close" size={18} color="#fff" />
-                          <Text style={[styles.modalActionButtonText, styles.cancelButtonText]}>Cancel Consultation</Text>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                      </View>
+                    )}
 
-                  {checkIfMissed(selectedConsultation) && (
-                    <View style={styles.missedNotice}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <Ionicons name="alert-circle-outline" size={18} color={C.ink3} style={{ marginTop: 1 }} />
-                        <Text style={[styles.missedNoticeText, { flex: 1 }]}>
-                          This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
-                        </Text>
+                    <View style={styles.dmInfoCard}>
+                      <View style={styles.dmInfoRow}>
+                        <View style={styles.dmIconBox}><Ionicons name="calendar-outline" size={16} color={C.ink2} /></View>
+                        <View style={styles.dmInfoContent}>
+                          <Text style={styles.dmInfoLabel}>Date</Text>
+                          <Text style={styles.dmInfoValue}>{formatDate(selectedConsultation.scheduled_start_time || '')}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.dmInfoDivider} />
+                      <View style={styles.dmInfoRow}>
+                        <View style={styles.dmIconBox}><Ionicons name="time-outline" size={16} color={C.ink2} /></View>
+                        <View style={styles.dmInfoContent}>
+                          <Text style={styles.dmInfoLabel}>Time</Text>
+                          <Text style={styles.dmInfoValue}>
+                            {formatTime(selectedConsultation.scheduled_start_time || '')} — {formatTime(selectedConsultation.scheduled_end_time || '')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  )}
-                </ScrollView>
-              </>
-            )}
+
+                    {(selectedConsultation.status === 'accepted' || missed) && (
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity
+                          style={styles.modalActionButton}
+                          onPress={() => handleMarkAsCompleted(selectedConsultation.id)}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="checkmark" size={18} color="#fff" />
+                            <Text style={styles.modalActionButtonText}>Mark as Done</Text>
+                          </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.modalActionButton, styles.cancelButton]}
+                          onPress={() => handleMarkAsCancelled(selectedConsultation.id)}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="close" size={18} color={C.ink2} />
+                            <Text style={[styles.modalActionButtonText, styles.cancelButtonText]}>Cancel Consultation</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {missed && (
+                      <View style={styles.missedNotice}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                          <Ionicons name="alert-circle-outline" size={18} color={C.ink3} style={{ marginTop: 1 }} />
+                          <Text style={[styles.missedNoticeText, { flex: 1 }]}>
+                            This consultation was not marked as completed or cancelled and has passed its scheduled time. You can still update its status.
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                    <View style={{ height: 24 }} />
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -651,11 +747,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: S.xl,
     marginBottom: S.xl2,
   },
+  tabRow: {
+    flexDirection: 'row',
+    gap: S.sm,
+    marginBottom: S.md,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: R.sm,
+    alignItems: 'center',
+    backgroundColor: C.surfaceAlt,
+  },
+  tabItemActive: {
+    backgroundColor: C.action,
+  },
+  tabItemMissedActive: {
+    backgroundColor: '#DC2626',
+  },
+  tabItemText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: C.ink3,
+  },
+  tabItemTextActive: {
+    color: '#fff',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: S.md,
+    paddingVertical: S.xs,
+  },
+  consultationCardMissed: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600' as const,
     color: C.ink1,
-    marginBottom: S.md,
   },
   consultationCard: {
     backgroundColor: C.surface,
@@ -736,8 +868,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
     borderTopLeftRadius: R.xxl,
     borderTopRightRadius: R.xxl,
-    maxHeight: '80%',
+    maxHeight: '85%',
     paddingBottom: S.xl,
+    overflow: 'hidden' as const,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -830,4 +963,33 @@ const styles = StyleSheet.create({
     color: C.ink2,
     lineHeight: 20,
   },
+  // ─── Dark-header modal styles (matching StudentDashboard) ───────────────────
+  dmHeader: { padding: S.xl, paddingTop: S.xl + 8, paddingBottom: S.xl + 4, overflow: 'hidden' as const, position: 'relative' as const, alignItems: 'center' },
+  dmHeaderDecor:  { position: 'absolute' as const, width: 160, height: 160, borderRadius: 80, top: -60, right: -40, backgroundColor: 'rgba(255,255,255,0.06)' },
+  dmHeaderDecor2: { position: 'absolute' as const, width: 90, height: 90, borderRadius: 45, bottom: -20, left: 20, backgroundColor: 'rgba(255,255,255,0.04)' },
+  dmCloseBtn:    { position: 'absolute' as const, top: S.lg, right: S.lg, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  dmAvatarWrap:  { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', marginBottom: S.md },
+  dmAvatarText:  { color: '#FFFFFF', fontSize: 24, fontWeight: '700' as const },
+  dmName:        { color: '#FFFFFF', fontSize: 17, fontWeight: '700' as const, textAlign: 'center' as const, marginBottom: 3 },
+  dmSubject:     { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' as const, lineHeight: 18, marginBottom: S.md, paddingHorizontal: S.xl },
+  dmStatusPill:       { flexDirection: 'row' as const, alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full },
+  dmStatusPillMissed: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  dmStatusDot:        { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86EFAC' },
+  dmStatusPillText:   { color: '#FFFFFF', fontSize: 12, fontWeight: '600' as const },
+  dmInfoCard:     { backgroundColor: C.bg, borderRadius: R.xl, marginBottom: S.md, overflow: 'hidden' as const, borderWidth: 1, borderColor: C.borderLight },
+  dmInfoRow:      { flexDirection: 'row' as const, alignItems: 'flex-start', padding: S.lg, gap: S.md },
+  dmIconBox:      { width: 34, height: 34, borderRadius: R.md, backgroundColor: C.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
+  dmInfoContent:  { flex: 1 },
+  dmInfoLabel:    { fontSize: 11, fontWeight: '600' as const, color: C.ink4, textTransform: 'uppercase' as const, letterSpacing: 0.6, marginBottom: 3 },
+  dmInfoValue:    { fontSize: 15, color: C.ink1, lineHeight: 22 },
+  dmInfoDivider:  { height: 1, backgroundColor: C.borderLight, marginLeft: 50 },
+  // ─── Individual card expansion ───────────────────────────────────────────────
+  cardHeaderRow:     { flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'space-between' },
+  cardDateLine:      { fontSize: 12, color: C.ink3, marginTop: 3, fontWeight: '400' as const },
+  cardExpandedBody:  { marginTop: S.md },
+  cardExpandDivider: { height: 1, backgroundColor: C.borderLight, marginBottom: S.md },
+  cardActions:       { flexDirection: 'row' as const, gap: S.sm, marginTop: S.md },
+  cardActionBtn:     { flex: 1, flexDirection: 'row' as const, alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: C.action, paddingVertical: 11, borderRadius: R.md },
+  cardActionBtnCancel: { backgroundColor: C.surfaceAlt },
+  cardActionBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
 });

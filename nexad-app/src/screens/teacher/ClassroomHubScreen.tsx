@@ -1,296 +1,414 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
   Alert,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../contexts/AuthContext';
-import { classroomService } from '../../services/classroomService';
-import { Ionicons } from '@expo/vector-icons';
-import { C, F, S, R, shadow } from '../../config/theme';
+  Modal,
+  Animated,
+  Easing,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
+import { useAuth } from "../../contexts/AuthContext";
+import { classroomService } from "../../services/classroomService";
+import { supabase } from "../../config/supabase";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { C, S, R } from "../../config/theme";
+
+// Monochromatic fallback palette matching app aesthetic
+const BANNER_COLORS = [
+  "#202124","#3C4043","#5F6368","#37474F",
+  "#1A1A2E","#2D2D2D","#455A64","#424242",
+];
+
+const getFallbackColor = (id: string) => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return BANNER_COLORS[Math.abs(hash) % BANNER_COLORS.length];
+};
+
+const getInitial = (name: string) => (name ? name.charAt(0).toUpperCase() : "C");
+
+// ── Animated card wrapper for staggered entrance ──────────────────────────────────
+function AnimatedCard({ index, children }: { index: number; children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 380,
+      delay: index * 70,
+      easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  return (
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
 
 export default function ClassroomHubScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const { user } = authContext;
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuAnim = useRef(new Animated.Value(300)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadClassrooms();
-  }, []);
+  // Derive display name
+  const displayName = user?.email?.split("@")[0] || "Teacher";
+  const displayInitial = displayName.charAt(0).toUpperCase();
+
+  useEffect(() => { loadClassrooms(); }, []);
 
   const loadClassrooms = async () => {
     if (!user?.user_id) return;
-
     try {
       const result = await classroomService.getTeacherClassrooms(user.user_id);
       if (result.data) {
         const classroomsWithCount = await Promise.all(
           result.data.map(async (classroom) => {
             const countResult = await classroomService.getMemberCount(classroom.id);
-            return {
-              ...classroom,
-              memberCount: countResult.data || 0,
-            };
+            return { ...classroom, memberCount: countResult.data || 0 };
           })
         );
         setClassrooms(classroomsWithCount);
       } else if (result.error) {
-        Alert.alert('Error', result.error);
+        Alert.alert("Error", result.error);
       }
     } catch (error) {
-      console.error('Error loading classrooms:', error);
+      console.error("Error loading classrooms:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadClassrooms();
-  };
+  const onRefresh = () => { setRefreshing(true); loadClassrooms(); };
 
   const handleDeleteClassroom = (classroomId: string, classroomName: string) => {
-    Alert.alert(
-      'Delete Classroom',
-      `Are you sure you want to delete "${classroomName}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await classroomService.deleteClassroom(classroomId);
-            if (result.error) {
-              Alert.alert('Error', result.error);
-            } else {
-              loadClassrooms();
-            }
-          },
+    Alert.alert("Delete Classroom", `Are you sure you want to delete "${classroomName}"? This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete", style: "destructive",
+        onPress: async () => {
+          const result = await classroomService.deleteClassroom(classroomId);
+          if (result.error) Alert.alert("Error", result.error);
+          else loadClassrooms();
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const renderClassroom = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.classroomCard}
-      onPress={() => navigation.navigate('ClassroomDetail', { classroomId: item.id })}
-    >
-      <View style={styles.classroomHeader}>
-        <View style={styles.classroomIcon}>
-          <Ionicons name="school" size={24} color={C.ink1} />
-        </View>
-        <View style={styles.classroomInfo}>
-          <Text style={styles.classroomName}>{item.name}</Text>
-          {item.description && (
-            <Text style={styles.classroomDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
+  const handleCardOptions = (item: any) => {
+    Alert.alert(item.name, "Choose an action", [
+      { text: "Open Classroom", onPress: () => navigation.navigate("ClassroomDetail", { classroomId: item.id }) },
+      { text: "Delete", style: "destructive", onPress: () => handleDeleteClassroom(item.id, item.name) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const openMenu = () => {
+    setShowMenu(true);
+    menuAnim.setValue(300);
+    backdropAnim.setValue(0);
+    Animated.parallel([
+      Animated.timing(menuAnim, {
+        toValue: 0, duration: 340,
+        easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1, duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeMenu = () => {
+    Animated.parallel([
+      Animated.timing(menuAnim, {
+        toValue: 300, duration: 220,
+        easing: Easing.in(Easing.bezier(0.6, 0, 1, 1)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0, duration: 180,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => { if (finished) setShowMenu(false); });
+  };
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: () => authContext.signOut() },
+    ]);
+  };
+
+  const renderClassroom = ({ item, index }: { item: any; index: number }) => {
+    const cover = item.cover_color || getFallbackColor(item.id);
+    const isImageCover = cover.startsWith("http");
+    const initial = getInitial(item.name);
+    return (
+      <AnimatedCard index={index}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate("ClassroomDetail", { classroomId: item.id })}
+        activeOpacity={0.88}
+      >
+        <View style={[styles.cardBanner, !isImageCover && { backgroundColor: cover }]}>
+          {isImageCover && (
+            <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           )}
-          <View style={styles.classroomMeta}>
-            <View style={styles.metaItem}>
-              <Ionicons name="people" size={14} color={C.ink3} />
-              <Text style={styles.metaText}>{item.memberCount} students</Text>
+          <View style={[StyleSheet.absoluteFill, isImageCover && { backgroundColor: "rgba(0,0,0,0.35)" }]} />
+          <View style={styles.bannerTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+              {item.description ? <Text style={styles.cardSection} numberOfLines={1}>{item.description}</Text> : null}
             </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="key" size={14} color={C.ink3} />
-              <Text style={styles.metaText}>{item.invite_code}</Text>
+            <TouchableOpacity
+              style={styles.moreBtn}
+              onPress={() => handleCardOptions(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bannerBottom}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{initial}</Text>
             </View>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={() => handleDeleteClassroom(item.id, item.name)}
-          style={styles.deleteButton}
-        >
-          <Ionicons name="trash-outline" size={20} color={C.ink4} />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.cardDivider} />
+        <View style={styles.cardBody}>
+          <View style={styles.cardMeta}>
+            <Ionicons name="people-outline" size={16} color="#5F6368" />
+            <Text style={styles.cardMetaText}>
+              {item.memberCount} {item.memberCount === 1 ? "student" : "students"}
+            </Text>
+          </View>
+          <View style={styles.codeChip}>
+            <Ionicons name="key-outline" size={13} color="#5F6368" />
+            <Text style={styles.codeText}>{item.invite_code}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+      </AnimatedCard>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.ink3} />
+        <ActivityIndicator size="large" color="#1967D2" />
         <Text style={styles.loadingText}>Loading classrooms...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-      <View style={styles.header}>
-        <Text style={styles.title}>Classroom Hub</Text>
-        <Text style={styles.subtitle}>Manage your virtual classrooms</Text>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* App Bar */}
+      <View style={styles.appBar}>
+        <Text style={styles.appBarTitle}>Classroom</Text>
+        <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
+          <Ionicons name="menu" size={26} color="#3C4043" />
+        </TouchableOpacity>
       </View>
 
       <FlatList
         data={classrooms}
         renderItem={renderClassroom}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="school-outline" size={56} color={C.ink5} />
-            <Text style={styles.emptyText}>No classrooms yet</Text>
-            <Text style={styles.emptySubtext}>Create your first classroom to get started</Text>
+            <Ionicons name="school-outline" size={72} color="#BCC0C6" />
+            <Text style={styles.emptyTitle}>No classrooms yet</Text>
+            <Text style={styles.emptySubtitle}>Tap + to create your first classroom</Text>
           </View>
         }
       />
 
-      <TouchableOpacity
-        style={styles.createButton}
-        onPress={() => navigation.navigate('CreateClassroom')}
-      >
-        <Ionicons name="add" size={24} color={C.actionText} />
-        <Text style={styles.createButtonText}>Create Classroom</Text>
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate("CreateClassroom")} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
+
+      {/* Burger Menu Drawer */}
+      <Modal visible={showMenu} transparent animationType="none" onRequestClose={closeMenu}>
+        <View style={styles.drawerOverlay}>
+          <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
+          </Animated.View>
+          <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
+            {/* Drawer header */}
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerAvatar}>
+                <Text style={styles.drawerAvatarText}>{displayInitial}</Text>
+              </View>
+              <View style={styles.drawerHeaderInfo}>
+                <Text style={styles.drawerName}>{displayName}</Text>
+                <Text style={styles.drawerRole}>Teacher</Text>
+              </View>
+              <TouchableOpacity onPress={closeMenu} style={styles.drawerClose}>
+                <Ionicons name="close" size={20} color={C.ink3} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.drawerDivider} />
+
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("TeacherDashboard"); }}>
+              <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); }}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("AllRequests"); }}>
+              <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Requests</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("TeacherConsultations"); }}>
+              <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Consultations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("Notifications"); }}>
+              <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Notifications</Text>
+            </TouchableOpacity>
+
+            <View style={styles.drawerDivider} />
+
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); handleSignOut(); }}>
+              <Ionicons name="log-out-outline" size={20} color={C.red} style={styles.drawerItemIcon} />
+              <Text style={[styles.drawerItemText, { color: C.red }]}>Sign Out</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
+  container: { flex: 1, backgroundColor: "#F1F3F4" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F4" },
+  loadingText: { marginTop: 12, fontSize: 14, color: "#5F6368" },
+
+  appBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: "#fff", paddingHorizontal: 8,
+    paddingTop: 25, paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E0E0E0",
+    elevation: 2, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.bg,
+  menuBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
+  appBarTitle: { fontSize: 22, fontWeight: "700" as const, color: "#202124", flex: 1 },
+
+  listContent: { padding: 12, paddingBottom: 120 },
+
+  card: {
+    backgroundColor: "#fff", borderRadius: 8, marginBottom: 12,
+    overflow: "hidden", elevation: 2, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4,
   },
-  loadingText: {
-    marginTop: S.md,
-    fontSize: 16,
-    fontWeight: '400' as const,
-    color: C.ink3,
+  cardBanner: { height: 108, paddingHorizontal: 14, paddingVertical: 10, justifyContent: "space-between", overflow: "hidden" },
+  bannerTop: { flexDirection: "row", alignItems: "flex-start" },
+  cardTitle: { fontSize: 20, fontWeight: "400" as const, color: "#fff", lineHeight: 26, flex: 1 },
+  cardSection: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  moreBtn: { padding: 4, marginLeft: 8, marginTop: -2 },
+  bannerBottom: { flexDirection: "row", justifyContent: "flex-end", alignItems: "flex-end" },
+  avatarCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    justifyContent: "center", alignItems: "center",
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.45)",
   },
-  header: {
-    backgroundColor: C.surface,
-    paddingHorizontal: S.xl,
-    paddingTop: S.xxl,
-    paddingBottom: S.xl,
+  avatarText: { color: "#fff", fontSize: 18, fontWeight: "600" as const },
+  cardDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E8EAED" },
+  cardBody: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  cardMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
+  cardMetaText: { fontSize: 13, color: "#5F6368" },
+  codeChip: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: "#F8F9FA", borderWidth: 1, borderColor: "#E8EAED",
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4,
+  },
+  codeText: { fontSize: 12, color: "#5F6368", fontWeight: "600" as const, letterSpacing: 0.5 },
+
+  emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: "600" as const, color: "#5F6368", marginTop: 20 },
+  emptySubtitle: { fontSize: 14, color: "#BCC0C6", marginTop: 6, textAlign: "center" },
+
+  fab: {
+    position: "absolute", bottom: 28, right: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: "#202124",
+    justifyContent: "center", alignItems: "center",
+    elevation: 6, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8,
+  },
+
+  // ── Drawer ───────────────────────────────────────────────────────────────
+  drawerOverlay: { flex: 1 },
+  drawerBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  drawer: {
+    position: "absolute", top: 0, bottom: 0, right: 0,
+    width: 300, backgroundColor: "#fff",
+    elevation: 16, shadowColor: "#000",
+    shadowOffset: { width: -2, height: 0 }, shadowOpacity: 0.15, shadowRadius: 16,
+  },
+  drawerHeader: {
+    flexDirection: "row", alignItems: "center",
+    padding: 20, paddingTop: 32,
+    backgroundColor: "#fff",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: "#E8EAED",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700' as const,
-    color: C.ink1,
+  drawerAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "#202124",
+    justifyContent: "center", alignItems: "center",
+    marginRight: 12,
   },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink3,
-    marginTop: S.xs,
+  drawerAvatarText: { color: "#fff", fontSize: 18, fontWeight: "700" as const },
+  drawerHeaderInfo: { flex: 1 },
+  drawerName: { fontSize: 15, fontWeight: "600" as const, color: "#202124" },
+  drawerRole: { fontSize: 12, color: "#5F6368", marginTop: 2 },
+  drawerClose: { padding: 4 },
+  drawerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E8EAED", marginVertical: 6 },
+  drawerItem: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 20, paddingVertical: 14,
   },
-  listContainer: {
-    padding: S.lg,
-    paddingBottom: 100,
-  },
-  classroomCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.lg,
-    marginBottom: S.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.card,
-  },
-  classroomHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  classroomIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: R.full,
-    backgroundColor: C.surfaceAlt,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: S.md,
-  },
-  classroomInfo: {
-    flex: 1,
-  },
-  classroomName: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: S.xs,
-  },
-  classroomDescription: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink3,
-    marginBottom: S.sm,
-  },
-  classroomMeta: {
-    flexDirection: 'row',
-    gap: S.lg,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S.xs,
-  },
-  metaText: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: C.ink3,
-  },
-  deleteButton: {
-    padding: S.sm,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: C.ink4,
-    marginTop: S.lg,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink5,
-    marginTop: S.sm,
-  },
-  createButton: {
-    position: 'absolute',
-    bottom: S.xl2,
-    left: S.xl2,
-    right: S.xl2,
-    backgroundColor: C.action,
-    borderRadius: R.lg,
-    paddingVertical: S.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.lift,
-  },
-  createButtonText: {
-    color: C.actionText,
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginLeft: S.sm,
-  },
+  drawerItemIcon: { marginRight: 16 },
+  drawerItemText: { fontSize: 15, color: C.ink2 },
 });

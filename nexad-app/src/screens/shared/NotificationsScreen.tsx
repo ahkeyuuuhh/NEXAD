@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,6 +24,8 @@ export default function NotificationsScreen({ navigation }: any) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
 
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -33,6 +36,7 @@ export default function NotificationsScreen({ navigation }: any) {
     isLoading,
     markAsRead,
     markAllAsRead: markAllAsReadHook,
+    deleteNotification,
     refresh,
   } = useRealtimeNotifications(userId);
 
@@ -49,9 +53,72 @@ export default function NotificationsScreen({ navigation }: any) {
     setIsRefreshing(false);
   }, [refresh]);
 
+  // Strip leading/trailing emoji characters from database-generated text
+  const stripEmoji = useCallback((text: string) =>
+    text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}\u{FE00}-\u{FEFF}\u{1FA00}-\u{1FAFF}]/gu, '').replace(/\s{2,}/g, ' ').trim(),
+  []);
+
   const handleMarkAsRead = useCallback(async (notificationId: string) => {
     await markAsRead(notificationId);
   }, [markAsRead]);
+
+  const handleDeleteNotification = useCallback(async (notificationId: string) => {
+    Alert.alert(
+      'Delete Notification',
+      'Remove this notification?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteNotification(notificationId) },
+      ]
+    );
+  }, [deleteNotification]);
+
+  const handleLongPress = useCallback((id: string) => {
+    setIsSelectMode(true);
+    setSelectedIds(new Set([id]));
+  }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleCancelSelect = useCallback(() => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    Alert.alert(
+      'Delete Notifications',
+      `Delete ${selectedIds.size} notification${selectedIds.size > 1 ? 's' : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await Promise.all([...selectedIds].map(id => deleteNotification(id)));
+            setIsSelectMode(false);
+            setSelectedIds(new Set());
+          },
+        },
+      ]
+    );
+  }, [selectedIds, deleteNotification]);
+
+  const handleSelectAll = useCallback(() => {
+    const current = filter === 'all' ? notifications : notifications.filter(n => !n.is_read);
+    if (selectedIds.size === current.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(current.map(n => n.id)));
+    }
+  }, [filter, notifications, selectedIds.size]);
 
   // Returns a label + screen name for actionable deep-link notifications.
   // Navigates directly on tap — no modal needed for actionable items.
@@ -95,7 +162,7 @@ export default function NotificationsScreen({ navigation }: any) {
       // ── Teacher-side ────────────────────────────────────────────────
       switch (notification.type) {
         case 'request_submitted':
-          return { label: 'Review Request →', screen: 'RequestManagement', params: {} };
+          return { label: 'Review Request →', screen: 'AllRequests', params: {} };
         case 'document_uploaded':
         case 'attachment_bin_created':
           return rid
@@ -125,9 +192,23 @@ export default function NotificationsScreen({ navigation }: any) {
   }, [markAsRead, getDeepLinkAction]);
 
   const handleMarkAllAsRead = useCallback(async () => {
-    await markAllAsReadHook();
-    Alert.alert('Success', 'All notifications marked as read');
-  }, [markAllAsReadHook]);
+    const hasUnread = notifications.some(n => !n.is_read);
+    if (!hasUnread) return;
+    Alert.alert(
+      'Mark All as Read',
+      'Mark all notifications as read?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark All',
+          style: 'default',
+          onPress: async () => {
+            await markAllAsReadHook();
+          },
+        },
+      ]
+    );
+  }, [markAllAsReadHook, notifications]);
 
   const closeDetailModal = useCallback(() => {
     setShowDetailModal(false);
@@ -204,19 +285,23 @@ export default function NotificationsScreen({ navigation }: any) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={isSelectMode ? handleCancelSelect : () => navigation.goBack()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={20} color={C.ink2} />
+          <Ionicons name={isSelectMode ? 'close' : 'chevron-back'} size={20} color={C.ink2} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>
+          {isSelectMode ? `${selectedIds.size} selected` : 'Notifications'}
+        </Text>
         <TouchableOpacity
-          onPress={handleMarkAllAsRead}
+          onPress={isSelectMode ? handleSelectAll : handleMarkAllAsRead}
           style={styles.markAllButton}
-          disabled={unreadCount === 0}
+          disabled={!isSelectMode && unreadCount === 0}
         >
-          <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllTextDisabled]}>
-            Mark all
+          <Text style={[styles.markAllText, !isSelectMode && unreadCount === 0 && styles.markAllTextDisabled]}>
+            {isSelectMode
+              ? (selectedIds.size === (filter === 'all' ? notifications : notifications.filter(n => !n.is_read)).length ? 'Deselect all' : 'Select all')
+              : 'Mark all'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -258,33 +343,74 @@ export default function NotificationsScreen({ navigation }: any) {
             </Text>
           </View>
         ) : (
-          filteredNotifications.map((notification) => (
-            <TouchableOpacity
-              key={notification.id}
-              style={[
-                styles.notificationCard,
-                !notification.is_read && styles.notificationCardUnread,
-              ]}
-              onPress={() => handleNotificationPress(notification)}
-            >
-              <View style={[styles.notificationIcon, { borderColor: getNotificationColor(notification.type) }]}>
-                <Ionicons name={getNotificationIcon(notification.type) as any} size={22} color={getNotificationColor(notification.type)} />
-              </View>
-
-              <View style={styles.notificationContent}>
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.notificationTitle}>{notification.title}</Text>
-                  {!notification.is_read && (
-                    <View style={styles.unreadDot} />
-                  )}
+          filteredNotifications.map((notification) => {
+            const isSelected = selectedIds.has(notification.id);
+            const cardView = (
+              <TouchableOpacity
+                key={notification.id}
+                style={[
+                  styles.notificationCard,
+                  !notification.is_read && styles.notificationCardUnread,
+                  isSelected && styles.notificationCardSelected,
+                ]}
+                onPress={() => isSelectMode ? handleToggleSelect(notification.id) : handleNotificationPress(notification)}
+                onLongPress={() => !isSelectMode && handleLongPress(notification.id)}
+                delayLongPress={350}
+              >
+                {isSelectMode && (
+                  <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
+                    {isSelected && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  </View>
+                )}
+                <View style={[styles.notificationIcon, { borderColor: getNotificationColor(notification.type) }]}>
+                  <Ionicons name={getNotificationIcon(notification.type) as any} size={20} color={getNotificationColor(notification.type)} />
                 </View>
-                <Text style={styles.notificationMessage}>{notification.message}</Text>
-                <Text style={styles.notificationTime}>{formatTimeAgo(notification.created_at)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+
+                <View style={styles.notificationContent}>
+                  <View style={styles.notificationHeader}>
+                    <Text style={styles.notificationTitle} numberOfLines={1}>{stripEmoji(notification.title)}</Text>
+                    {!notification.is_read && <View style={styles.unreadDot} />}
+                  </View>
+                  <Text style={styles.notificationMessage} numberOfLines={2}>{stripEmoji(notification.message)}</Text>
+                  <Text style={styles.notificationTime}>{formatTimeAgo(notification.created_at)}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+            if (isSelectMode) {
+              return <React.Fragment key={notification.id}>{cardView}</React.Fragment>;
+            }
+            return (
+              <Swipeable
+                key={notification.id}
+                renderRightActions={() => (
+                  <TouchableOpacity
+                    style={styles.swipeDeleteAction}
+                    onPress={() => handleDeleteNotification(notification.id)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              >
+                {cardView}
+              </Swipeable>
+            );
+          })
         )}
       </ScrollView>
+
+      {/* Multi-select delete bar */}
+      {isSelectMode && (
+        <View style={styles.selectActionBar}>
+          <TouchableOpacity
+            style={[styles.selectDeleteBtn, selectedIds.size === 0 && { opacity: 0.4 }]}
+            onPress={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={styles.selectDeleteBtnText}>Delete ({selectedIds.size})</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Notification Detail Modal */}
       <Modal
@@ -419,24 +545,79 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: S.lg,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   notificationCard: {
     backgroundColor: C.surface,
     borderRadius: R.lg,
-    padding: S.lg,
-    marginBottom: S.md,
+    padding: 10,
+    marginBottom: 8,
+    marginHorizontal: 4,
     flexDirection: 'row',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.borderLight,
     ...shadow.card,
   },
+  swipeDeleteAction: {
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 64,
+    borderRadius: R.lg,
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  notificationCardSelected: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#93C5FD',
+  },
+  selectCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: C.border,
+    backgroundColor: C.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    alignSelf: 'center',
+    flexShrink: 0,
+  },
+  selectCheckboxActive: {
+    backgroundColor: C.action,
+    borderColor: C.action,
+  },
+  selectActionBar: {
+    backgroundColor: C.surface,
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    paddingBottom: S.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+    ...shadow.float,
+  },
+  selectDeleteBtn: {
+    backgroundColor: '#DC2626',
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: R.lg,
+    gap: S.sm,
+  },
+  selectDeleteBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
   notificationCardUnread: {
     backgroundColor: C.surfaceRaised,
   },
   notificationIcon: {
-    width: 48,
-    height: 48,
+    width: 38,
+    height: 38,
     borderRadius: R.full,
     backgroundColor: C.surfaceAlt,
     borderWidth: 1.5,
@@ -454,7 +635,7 @@ const styles = StyleSheet.create({
     marginBottom: S.xs,
   },
   notificationTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600' as const,
     color: C.ink1,
     flex: 1,
@@ -467,14 +648,14 @@ const styles = StyleSheet.create({
     marginLeft: S.sm,
   },
   notificationMessage: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400' as const,
     color: C.ink3,
-    lineHeight: 20,
-    marginBottom: S.sm,
+    lineHeight: 18,
+    marginBottom: 4,
   },
   notificationTime: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '400' as const,
     color: C.ink4,
   },

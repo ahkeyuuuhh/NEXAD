@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Share,
-} from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { classroomService } from '../../services/classroomService';
-import { Ionicons } from '@expo/vector-icons';
-import { C, F, T, S, R, shadow } from '../../config/theme';
+  Modal,
+  StatusBar,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { classroomService } from "../../services/classroomService";
+import { Ionicons } from "@expo/vector-icons";
+import { C, shadow } from "../../config/theme";
+
+type Tab = "Announcements" | "Bins" | "All";
 
 export default function ClassroomDetailScreen({ navigation, route }: any) {
   const { classroomId } = route.params as { classroomId: string };
@@ -24,9 +27,11 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("All");
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const [showEllipsisMenu, setShowEllipsisMenu] = useState(false);
+  const [itemMenuTarget, setItemMenuTarget] = useState<{ id: string; type: "announcement" | "bin"; item: any } | null>(null);
 
-  // Reload every time the screen comes into focus so member list
-  // stays current when a student joins while teacher is on this screen.
   useFocusEffect(
     useCallback(() => {
       loadClassroomData();
@@ -41,36 +46,155 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         classroomService.getClassroomAnnouncements(classroomId),
         classroomService.getClassroomAttachmentBins(classroomId),
       ]);
-
       if (classroomResult.data) setClassroom(classroomResult.data);
       if (membersResult.data) setMembers(membersResult.data);
-      if (membersResult.error) console.error('Members error:', membersResult.error);
       if (announcementsResult.data) setAnnouncements(announcementsResult.data);
       if (binsResult.data) setAttachmentBins(binsResult.data);
     } catch (error) {
-      console.error('Error loading classroom data:', error);
+      console.error("Error loading classroom data:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadClassroomData();
+  const onRefresh = () => { setRefreshing(true); loadClassroomData(); };
+
+  // ── Ellipsis menu ────────────────────────────────────────────────────────
+  const handleDeleteClassroom = () => {
+    setShowEllipsisMenu(false);
+    Alert.alert("Delete Classroom", `Delete "${classroom?.name}"? This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const result = await classroomService.deleteClassroom(classroomId);
+          if (result.error) Alert.alert("Error", result.error);
+          else navigation.goBack();
+        },
+      },
+    ]);
   };
 
-  const handleShareInviteCode = async () => {
-    if (!classroom) return;
-    
-    try {
-      await Share.share({
-        message: `Join my classroom "${classroom.name}" on Nexad!\n\nInvite Code: ${classroom.invite_code}`,
-      });
-    } catch (error) {
-      console.error('Error sharing invite code:', error);
-    }
+  // ── Per-card item actions ────────────────────────────────────────────────
+  const handleDeleteAnnouncement = (item: any) => {
+    setItemMenuTarget(null);
+    Alert.alert("Delete Announcement", `Delete "${item.title}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete", style: "destructive",
+        onPress: async () => {
+          const result = await classroomService.deleteAnnouncement(item.id);
+          if (result.error) Alert.alert("Error", result.error);
+          else setAnnouncements((prev) => prev.filter((a) => a.id !== item.id));
+        },
+      },
+    ]);
   };
+
+  const handleEditAnnouncement = (item: any) => {
+    setItemMenuTarget(null);
+    navigation.navigate("CreateAnnouncement", {
+      classroomId, classroomName: classroom?.name || "", editMode: true, announcement: item,
+    });
+  };
+
+  const handleDeleteBin = (item: any) => {
+    setItemMenuTarget(null);
+    Alert.alert("Delete Bin", `Delete "${item.title}"? All submissions will be lost.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete", style: "destructive",
+        onPress: async () => {
+          const result = await classroomService.deleteAttachmentBin(item.id);
+          if (result.error) Alert.alert("Error", result.error);
+          else setAttachmentBins((prev) => prev.filter((b) => b.id !== item.id));
+        },
+      },
+    ]);
+  };
+
+  const handleEditBin = (item: any) => {
+    setItemMenuTarget(null);
+    navigation.navigate("CreateAttachmentBin", { classroomId, editMode: true, bin: item });
+  };
+
+  // ── Tab content ──────────────────────────────────────────────────────────
+  const tabs: Tab[] = ["All", "Announcements", "Bins"];
+
+  const renderAnnouncement = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      {item.is_pinned && (
+        <View style={styles.pinnedBadge}>
+          <Ionicons name="pin" size={12} color="#fff" />
+          <Text style={styles.pinnedText}>Pinned</Text>
+        </View>
+      )}
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { flex: 1 }]}>{item.title}</Text>
+        <TouchableOpacity
+          style={styles.cardEllipsisBtn}
+          onPress={() => setItemMenuTarget({ id: item.id, type: "announcement", item })}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="ellipsis-vertical" size={16} color="#9AA0A6" />
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.cardBody} numberOfLines={3}>{item.content}</Text>
+      <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+    </View>
+  );
+
+  const renderBin = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate("TeacherBinReview", { binId: item.id, classroomId })}
+      activeOpacity={0.85}
+    >
+      <View style={styles.binRow}>
+        <View style={styles.binIconWrap}>
+          <Ionicons name="folder" size={20} color={C.ink2} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          {item.description ? (
+            <Text style={styles.cardBody} numberOfLines={2}>{item.description}</Text>
+          ) : null}
+          <View style={styles.binMeta}>
+            <Text style={styles.cardDate}>{item.submission_count || 0} submissions</Text>
+            {item.deadline && (
+              <Text style={styles.cardDate}>
+                Due {new Date(item.deadline).toLocaleDateString()}
+              </Text>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.cardEllipsisBtn}
+          onPress={() => setItemMenuTarget({ id: item.id, type: "bin", item })}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="ellipsis-vertical" size={16} color="#9AA0A6" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  type ListItem =
+    | { type: "announcement"; data: any }
+    | { type: "bin"; data: any };
+
+  const getListData = (): ListItem[] => {
+    if (activeTab === "Announcements") return announcements.map((d) => ({ type: "announcement", data: d }));
+    if (activeTab === "Bins") return attachmentBins.map((d) => ({ type: "bin", data: d }));
+    return [
+      ...announcements.map((d): ListItem => ({ type: "announcement", data: d })),
+      ...attachmentBins.map((d): ListItem => ({ type: "bin", data: d })),
+    ];
+  };
+
+  const listData = getListData();
 
   if (loading) {
     return (
@@ -82,441 +206,399 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
 
   if (!classroom) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Classroom not found</Text>
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: C.ink4 }}>Classroom not found</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color={C.ink2} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <Ionicons name="chevron-back" size={22} color={C.ink2} />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>{classroom.name}</Text>
-      </View>
-
-      {/* Invite Code Card */}
-      <View style={styles.inviteCard}>
-        <View style={styles.inviteHeader}>
-          <Ionicons name="key" size={24} color={C.ink2} />
-          <Text style={styles.inviteTitle}>Invite Code</Text>
-        </View>
-        <Text style={styles.inviteCode}>{classroom.invite_code}</Text>
-        <Text style={styles.inviteHint}>Share this code with your students</Text>
-        <TouchableOpacity style={styles.shareButton} onPress={handleShareInviteCode}>
-          <Ionicons name="share-outline" size={20} color={C.ink2} />
-          <Text style={styles.shareButtonText}>Share Code</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{classroom.name}</Text>
+        <TouchableOpacity onPress={() => setShowEllipsisMenu(true)} style={styles.iconBtn}>
+          <Ionicons name="ellipsis-vertical" size={22} color={C.ink2} />
         </TouchableOpacity>
       </View>
 
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Ionicons name="people" size={24} color={C.ink2} />
-          <Text style={styles.statNumber}>{members.length}</Text>
-          <Text style={styles.statLabel}>Students</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="megaphone" size={24} color={C.ink2} />
-          <Text style={styles.statNumber}>{announcements.length}</Text>
-          <Text style={styles.statLabel}>Announcements</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="folder" size={24} color={C.ink2} />
-          <Text style={styles.statNumber}>{attachmentBins.length}</Text>
-          <Text style={styles.statLabel}>Bins</Text>
-        </View>
+      {/* Tabs */}
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
+      {/* List */}
+      <FlatList
+        data={listData}
+        keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        renderItem={({ item }) =>
+          item.type === "announcement"
+            ? renderAnnouncement({ item: item.data })
+            : renderBin({ item: item.data })
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Ionicons
+              name={
+                activeTab === "Bins" ? "folder-outline" :
+                activeTab === "Announcements" ? "megaphone-outline" : "layers-outline"
+              }
+              size={60}
+              color="#BCC0C6"
+            />
+            <Text style={styles.emptyTitle}>Nothing here yet</Text>
+            <Text style={styles.emptyText}>
+              Tap + to add a{activeTab === "Bins" ? "n Attachment Bin" : "n Announcement"}
+            </Text>
+          </View>
+        }
+      />
+
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={() => setShowFabMenu(true)} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Ellipsis dropdown menu */}
+      <Modal
+        visible={showEllipsisMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEllipsisMenu(false)}
+      >
         <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('CreateAnnouncement', { classroomId, classroomName: classroom?.name || '' })}
+          style={styles.ellipsisOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEllipsisMenu(false)}
         >
-          <View style={styles.actionIcon}>
-            <Ionicons name="megaphone" size={24} color={C.ink2} />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Post Announcement</Text>
-            <Text style={styles.actionSubtitle}>Share updates with students</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={C.ink5} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('CreateAttachmentBin', { classroomId })}
-        >
-          <View style={styles.actionIcon}>
-            <Ionicons name="folder-open" size={24} color={C.ink2} />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Create Attachment Bin</Text>
-            <Text style={styles.actionSubtitle}>Collect documents from students</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={C.ink5} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Members Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Students ({members.length})</Text>
-        {members.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color={C.ink5} />
-            <Text style={styles.emptyText}>No students yet</Text>
-            <Text style={styles.emptySubtext}>Share the invite code to add students</Text>
-          </View>
-        ) : (
-          members.slice(0, 5).map((member, index) => (
-            <View key={member.id} style={styles.memberItem}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberInitial}>
-                  {member.first_name?.[0]?.toUpperCase() || '?'}
-                </Text>
-              </View>
-              <Text style={styles.memberName}>
-                {member.first_name} {member.last_name}
-              </Text>
-            </View>
-          ))
-        )}
-        {members.length > 5 && (
-          <Text style={styles.moreText}>+ {members.length - 5} more students</Text>
-        )}
-      </View>
-
-      {/* Recent Announcements */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Announcements</Text>
-        {announcements.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="megaphone-outline" size={48} color={C.ink5} />
-            <Text style={styles.emptyText}>No announcements yet</Text>
-          </View>
-        ) : (
-          announcements.slice(0, 3).map((announcement) => (
-            <View key={announcement.id} style={styles.announcementItem}>
-              {announcement.is_pinned && (
-                <Ionicons name="pin" size={16} color={C.ink4} style={styles.pinIcon} />
-              )}
-              <Text style={styles.announcementTitle}>{announcement.title}</Text>
-              <Text style={styles.announcementContent} numberOfLines={2}>
-                {announcement.content}
-              </Text>
-              <Text style={styles.announcementDate}>
-                {new Date(announcement.created_at).toLocaleDateString()}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Attachment Bins */}
-      <View style={[styles.section, { marginBottom: 40 }]}>
-        <Text style={styles.sectionTitle}>Attachment Bins</Text>
-        {attachmentBins.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="folder-outline" size={48} color={C.ink5} />
-            <Text style={styles.emptyText}>No attachment bins yet</Text>
-          </View>
-        ) : (
-          attachmentBins.map((bin) => (
+          <View style={styles.ellipsisMenu}>
             <TouchableOpacity
-              key={bin.id}
-              style={styles.binItem}
-              onPress={() => navigation.navigate('TeacherBinReview', { binId: bin.id })}
+              style={styles.ellipsisItem}
+              onPress={() => {
+                setShowEllipsisMenu(false);
+                navigation.navigate("CreateClassroom", { editMode: true, classroom });
+              }}
             >
-              <View style={styles.binHeader}>
-                <Ionicons name="folder" size={20} color={C.ink2} />
-                <Text style={styles.binTitle}>{bin.title}</Text>
-                <Ionicons name="chevron-forward" size={16} color={C.ink5} style={{ marginLeft: 'auto' }} />
+              <Ionicons name="pencil-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
+              <Text style={styles.ellipsisItemText}>Edit Classroom</Text>
+            </TouchableOpacity>
+
+            <View style={styles.ellipsisDivider} />
+
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() => {
+                setShowEllipsisMenu(false);
+                navigation.navigate("EnrolledStudents", {
+                  classroomId,
+                  classroomName: classroom?.name || "",
+                });
+              }}
+            >
+              <Ionicons name="people-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
+              <Text style={styles.ellipsisItemText}>Enrolled Students</Text>
+            </TouchableOpacity>
+
+            <View style={styles.ellipsisDivider} />
+
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() => {
+                setShowEllipsisMenu(false);
+                navigation.navigate("InviteCode", {
+                  classroomName: classroom?.name || "",
+                  inviteCode: classroom?.invite_code || "",
+                });
+              }}
+            >
+              <Ionicons name="key-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
+              <Text style={styles.ellipsisItemText}>Invite Code</Text>
+            </TouchableOpacity>
+
+            <View style={styles.ellipsisDivider} />
+
+            <TouchableOpacity style={styles.ellipsisItem} onPress={handleDeleteClassroom}>
+              <Ionicons name="trash-outline" size={18} color="#D93025" style={styles.ellipsisIcon} />
+              <Text style={[styles.ellipsisItemText, { color: "#D93025" }]}>Delete Classroom</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* FAB dropdown (bottom-right) */}
+      <Modal
+        visible={showFabMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFabMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.fabDropOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFabMenu(false)}
+        >
+          <View style={styles.fabDropMenu}>
+            <View style={styles.fabDropHeader}>
+              <Text style={styles.fabDropTitle}>Create</Text>
+            </View>
+            <View style={styles.ellipsisDivider} />
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() => {
+                setShowFabMenu(false);
+                navigation.navigate("CreateAnnouncement", { classroomId, classroomName: classroom?.name || "" });
+              }}
+            >
+              <View style={styles.fabDropIconWrap}>
+                <Ionicons name="megaphone-outline" size={18} color="#202124" />
               </View>
-              {bin.description && (
-                <Text style={styles.binDescription} numberOfLines={2}>
-                  {bin.description}
-                </Text>
-              )}
-              <View style={styles.binFooter}>
-                <Text style={styles.binSubmissions}>
-                  {bin.submission_count || 0} submissions
-                </Text>
-                {bin.deadline && (
-                  <Text style={styles.binDeadline}>
-                    Due: {new Date(bin.deadline).toLocaleDateString()}
-                  </Text>
-                )}
+              <View>
+                <Text style={styles.ellipsisItemText}>Announcement</Text>
+                <Text style={styles.fabDropSub}>Post an update to your class</Text>
               </View>
             </TouchableOpacity>
-          ))
-        )}
-      </View>
-    </ScrollView>
+            <View style={styles.ellipsisDivider} />
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() => {
+                setShowFabMenu(false);
+                navigation.navigate("CreateAttachmentBin", { classroomId });
+              }}
+            >
+              <View style={styles.fabDropIconWrap}>
+                <Ionicons name="folder-open-outline" size={18} color="#202124" />
+              </View>
+              <View>
+                <Text style={styles.ellipsisItemText}>Attachment Bin</Text>
+                <Text style={styles.fabDropSub}>Collect documents from students</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Per-card item menu */}
+      <Modal
+        visible={!!itemMenuTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setItemMenuTarget(null)}
+      >
+        <TouchableOpacity style={styles.itemMenuOverlay} activeOpacity={1} onPress={() => setItemMenuTarget(null)}>
+          <View style={styles.itemMenu}>
+            <View style={styles.itemMenuTitleRow}>
+              <Ionicons
+                name={itemMenuTarget?.type === "announcement" ? "megaphone-outline" : "folder-outline"}
+                size={14} color="#9AA0A6"
+              />
+              <Text style={styles.itemMenuTypeLabel}>
+                {itemMenuTarget?.type === "announcement" ? "Announcement" : "Attachment Bin"}
+              </Text>
+            </View>
+            <View style={styles.ellipsisDivider} />
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() =>
+                itemMenuTarget?.type === "announcement"
+                  ? handleEditAnnouncement(itemMenuTarget.item)
+                  : handleEditBin(itemMenuTarget!.item)
+              }
+            >
+              <Ionicons name="pencil-outline" size={17} color="#202124" style={styles.ellipsisIcon} />
+              <Text style={styles.ellipsisItemText}>Edit</Text>
+            </TouchableOpacity>
+            <View style={styles.ellipsisDivider} />
+            <TouchableOpacity
+              style={styles.ellipsisItem}
+              onPress={() =>
+                itemMenuTarget?.type === "announcement"
+                  ? handleDeleteAnnouncement(itemMenuTarget.item)
+                  : handleDeleteBin(itemMenuTarget!.item)
+              }
+            >
+              <Ionicons name="trash-outline" size={17} color="#D93025" style={styles.ellipsisIcon} />
+              <Text style={[styles.ellipsisItemText, { color: "#D93025" }]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.bg,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.bg,
-  },
-  errorText: {
-    fontSize: 16,
-    color: C.ink4,
-  },
+  container: { flex: 1, backgroundColor: "#F1F3F4" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F1F3F4" },
+
+  // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.surface,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#fff", paddingHorizontal: 8, paddingVertical: 14,
+    paddingTop: 44,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E0E0E0",
+    elevation: 2, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    ...shadow.soft,
+  iconBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700" as const, color: "#202124", textAlign: "center" },
+
+  // Tabs
+  tabBar: {
+    flexDirection: "row", backgroundColor: "#fff",
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E0E0E0",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '600' as const,
-    color: C.ink1,
+  tab: {
+    flex: 1, paddingVertical: 14, alignItems: "center",
+    borderBottomWidth: 2, borderBottomColor: "transparent",
+  },
+  tabActive: { borderBottomColor: "#202124" },
+  tabText: { fontSize: 14, fontWeight: "500" as const, color: "#5F6368" },
+  tabTextActive: { color: "#202124", fontWeight: "700" as const },
+
+  // List content
+  listContent: { padding: 14, paddingBottom: 100 },
+
+  // Cards
+  card: {
+    backgroundColor: "#fff", borderRadius: 10, padding: 14,
+    marginBottom: 10, elevation: 1,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 3,
+  },
+  cardHeader: { flexDirection: "row" as const, alignItems: "flex-start" as const, marginBottom: 4 },
+  cardEllipsisBtn: { padding: 2, marginLeft: 4 },
+  cardTitle: { fontSize: 15, fontWeight: "600" as const, color: "#202124", marginBottom: 4 },
+  cardBody: { fontSize: 14, color: "#5F6368", lineHeight: 20, marginBottom: 6 },
+  cardDate: { fontSize: 12, color: "#9AA0A6" },
+
+  pinnedBadge: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#202124", paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, alignSelf: "flex-start", marginBottom: 8,
+  },
+  pinnedText: { color: "#fff", fontSize: 11, fontWeight: "600" as const },
+
+  binRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  binIconWrap: {
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: "#F1F3F4", justifyContent: "center", alignItems: "center",
+  },
+  binMeta: { flexDirection: "row", gap: 14, marginTop: 4 },
+
+  // Empty state
+  emptyWrap: { alignItems: "center", paddingTop: 80 },
+  emptyTitle: { fontSize: 17, fontWeight: "600" as const, color: "#5F6368", marginTop: 16 },
+  emptyText: { fontSize: 14, color: "#BCC0C6", marginTop: 6, textAlign: "center" },
+
+  // FAB
+  fab: {
+    position: "absolute", bottom: 28, right: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: "#202124",
+    justifyContent: "center", alignItems: "center",
+    elevation: 6, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
+  },
+
+  // FAB dropdown
+  fabDropOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    justifyContent: "flex-end" as const,
+    alignItems: "flex-end" as const,
+    paddingBottom: 96,
+    paddingRight: 14,
   },
-  inviteCard: {
-    backgroundColor: C.surfaceAlt,
-    margin: 16,
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
+  fabDropMenu: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: 260,
+    paddingVertical: 6,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
-  inviteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+  fabDropHeader: { paddingHorizontal: 16, paddingVertical: 10 },
+  fabDropTitle: { fontSize: 12, fontWeight: "700" as const, color: "#9AA0A6", textTransform: "uppercase" as const, letterSpacing: 0.8 },
+  fabDropIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: "#F1F3F4", justifyContent: "center" as const, alignItems: "center" as const,
+    marginRight: 12,
   },
-  inviteTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
+  fabDropSub: { fontSize: 12, color: "#9AA0A6", marginTop: 2 },
+
+  // Per-card item menu
+  itemMenuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
   },
-  inviteCode: {
-    fontSize: 32,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    letterSpacing: 4,
-    marginVertical: 8,
+  itemMenu: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: 240,
+    paddingVertical: 6,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
   },
-  inviteHint: {
-    fontSize: 14,
-    color: C.ink3,
-    marginBottom: 16,
+  itemMenuTitleRow: {
+    flexDirection: "row" as const, alignItems: "center" as const, gap: 6,
+    paddingHorizontal: 16, paddingVertical: 10,
   },
-  shareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+  itemMenuTypeLabel: { fontSize: 12, color: "#9AA0A6", fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.5 },
+
+  // Ellipsis dropdown
+  ellipsisOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 100,
+    paddingRight: 10,
   },
-  shareButtonText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: C.ink2,
+  ellipsisMenu: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    width: 230,
+    paddingVertical: 6,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
   },
-  statsRow: {
-    flexDirection: 'row',
+  ellipsisItem: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 16,
+    paddingVertical: 14,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: C.ink3,
-    marginTop: 4,
-  },
-  section: {
-    backgroundColor: C.surface,
+  ellipsisIcon: { marginRight: 12 },
+  ellipsisItemText: { fontSize: 15, fontWeight: "500" as const, color: "#202124" },
+  ellipsisDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#E0E0E0",
     marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: C.ink3,
-    marginTop: 2,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: C.ink4,
-    marginTop: 12,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: C.ink5,
-    marginTop: 4,
-  },
-  memberItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  memberAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: C.ink1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  memberInitial: {
-    color: C.actionText,
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-  memberName: {
-    fontSize: 14,
-    color: C.ink1,
-  },
-  moreText: {
-    fontSize: 14,
-    color: C.ink2,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  announcementItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  pinIcon: {
-    marginBottom: 4,
-  },
-  announcementTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: 4,
-  },
-  announcementContent: {
-    fontSize: 14,
-    color: C.ink3,
-    marginBottom: 4,
-  },
-  announcementDate: {
-    fontSize: 12,
-    color: C.ink4,
-  },
-  binItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  binHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  binTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
-  },
-  binDescription: {
-    fontSize: 14,
-    color: C.ink3,
-    marginBottom: 8,
-  },
-  binFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  binSubmissions: {
-    fontSize: 12,
-    color: C.ink3,
-  },
-  binDeadline: {
-    fontSize: 12,
-    color: C.ink4,
   },
 });
