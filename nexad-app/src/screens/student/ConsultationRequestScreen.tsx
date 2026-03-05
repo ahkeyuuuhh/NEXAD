@@ -14,6 +14,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -318,6 +319,13 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Gradient background */}
+      <LinearGradient
+        colors={['#FFFFFF', '#EDF0F4', '#D8DCE3']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+      />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -333,26 +341,36 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         </View>
 
         <ScrollView style={styles.content} ref={scrollViewRef}>
-          {/* Teacher Info */}
+          {/* Teacher Info Card */}
           <View style={styles.teacherCard}>
-            <View style={styles.teacherAvatar}>
-              <Text style={styles.teacherAvatarText}>
-                {teacher.first_name[0]}{teacher.last_name[0]}
-              </Text>
-            </View>
-            <View style={styles.teacherInfo}>
-              <Text style={styles.teacherName}>
-                {teacher.first_name} {teacher.last_name}
-              </Text>
-              {teacher.department && (
-                <Text style={styles.teacherDepartment}>{teacher.department}</Text>
-              )}
-            </View>
+            <LinearGradient
+              colors={['#202124', '#3C4043']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.teacherCardBanner}
+            >
+              <View style={styles.teacherAvatar}>
+                <Text style={styles.teacherAvatarText}>
+                  {teacher.first_name[0]}{teacher.last_name[0]}
+                </Text>
+              </View>
+              <View style={styles.teacherInfo}>
+                <Text style={styles.teacherName}>
+                  {teacher.first_name} {teacher.last_name}
+                </Text>
+                {teacher.department && (
+                  <Text style={styles.teacherDepartment}>{teacher.department}</Text>
+                )}
+                {teacher.position && (
+                  <Text style={styles.teacherPosition}>{teacher.position}</Text>
+                )}
+              </View>
+              <Ionicons name="person" size={22} color="rgba(255,255,255,0.25)" />
+            </LinearGradient>
           </View>
 
           {/* AI Powered Request Form */}
           <View style={styles.formSection}>
-            <Text style={styles.formTitle}>AI Powered Request Form</Text>
 
             {/* What you need help with */}
             <View style={styles.inputGroup}>
@@ -591,7 +609,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   keyboardView: {
     flex: 1,
@@ -602,9 +620,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.lg,
     paddingVertical: S.md,
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40,
@@ -627,43 +645,59 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   teacherCard: {
+    marginBottom: S.sm,
+    borderRadius: R.lg,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  teacherCardBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
-    padding: S.lg,
-    marginBottom: S.sm,
-    ...shadow.card,
+    padding: S.xl,
+    paddingVertical: S.xl + 4,
   },
   teacherAvatar: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: R.full,
-    backgroundColor: C.surfaceAlt,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: S.md,
   },
   teacherAvatarText: {
     fontSize: 20,
-    fontWeight: '600' as const,
-    color: C.ink3,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   teacherInfo: {
     flex: 1,
   },
   teacherName: {
     fontSize: 18,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: S.xs,
+    fontWeight: '700' as const,
+    color: '#fff',
+    marginBottom: 2,
   },
   teacherDepartment: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400' as const,
-    color: C.ink3,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  teacherPosition: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 1,
   },
   formSection: {
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     padding: S.lg,
   },
   formTitle: {
@@ -683,10 +717,10 @@ const styles = StyleSheet.create({
     marginBottom: S.sm,
   },
   textInput: {
-    backgroundColor: C.surfaceRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    borderRadius: R.sm,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.65)',
+    borderRadius: R.lg,
     paddingHorizontal: S.md,
     paddingVertical: S.md,
     fontSize: 16,
@@ -704,7 +738,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceRaised,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.borderLight,
-    borderRadius: R.sm,
+    borderRadius: R.full,
     paddingHorizontal: S.md,
     paddingVertical: S.md,
   },
@@ -793,7 +827,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: C.action,
-    borderRadius: R.sm,
+    borderRadius: R.full,
     paddingVertical: S.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -914,7 +948,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.action,
     paddingHorizontal: S.lg,
     paddingVertical: 6,
-    borderRadius: R.xs,
+    borderRadius: R.full,
     minWidth: 70,
     alignItems: 'center',
   },
@@ -951,7 +985,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface,
     borderWidth: 2,
     borderColor: C.action,
-    borderRadius: R.sm,
+    borderRadius: R.full,
     paddingVertical: S.md,
     paddingHorizontal: S.lg,
     borderStyle: 'dashed',

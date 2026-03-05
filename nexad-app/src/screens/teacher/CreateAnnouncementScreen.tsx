@@ -284,12 +284,12 @@ export default function CreateAnnouncementScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface, paddingHorizontal: S.xl,
+    backgroundColor: 'transparent', paddingHorizontal: S.xl,
     paddingTop: S.xxl, paddingBottom: S.xl,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40, height: 40, borderRadius: R.full,

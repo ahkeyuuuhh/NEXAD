@@ -118,7 +118,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
       edges={["top"]}
       style={[styles.container, { paddingBottom: keyboardOffset > 0 ? keyboardOffset : insets.bottom }]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Fixed header */}
       <View style={styles.header}>
@@ -187,18 +187,18 @@ export default function BinCommentsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  body: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  body: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.xxl },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     paddingHorizontal: S.lg,
     paddingTop: S.xxl,
     paddingBottom: S.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
     gap: S.md,
   },
   backBtn: {

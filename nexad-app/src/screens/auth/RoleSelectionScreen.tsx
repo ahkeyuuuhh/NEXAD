@@ -45,7 +45,7 @@ export default function RoleSelectionScreen({ navigation }: RoleSelectionScreenP
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
         {/* Back button */}
@@ -121,7 +121,7 @@ export default function RoleSelectionScreen({ navigation }: RoleSelectionScreenP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   safeArea: {
     flex: 1,

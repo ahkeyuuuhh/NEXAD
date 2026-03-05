@@ -655,7 +655,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.xl,
     paddingVertical: S.lg,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   backButton: {
     flexDirection: 'row',

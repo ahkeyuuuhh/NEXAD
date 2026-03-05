@@ -466,7 +466,7 @@ export default function NotificationsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -485,9 +485,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.lg,
     paddingVertical: S.md,
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40,
@@ -517,13 +517,13 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     paddingHorizontal: S.lg,
     paddingTop: S.md,
     paddingBottom: S.sm,
     gap: S.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   filterTab: {
     flex: 1,

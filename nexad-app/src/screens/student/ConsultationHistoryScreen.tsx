@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Modal,
+  Linking,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
@@ -32,10 +33,11 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'cancelled' | 'declined'>(initialFilter);
-  const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithTeacher | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedConsultationDocuments, setSelectedConsultationDocuments] = useState<any[]>([]);
-  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedDocuments, setExpandedDocuments] = useState<any[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelectMode, setIsSelectMode] = useState(false);
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -153,18 +155,99 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
     return { text: 'Unknown', color: C.ink3, bgColor: C.surfaceAlt };
   };
 
-  const handleViewConsultation = (consultation: ConsultationWithTeacher) => {
-    setSelectedConsultation(consultation);
-    setSelectedConsultationDocuments([]);
-    setShowDetailModal(true);
-    // Fetch documents for this consultation
-    setIsLoadingDocuments(true);
-    documentService.getConsultationDocuments(consultation.id)
-      .then((result) => {
-        setSelectedConsultationDocuments(result.data || []);
-      })
-      .catch(() => setSelectedConsultationDocuments([]))
-      .finally(() => setIsLoadingDocuments(false));
+  const handleToggleExpand = (consultationId: string) => {
+    if (expandedId === consultationId) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(consultationId);
+      setExpandedDocuments([]);
+      setIsLoadingDocs(true);
+      documentService.getConsultationDocuments(consultationId)
+        .then((r) => setExpandedDocuments(r.data || []))
+        .catch(() => setExpandedDocuments([]))
+        .finally(() => setIsLoadingDocs(false));
+    }
+  };
+
+  const handleOpenDoc = async (doc: any) => {
+    try {
+      const urlResult = await documentService.getDocumentUrl(doc.storage_path);
+      if (urlResult.data) {
+        await Linking.openURL(urlResult.data);
+      } else {
+        Alert.alert('Error', 'Could not get file URL');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open file');
+    }
+  };
+
+  const handleDeleteFromHistory = (consultationId: string) => {
+    Alert.alert('Delete', 'Remove this consultation from history?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          setConsultations(prev => {
+            const updated = prev.filter(c => c.id !== consultationId);
+            applyFilter(updated, selectedFilter);
+            return updated;
+          });
+        },
+      },
+    ]);
+  };
+
+  const handleLongPress = (id: string) => {
+    setIsSelectMode(true);
+    setSelectedIds(new Set([id]));
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCancelSelect = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    Alert.alert(
+      `Delete ${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''}?`,
+      'These consultations will be removed from your history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const ids = new Set(selectedIds);
+            setConsultations(prev => {
+              const updated = prev.filter(c => !ids.has(c.id));
+              applyFilter(updated, selectedFilter);
+              return updated;
+            });
+            setIsSelectMode(false);
+            setSelectedIds(new Set());
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredConsultations.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredConsultations.map(c => c.id)));
+    }
   };
 
   if (isLoading) {
@@ -183,13 +266,23 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={isSelectMode ? handleCancelSelect : () => navigation.goBack()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={20} color={C.ink1} />
+          <Ionicons name={isSelectMode ? 'close' : 'chevron-back'} size={22} color={C.ink1} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Consultation History</Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.headerTitle}>
+          {isSelectMode ? `${selectedIds.size} selected` : 'Consultation History'}
+        </Text>
+        {isSelectMode ? (
+          <TouchableOpacity onPress={handleSelectAll} style={styles.backButton}>
+            <Text style={{ fontSize: 13, fontWeight: '600' as const, color: C.ink2 }}>
+              {selectedIds.size === filteredConsultations.length ? 'Deselect all' : 'Select all'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.placeholder} />
+        )}
       </View>
 
       {/* Filter Tabs */}
@@ -239,46 +332,152 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
         {filteredConsultations.length > 0 ? (
           filteredConsultations.map((consultation) => {
             const status = getStatusDisplay(consultation);
-            return (
-              <TouchableOpacity
-                key={consultation.id}
-                style={styles.consultationCard}
-                onPress={() => handleViewConsultation(consultation)}
-              >
-                <View style={styles.consultationHeader}>
-                  <Text style={styles.teacherName}>{consultation.teacherName}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-                    <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.consultationDetails}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Date:</Text>
-                    <Text style={styles.detailValue}>
-                      {formatDate(consultation.scheduled_start_time || consultation.submitted_at || '')}
-                    </Text>
-                  </View>
-                  
-                  {consultation.scheduled_start_time && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Time:</Text>
-                      <Text style={styles.detailValue}>
-                        {formatTime(consultation.scheduled_start_time)} - {formatTime(consultation.scheduled_end_time || '')}
+            const isSelected = selectedIds.has(consultation.id);
+            const isExpanded = expandedId === consultation.id;
+
+            if (isSelectMode) {
+              return (
+                <TouchableOpacity
+                  key={consultation.id}
+                  style={[styles.consultationCard, isSelected && styles.cardSelected]}
+                  onPress={() => handleToggleSelect(consultation.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.selectRow}>
+                    <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
+                      {isSelected && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.cardTopRow}>
+                        <Text style={styles.teacherText}>{consultation.teacherName}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
+                          <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.cardSubject} numberOfLines={1}>{consultation.subject_line}</Text>
+                      <Text style={styles.cardDate}>
+                        {formatDate(consultation.scheduled_start_time || consultation.submitted_at || '')}
                       </Text>
                     </View>
-                  )}
-                  
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Subject:</Text>
-                    <Text style={styles.detailValue} numberOfLines={1}>{consultation.subject_line}</Text>
                   </View>
-                </View>
-                <View style={styles.tapToViewRow}>
-                  <Text style={styles.tapToViewText}>Tap to view details</Text>
-                  <Ionicons name="chevron-forward" size={14} color={C.ink3} />
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <Swipeable
+                key={consultation.id}
+                renderRightActions={() => (
+                  <TouchableOpacity
+                    style={styles.swipeDeleteAction}
+                    onPress={() => handleDeleteFromHistory(consultation.id)}
+                  >
+                    <Ionicons name="trash-outline" size={22} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              >
+                <TouchableOpacity
+                  style={styles.consultationCard}
+                  onLongPress={() => handleLongPress(consultation.id)}
+                  delayLongPress={350}
+                  onPress={() => handleToggleExpand(consultation.id)}
+                  activeOpacity={0.88}
+                >
+                  {/* Header row - always visible */}
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.teacherText}>{consultation.teacherName}</Text>
+                    <View style={styles.cardTopRight}>
+                      <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
+                        <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
+                      </View>
+                      <Ionicons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={16} color={C.ink4} style={{ marginLeft: 6 }}
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.cardSubject} numberOfLines={isExpanded ? undefined : 1}>
+                    {consultation.subject_line}
+                  </Text>
+                  <Text style={styles.cardDate}>
+                    {formatDate(consultation.scheduled_start_time || consultation.submitted_at || '')}
+                  </Text>
+
+                  {/* Expandable details */}
+                  {isExpanded && (
+                    <View style={styles.expandedSection}>
+                      <View style={styles.expandDivider} />
+
+                      {consultation.description ? (
+                        <View style={styles.expandRow}>
+                          <Ionicons name="document-text-outline" size={14} color={C.ink3} />
+                          <View style={styles.expandContent}>
+                            <Text style={styles.expandLabel}>Description</Text>
+                            <Text style={styles.expandValue}>{consultation.description}</Text>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      {consultation.scheduled_start_time ? (
+                        <View style={styles.expandRow}>
+                          <Ionicons name="time-outline" size={14} color={C.ink3} />
+                          <View style={styles.expandContent}>
+                            <Text style={styles.expandLabel}>Time</Text>
+                            <Text style={styles.expandValue}>
+                              {formatTime(consultation.scheduled_start_time)}
+                              {consultation.scheduled_end_time ? ` — ${formatTime(consultation.scheduled_end_time)}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      {consultation.completed_at ? (
+                        <View style={styles.expandRow}>
+                          <Ionicons name="flag-outline" size={14} color={C.ink3} />
+                          <View style={styles.expandContent}>
+                            <Text style={styles.expandLabel}>Completed</Text>
+                            <Text style={styles.expandValue}>
+                              {formatDate(consultation.completed_at)} at {formatTime(consultation.completed_at)}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.expandRow}>
+                        <Ionicons name="attach-outline" size={14} color={C.ink3} />
+                        <View style={styles.expandContent}>
+                          <Text style={styles.expandLabel}>Attached Files</Text>
+                          {isLoadingDocs ? (
+                            <ActivityIndicator size="small" color={C.ink3} style={{ marginTop: 4 }} />
+                          ) : expandedDocuments.length > 0 ? (
+                            expandedDocuments.map((doc, idx) => (
+                              <TouchableOpacity
+                                key={doc.id || idx}
+                                style={styles.docItem}
+                                onPress={() => handleOpenDoc(doc)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="document-outline" size={16} color={C.ink2} style={styles.docIcon} />
+                                <View style={styles.docInfo}>
+                                  <Text style={styles.docName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
+                                  <Text style={styles.docMeta}>
+                                    {doc.file_size_bytes
+                                      ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB`
+                                      : 'Unknown size'} · Tap to open
+                                  </Text>
+                                </View>
+                                <Ionicons name="open-outline" size={14} color={C.ink4} />
+                              </TouchableOpacity>
+                            ))
+                          ) : (
+                            <Text style={styles.noDocText}>No files attached</Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Swipeable>
             );
           })
         ) : (
@@ -295,137 +494,36 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
         )}
       </ScrollView>
 
-      {/* Detail Modal */}
-      <Modal
-        visible={showDetailModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowDetailModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedConsultation && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Consultation Details</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowDetailModal(false)}
-                    style={styles.closeButton}
-                  >
-                    <Text style={styles.closeButtonText}>
-                    <Ionicons name="close" size={18} color={C.ink3} />
-                  </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.modalBody}>
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Teacher</Text>
-                    <Text style={styles.modalValue}>{selectedConsultation.teacherName}</Text>
-                  </View>
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Subject</Text>
-                    <Text style={styles.modalValue}>{selectedConsultation.subject_line}</Text>
-                  </View>
-
-                  {selectedConsultation.description && (
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>Description</Text>
-                      <Text style={styles.modalValue}>{selectedConsultation.description}</Text>
-                    </View>
-                  )}
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Date & Time</Text>
-                    <Text style={styles.modalValue}>
-                      {formatDate(selectedConsultation.scheduled_start_time || selectedConsultation.submitted_at || '')}
-                    </Text>
-                    {selectedConsultation.scheduled_start_time && (
-                      <Text style={styles.modalValue}>
-                        {formatTime(selectedConsultation.scheduled_start_time)} - {formatTime(selectedConsultation.scheduled_end_time || '')}
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Status</Text>
-                    <View style={styles.modalStatusContainer}>
-                      {(() => {
-                        const status = getStatusDisplay(selectedConsultation);
-                        return (
-                          <View style={[styles.modalStatusBadge, { backgroundColor: status.bgColor }]}>
-                            <Text style={[styles.modalStatusText, { color: status.color }]}>{status.text}</Text>
-                          </View>
-                        );
-                      })()}
-                    </View>
-                  </View>
-
-                  {selectedConsultation.completed_at && (
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>Completed At</Text>
-                      <Text style={styles.modalValue}>
-                        {formatDate(selectedConsultation.completed_at)} at {formatTime(selectedConsultation.completed_at)}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Requested On</Text>
-                    <Text style={styles.modalValue}>
-                      {formatDate(selectedConsultation.submitted_at || '')}
-                    </Text>
-                  </View>
-
-                  {/* Attached Files */}
-                  <View style={styles.modalSection}>
-                    <Text style={styles.modalLabel}>Attached Files</Text>
-                    {isLoadingDocuments ? (
-                      <ActivityIndicator size="small" color={C.ink2} style={{ marginTop: 8 }} />
-                    ) : selectedConsultationDocuments.length > 0 ? (
-                      selectedConsultationDocuments.map((doc, index) => (
-                        <View key={doc.id || index} style={styles.docItem}>
-                          <Ionicons
-                            name={doc.file_name?.endsWith('.pdf') ? 'document-outline' : 'create-outline'}
-                            size={20}
-                            color={C.ink3}
-                            style={styles.docIcon}
-                          />
-                          <View style={styles.docInfo}>
-                            <Text style={styles.docName} numberOfLines={1}>{doc.file_name || 'Document'}</Text>
-                            <Text style={styles.docMeta}>
-                              {doc.file_size_bytes
-                                ? `${(doc.file_size_bytes / 1024 / 1024).toFixed(2)} MB`
-                                : 'Unknown size'}
-                            </Text>
-                          </View>
-                        </View>
-                      ))
-                    ) : (
-                      <Text style={styles.noDocText}>No files attached to this consultation.</Text>
-                    )}
-                  </View>
-                </ScrollView>
-              </>
-            )}
-          </View>
+      {/* Multi-select delete bar */}
+      {isSelectMode && (
+        <View style={styles.selectActionBar}>
+          <TouchableOpacity
+            style={styles.selectDeleteBtn}
+            onPress={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={styles.selectDeleteBtnText}>
+              Delete ({selectedIds.size})
+            </Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      )}
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: C.bg },
+  container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText:      { ...T.body, color: C.ink4, marginTop: S.md },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.lg, paddingVertical: S.md,
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+    backgroundColor: 'transparent',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40, height: 40, borderRadius: 20,
@@ -436,12 +534,11 @@ const styles = StyleSheet.create({
   placeholder:   { width: 60 },
 
   filterContainer: {
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     paddingHorizontal: S.lg, paddingTop: S.md, paddingBottom: S.sm,
-    flexDirection: 'row', gap: S.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderLight,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
-  filterTab:           { paddingVertical: S.sm, paddingHorizontal: S.md, borderRadius: R.full, backgroundColor: C.surfaceAlt },
+  filterTab:           { paddingVertical: S.sm, paddingHorizontal: S.md, borderRadius: R.full, backgroundColor: C.surfaceAlt, marginRight: S.sm },
   filterTabActive:     { backgroundColor: C.action },
   filterTabText:       { ...T.label, color: C.ink3 },
   filterTabTextActive: { ...T.label, color: C.actionText },
@@ -454,43 +551,59 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
     ...shadow.soft,
   },
-  consultationHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md,
+  cardSelected: {
+    backgroundColor: C.surfaceAlt,
+    borderColor: C.ink3,
   },
-  teacherName:       { ...T.h3, flex: 1 },
-  statusBadge:       { paddingHorizontal: S.sm, paddingVertical: 3, borderRadius: R.full, backgroundColor: C.surfaceAlt },
-  statusText:        { ...T.tiny, fontWeight: '600' as const, color: C.ink2 },
-  consultationDetails: { gap: S.sm },
-  detailRow:         { flexDirection: 'row' },
-  detailLabel:       { ...T.small, color: C.ink4, width: 80 },
-  detailValue:       { ...T.small, color: C.ink1, flex: 1 },
-  tapToViewRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: S.sm, gap: 4 },
-  tapToViewText:     { ...T.small, color: C.ink3, fontWeight: '600' as const, textAlign: 'center' },
+  selectCheckbox: {
+    width: 22, height: 22, borderRadius: R.full,
+    borderWidth: 2, borderColor: C.ink4,
+    marginRight: S.sm, marginTop: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  selectCheckboxActive: {
+    backgroundColor: C.action, borderColor: C.action,
+  },
+  swipeDeleteAction: {
+    backgroundColor: '#DC2626',
+    justifyContent: 'center', alignItems: 'center',
+    width: 72, marginBottom: S.md, borderRadius: R.lg,
+  },
+  selectActionBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: C.surface, padding: S.lg,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border,
+  },
+  selectDeleteBtn: {
+    backgroundColor: '#DC2626',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: S.sm, borderRadius: R.full, paddingVertical: 14,
+  },
+  selectDeleteBtnText: {
+    color: '#fff', fontSize: 15, fontWeight: '600' as const,
+  },
+  cardTopRow:    { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 },
+  cardTopRight:  { flexDirection: 'row', alignItems: 'center', marginLeft: S.sm, flexShrink: 0 },
+  teacherText:   { ...T.h3, flex: 1 },
+  cardSubject:   { ...T.body, color: C.ink2, marginBottom: 2 },
+  cardDate:      { ...T.tiny, color: C.ink4 },
+  selectRow:     { flexDirection: 'row', alignItems: 'flex-start' },
+  expandedSection: { marginTop: S.md },
+  expandDivider:   { height: StyleSheet.hairlineWidth, backgroundColor: C.borderLight, marginBottom: S.md },
+  expandRow:       { flexDirection: 'row', alignItems: 'flex-start', marginBottom: S.md },
+  expandContent:   { flex: 1, marginLeft: 8 },
+  expandLabel:     { fontSize: 10, fontWeight: '600' as const, color: C.ink4, marginBottom: 2, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  expandValue:     { ...T.body, color: C.ink1 },
 
   emptyState:         { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyStateIcon:     { marginBottom: S.lg },
   emptyStateText:     { ...T.h3, color: C.ink2, marginBottom: S.sm },
   emptyStateSubtext:  { ...T.small, color: C.ink4, textAlign: 'center', paddingHorizontal: 32 },
 
-  // Modal
-  modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalContent:  { backgroundColor: C.surface, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, maxHeight: '80%', paddingBottom: S.xl },
-  modalHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.xl, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.borderLight },
-  modalTitle:    { ...T.h2 },
-  closeButton:   { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
-  closeButtonText: { fontSize: 18, color: C.ink3 },
-  modalBody:     { padding: S.xl },
-  modalSection:  { marginBottom: S.xl },
-  modalLabel:    { ...T.label, color: C.ink4, marginBottom: S.xs, textTransform: 'uppercase', letterSpacing: 0.6 },
-  modalValue:    { ...T.body, color: C.ink1, lineHeight: 24 },
-  modalStatusContainer: { flexDirection: 'row' },
-  modalStatusBadge:     { paddingHorizontal: S.md, paddingVertical: S.sm, borderRadius: R.full, backgroundColor: C.ink1 },
-  modalStatusText:      { ...T.label, color: C.actionText },
-
   docItem:  { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceAlt, borderRadius: R.sm, padding: S.sm + 2, marginTop: S.xs, borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight },
   docIcon:  { marginRight: S.sm },
   docInfo:  { flex: 1 },
   docName:  { ...T.label, color: C.ink1 },
   docMeta:  { ...T.tiny, marginTop: 2 },
-  noDocText:{ ...T.small, color: C.ink4, fontStyle: 'italic', marginTop: S.xs },
+  noDocText:{ ...T.small, color: C.ink4, fontStyle: 'italic', marginTop: 4 },
 });

@@ -1,28 +1,37 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
-import { C, F, T, S, R, shadow } from '../../config/theme';
+import { C } from '../../config/theme';
+import { useAuth } from '../../contexts/AuthContext';
+
+type Tab = 'All' | 'Announcements' | 'Bins';
+const TABS: Tab[] = ['All', 'Announcements', 'Bins'];
+type ListItem = { type: 'announcement'; data: any } | { type: 'bin'; data: any };
 
 export default function StudentClassroomDetailScreen({ navigation, route }: any) {
   const { classroomId } = route.params as { classroomId: string };
+  const { user } = useAuth();
 
   const [classroom, setClassroom] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('All');
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     loadClassroomData();
@@ -35,7 +44,6 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
         classroomService.getClassroomAnnouncements(classroomId),
         classroomService.getClassroomAttachmentBins(classroomId),
       ]);
-
       if (classroomResult.data) setClassroom(classroomResult.data);
       if (announcementsResult.data) setAnnouncements(announcementsResult.data);
       if (binsResult.data) setAttachmentBins(binsResult.data);
@@ -52,6 +60,135 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
     loadClassroomData();
   };
 
+  const getListData = (): ListItem[] => {
+    if (activeTab === 'Announcements')
+      return announcements.map((d) => ({ type: 'announcement', data: d }));
+    if (activeTab === 'Bins')
+      return attachmentBins.map((d) => ({ type: 'bin', data: d }));
+    return [
+      ...announcements.map((d) => ({ type: 'announcement' as const, data: d })),
+      ...attachmentBins.map((d) => ({ type: 'bin' as const, data: d })),
+    ];
+  };
+
+  const handleUnenroll = () => {
+    setShowMenu(false);
+    Alert.alert(
+      'Unenroll from Classroom',
+      `Are you sure you want to unenroll from "${classroom?.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unenroll',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await classroomService.leaveClassroom(classroomId, user!.user_id);
+            if (result.error) {
+              Alert.alert('Error', result.error);
+            } else {
+              navigation.goBack();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleInviteCode = () => {
+    setShowMenu(false);
+    navigation.navigate('InviteCode', {
+      classroomName: classroom?.name,
+      inviteCode: classroom?.invite_code,
+    });
+  };
+
+  const handleClassmates = () => {
+    setShowMenu(false);
+    navigation.navigate('EnrolledStudents', {
+      classroomId,
+      classroomName: classroom?.name,
+      viewOnly: true,
+    });
+  };
+
+  const renderItem = ({ item }: { item: ListItem }) => {
+    if (item.type === 'announcement') {
+      const ann = item.data;
+      return (
+        <View style={[styles.card, ann.is_pinned && styles.cardPinned]}>
+          {ann.is_pinned && (
+            <View style={styles.pinnedBadge}>
+              <Ionicons name="pin" size={12} color="#fff" />
+              <Text style={styles.pinnedText}>Pinned</Text>
+            </View>
+          )}
+          <View style={styles.cardTypeRow}>
+            <Ionicons name="megaphone-outline" size={14} color={C.ink4} />
+            <Text style={styles.cardTypeLabel}>Announcement</Text>
+          </View>
+          <Text style={styles.cardTitle}>{ann.title}</Text>
+          <Text style={styles.cardBody}>{ann.content}</Text>
+          <Text style={styles.cardDate}>
+            {new Date(ann.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </Text>
+        </View>
+      );
+    }
+
+    const bin = item.data;
+    return (
+      <TouchableOpacity
+        style={[styles.card, styles.cardBin]}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('AttachmentBinSubmission', { binId: bin.id })}
+      >
+        <View style={styles.binRow}>
+          <View style={styles.binIcon}>
+            <Ionicons name="folder" size={22} color={C.ink2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.cardTypeRow}>
+              <Ionicons name="folder-outline" size={14} color={C.ink4} />
+              <Text style={styles.cardTypeLabel}>Assignment Bin</Text>
+            </View>
+            <Text style={styles.cardTitle}>{bin.title}</Text>
+            {bin.description ? (
+              <Text style={styles.cardBody} numberOfLines={2}>{bin.description}</Text>
+            ) : null}
+            {bin.deadline ? (
+              <View style={styles.binMeta}>
+                <View style={styles.binMetaItem}>
+                  <Ionicons name="time-outline" size={13} color="#D93025" />
+                  <Text style={styles.binDeadlineText}>
+                    Due {new Date(bin.deadline).toLocaleDateString()}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={C.ink5} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <Ionicons
+        name={activeTab === 'Bins' ? 'folder-outline' : 'reader-outline'}
+        size={48}
+        color={C.ink5}
+      />
+      <Text style={styles.emptyText}>
+        {activeTab === 'Bins' ? 'No bins yet' : 'No announcements yet'}
+      </Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -62,357 +199,231 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
 
   if (!classroom) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Classroom not found</Text>
+      <View style={styles.loadingContainer}>
+        <Text style={{ fontSize: 16, color: C.ink4 }}>Classroom not found</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.surface }} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.surface} />
-      <ScrollView
-        style={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={22} color={C.ink1} />
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
+          <Ionicons name="chevron-back" size={22} color={C.ink1} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>{classroom.name}</Text>
+        <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.ellipsisBtn} hitSlop={8}>
+          <Ionicons name="ellipsis-vertical" size={20} color={C.ink2} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
           </TouchableOpacity>
-          <Text style={styles.title} numberOfLines={1}>
-            {classroom.name}
-          </Text>
-        </View>
+        ))}
+      </View>
 
-        {/* Classroom Info */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>{classroom.name}</Text>
-          {classroom.description && (
-            <Text style={styles.infoDescription}>{classroom.description}</Text>
-          )}
-          <View style={styles.teacherInfo}>
-            <Ionicons name="person" size={16} color={C.ink3} />
-            <Text style={styles.teacherText}>
-              Teacher: {classroom.teacher_first_name} {classroom.teacher_last_name}
-            </Text>
+      {/* List */}
+      <FlatList
+        data={getListData()}
+        keyExtractor={(item, i) => `${item.type}-${item.data?.id ?? i}`}
+        renderItem={renderItem}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      />
+
+      {/* Options Menu */}
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHandle} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleInviteCode}>
+              <Ionicons name="key-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Invite Code</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleClassmates}>
+              <Ionicons name="people-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Classmates</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleUnenroll}>
+              <Ionicons name="exit-outline" size={20} color="#D93025" style={styles.menuIcon} />
+              <Text style={[styles.menuItemText, { color: '#D93025' }]}>Unenroll</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuCancel} onPress={() => setShowMenu(false)}>
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Announcements Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="megaphone" size={20} color={C.ink2} />
-            <Text style={styles.sectionTitle}>Announcements</Text>
-          </View>
-
-          {announcements.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="megaphone-outline" size={48} color={C.ink5} />
-              <Text style={styles.emptyText}>No announcements yet</Text>
-            </View>
-          ) : (
-            announcements.map((announcement) => (
-              <View
-                key={announcement.id}
-                style={[
-                  styles.announcementCard,
-                  announcement.is_pinned && styles.announcementCardPinned,
-                ]}
-              >
-                {announcement.is_pinned && (
-                  <View style={styles.pinnedBadge}>
-                    <Ionicons name="pin" size={12} color={C.actionText} />
-                    <Text style={styles.pinnedText}>Pinned</Text>
-                  </View>
-                )}
-                <Text style={styles.announcementTitle}>{announcement.title}</Text>
-                <Text style={styles.announcementContent}>{announcement.content}</Text>
-                <Text style={styles.announcementDate}>
-                  {new Date(announcement.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Attachment Bins Section */}
-        <View style={[styles.section, { marginBottom: S.xxl + S.sm }]}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="folder" size={20} color={C.ink2} />
-            <Text style={styles.sectionTitle}>Attachment Bins</Text>
-          </View>
-
-          {attachmentBins.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="folder-outline" size={48} color={C.ink5} />
-              <Text style={styles.emptyText}>No attachment bins yet</Text>
-            </View>
-          ) : (
-            attachmentBins.map((bin) => (
-              <TouchableOpacity
-                key={bin.id}
-                style={styles.binCard}
-                onPress={() =>
-                  navigation.navigate('AttachmentBinSubmission', { binId: bin.id })
-                }
-              >
-                <View style={styles.binHeader}>
-                  <View style={styles.binIconContainer}>
-                    <Ionicons name="folder" size={24} color={C.ink2} />
-                  </View>
-                  <View style={styles.binInfo}>
-                    <Text style={styles.binTitle}>{bin.title}</Text>
-                    {bin.description && (
-                      <Text style={styles.binDescription} numberOfLines={2}>
-                        {bin.description}
-                      </Text>
-                    )}
-                    <View style={styles.binMeta}>
-                      {bin.deadline && (
-                        <View style={styles.binMetaItem}>
-                          <Ionicons name="time-outline" size={14} color={C.red} />
-                          <Text style={styles.binDeadline}>
-                            Due: {new Date(bin.deadline).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.binMetaItem}>
-                        <Ionicons name="document-outline" size={14} color={C.ink3} />
-                        <Text style={styles.binSubmissions}>
-                          {bin.submission_count || 0} submissions
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={C.ink5} />
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </ScrollView>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.bg,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: C.bg,
-  },
-  errorText: {
-    fontSize: 16,
-    fontWeight: '400' as const,
-    color: C.ink4,
-  },
+  screen: { flex: 1, backgroundColor: 'transparent' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
-    paddingHorizontal: S.xl,
-    paddingTop: S.lg,
-    paddingBottom: S.lg,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: R.full,
-    backgroundColor: C.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: S.md,
-    ...shadow.soft,
+  backBtn: { padding: 4, marginRight: 8 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#202124', letterSpacing: -0.2 },
+  ellipsisBtn: { padding: 4, marginLeft: 8 },
+
+  // Tab Bar
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'transparent',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E8EAED',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '600' as const,
-    color: C.ink1,
+  tab: {
     flex: 1,
-    letterSpacing: -0.3,
-  },
-  infoCard: {
-    backgroundColor: C.surface,
-    margin: S.lg,
-    padding: S.xl,
-    borderRadius: R.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.card,
-  },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: S.sm,
-  },
-  infoDescription: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink3,
-    lineHeight: 21,
-    marginBottom: S.md,
-  },
-  teacherInfo: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: S.xs + 2,
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
-  teacherText: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink3,
-  },
-  section: {
-    backgroundColor: C.surface,
-    marginHorizontal: S.lg,
-    marginBottom: S.lg,
-    borderRadius: R.lg,
-    padding: S.lg,
+  tabActive: { borderBottomColor: '#202124' },
+  tabText: { fontSize: 14, color: '#9AA0A6', fontWeight: '500' },
+  tabTextActive: { color: '#202124', fontWeight: '600' },
+
+  // List
+  listContent: { padding: 16, flexGrow: 1 },
+
+  // Cards
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 8,
+    padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.card,
+    borderColor: '#E8EAED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: S.sm,
-    marginBottom: S.lg,
+  cardPinned: { borderColor: '#9AA0A6' },
+  cardBin: { paddingVertical: 14 },
+  cardTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  cardTypeLabel: {
+    fontSize: 11,
+    color: '#9AA0A6',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: C.ink1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: S.xxl,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '400' as const,
-    color: C.ink4,
-    marginTop: S.md,
-  },
-  announcementCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.lg,
-    marginBottom: S.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.soft,
-  },
-  announcementCardPinned: {
-    backgroundColor: C.surfaceRaised,
-  },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 4 },
+  cardBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8 },
+  cardDate: { fontSize: 12, color: '#9AA0A6' },
+
   pinnedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.action,
+    gap: 4,
     alignSelf: 'flex-start',
-    paddingHorizontal: S.sm,
-    paddingVertical: S.xs,
-    borderRadius: R.xs,
-    marginBottom: S.sm,
-    gap: S.xs,
+    backgroundColor: '#202124',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginBottom: 8,
   },
-  pinnedText: {
-    color: C.actionText,
-    fontSize: 10,
-    fontWeight: '600' as const,
-  },
-  announcementTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: S.sm,
-  },
-  announcementContent: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink2,
-    lineHeight: 21,
-    marginBottom: S.sm,
-  },
-  announcementDate: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: C.ink4,
-  },
-  binCard: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.lg,
-    marginBottom: S.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.soft,
-  },
-  binHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  binIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: R.full,
-    backgroundColor: C.surfaceAlt,
+  pinnedText: { color: '#fff', fontSize: 10, fontWeight: '600' },
+
+  // Bin
+  binRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  binIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F1F3F4',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: S.md,
   },
-  binInfo: {
+  binMeta: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  binMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  binDeadlineText: { fontSize: 12, color: '#D93025' },
+
+  // Empty state
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 16, color: '#9AA0A6', marginTop: 12 },
+
+  // Modal / Menu Sheet
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
   },
-  binTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: C.ink1,
-    marginBottom: S.xs,
+  menuSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 32,
+    paddingTop: 8,
   },
-  binDescription: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink3,
-    marginBottom: S.sm,
+  menuHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E8EAED',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
-  binMeta: {
-    flexDirection: 'row',
-    gap: S.lg,
-  },
-  binMetaItem: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: S.xs,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
-  binDeadline: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: C.red,
+  menuIcon: { marginRight: 16 },
+  menuItemText: { fontSize: 16, color: '#202124', fontWeight: '400' },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E8EAED',
+    marginHorizontal: 24,
   },
-  binSubmissions: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: C.ink3,
+  menuCancel: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 14,
+    backgroundColor: '#F1F3F4',
+    borderRadius: 999,
+    alignItems: 'center',
   },
+  menuCancelText: { fontSize: 16, fontWeight: '600', color: '#202124' },
 });

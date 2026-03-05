@@ -11,6 +11,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { profileService, TeacherProfile } from '../../services/profileService';
@@ -29,27 +30,11 @@ interface Teacher {
   office_location?: string;
 }
 
-const DEPARTMENTS = [
-  'All Departments',
-  'Computer Science',
-  'Engineering',
-  'Mathematics',
-  'Physics',
-  'Chemistry',
-  'Biology',
-  'Business',
-  'Psychology',
-  'English',
-  'History',
-];
-
 export default function FindTeacherScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
 
   const { user } = useAuth();
 
@@ -59,7 +44,7 @@ export default function FindTeacherScreen({ navigation }: any) {
 
   useEffect(() => {
     filterTeachers();
-  }, [searchQuery, selectedDepartment, teachers]);
+  }, [searchQuery, teachers]);
 
   const loadTeachers = async () => {
     try {
@@ -91,11 +76,6 @@ export default function FindTeacherScreen({ navigation }: any) {
   const filterTeachers = () => {
     let filtered = [...teachers];
 
-    // Filter by department
-    if (selectedDepartment !== 'All Departments') {
-      filtered = filtered.filter(t => t.department === selectedDepartment);
-    }
-
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -116,7 +96,13 @@ export default function FindTeacherScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.surface} />
+      <LinearGradient
+        colors={['#FFFFFF', '#EDF0F4', '#D0D5DC']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.2, y: 1 }}
+      />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color={C.ink1} />
@@ -128,7 +114,7 @@ export default function FindTeacherScreen({ navigation }: any) {
       {/* Search Bar */}
       <View style={styles.searchSection}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search-outline" size={18} color={C.ink4} style={{ marginRight: S.sm }} />
+          <Ionicons name="search-outline" size={18} color={C.ink3} style={{ marginRight: S.sm }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Find your professor's name"
@@ -136,42 +122,12 @@ export default function FindTeacherScreen({ navigation }: any) {
             onChangeText={setSearchQuery}
             placeholderTextColor={C.ink4}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color={C.ink4} />
+            </TouchableOpacity>
+          )}
         </View>
-
-        {/* Department Dropdown */}
-        <TouchableOpacity
-          style={styles.departmentButton}
-          onPress={() => setShowDepartmentDropdown(!showDepartmentDropdown)}
-        >
-          <Text style={styles.departmentButtonText}>
-            {selectedDepartment === 'All Departments' ? 'Select a Department' : selectedDepartment}
-          </Text>
-          <Ionicons name={showDepartmentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink3} />
-        </TouchableOpacity>
-
-        {showDepartmentDropdown && (
-          <View style={styles.departmentDropdown}>
-            <ScrollView style={styles.dropdownScroll}>
-              {DEPARTMENTS.map((dept, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.departmentOption}
-                  onPress={() => {
-                    setSelectedDepartment(dept);
-                    setShowDepartmentDropdown(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.departmentOptionText,
-                    selectedDepartment === dept && styles.selectedDepartmentText
-                  ]}>
-                    {dept}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
       </View>
 
       {/* Teachers List */}
@@ -186,14 +142,10 @@ export default function FindTeacherScreen({ navigation }: any) {
           <View style={styles.emptyState}>
             <Ionicons name="person-outline" size={56} color={C.ink5} />
             <Text style={styles.emptyStateText}>
-              {searchQuery || selectedDepartment !== 'All Departments'
-                ? 'No teachers found matching your criteria'
-                : 'No teacher profiles found'}
+              {searchQuery ? 'No teachers found matching your search' : 'No teacher profiles found'}
             </Text>
             <Text style={styles.emptyStateSubtext}>
-              {searchQuery || selectedDepartment !== 'All Departments'
-                ? 'Try adjusting your search filters'
-                : 'Teacher accounts need to sign in first to create their profiles'}
+              {searchQuery ? 'Try a different name or keyword' : 'Teacher accounts need to sign in first to create their profiles'}
             </Text>
             <TouchableOpacity 
               style={styles.retryButton}
@@ -246,7 +198,7 @@ export default function FindTeacherScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -254,9 +206,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.lg,
     paddingVertical: S.md,
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 36,
@@ -276,18 +228,19 @@ const styles = StyleSheet.create({
     width: 36,
   },
   searchSection: {
-    backgroundColor: C.surface,
-    padding: S.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    backgroundColor: 'transparent',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surfaceAlt,
-    borderRadius: R.sm,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderRadius: R.xl,
     paddingHorizontal: S.md,
-    marginBottom: S.md,
+    paddingVertical: 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   searchInput: {
     flex: 1,
@@ -295,54 +248,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400' as const,
     color: C.ink1,
-  },
-  departmentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.surfaceAlt,
-    borderRadius: R.sm,
-    paddingHorizontal: S.md,
-    paddingVertical: S.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-  },
-  departmentButtonText: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink2,
-  },
-  departmentDropdown: {
-    backgroundColor: C.surface,
-    borderRadius: R.sm,
-    marginTop: S.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    maxHeight: 200,
-    overflow: 'hidden',
-    ...shadow.card,
-  },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  departmentOption: {
-    paddingVertical: S.md,
-    paddingHorizontal: S.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.surfaceAlt,
-  },
-  departmentOptionText: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: C.ink2,
-  },
-  selectedDepartmentText: {
-    color: C.action,
-    fontWeight: '600' as const,
+    backgroundColor: 'transparent',
   },
   teachersList: {
     flex: 1,
     padding: S.lg,
+    backgroundColor: 'transparent',
   },
   listTitle: {
     fontSize: 15,
@@ -384,7 +295,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.action,
     paddingHorizontal: S.xl,
     paddingVertical: S.md,
-    borderRadius: R.sm,
+    borderRadius: R.full,
   },
   retryButtonText: {
     color: C.actionText,
@@ -394,25 +305,25 @@ const styles = StyleSheet.create({
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
-    padding: S.lg,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    paddingVertical: S.sm + 4,
+    paddingHorizontal: S.md,
     borderRadius: R.lg,
-    marginBottom: S.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.card,
+    marginBottom: S.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
   },
   teacherAvatar: {
-    width: 48,
-    height: 48,
+    width: 38,
+    height: 38,
     borderRadius: R.full,
     backgroundColor: C.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: S.md,
+    marginRight: S.sm + 2,
   },
   teacherAvatarText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600' as const,
     color: C.ink3,
   },
@@ -420,31 +331,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   teacherName: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600' as const,
     color: C.ink1,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   teacherDepartment: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '400' as const,
     color: C.ink3,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   teacherPosition: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '400' as const,
     color: C.ink4,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   teacherExpertise: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '400' as const,
     color: C.ink4,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   teacherOfficeLocation: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '400' as const,
     color: C.ink4,
   },

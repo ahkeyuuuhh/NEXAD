@@ -960,7 +960,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: C.bg },
+  container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
   loadingText:      { marginTop: S.md, ...T.body, color: C.ink4 },
 
@@ -968,7 +968,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   headerLeft:    { flexDirection: 'row', alignItems: 'center', flex: 1 },
   avatar:        { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },

@@ -16,7 +16,7 @@ import { consultationService } from '../../services/consultationService';
 import { profileService } from '../../services/profileService';
 import type { ConsultationRequest } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
-import { C, F, T, S, R, shared, shadow } from '../../config/theme';
+import { C, T, S, R, shadow } from '../../config/theme';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;
@@ -32,14 +32,13 @@ interface MarkedDates {
 }
 
 export default function StudentConsultationsScreen({ navigation, route }: any) {
-  const initialFilter = (route?.params?.initialFilter as 'all' | 'approved' | 'pending') || 'all';
-  const [consultations, setConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [allConsultations, setAllConsultations] = useState<ConsultationWithTeacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [markedDates, setMarkedDates] = useState<MarkedDates>({});
-  const [filterStatus, setFilterStatus] = useState<'all' | 'approved' | 'pending'>(initialFilter);
+  const [consultationTab, setConsultationTab] = useState<'upcoming' | 'all' | 'missed'>('upcoming');
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   
   const authContext = useAuth();
   const userId = authContext.user?.user_id;
@@ -73,17 +72,21 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
       );
 
       setAllConsultations(consultationsWithNames);
-      applyFilter(consultationsWithNames, filterStatus);
       
       // Mark dates on calendar (only for approved)
       const approved = consultationsWithNames.filter((c: ConsultationWithTeacher) => c.status === 'accepted');
       const marks: MarkedDates = {};
+      const now = new Date();
       approved.forEach((consultation: ConsultationWithTeacher) => {
         if (consultation.scheduled_start_time) {
           const date = consultation.scheduled_start_time.split('T')[0];
+          const isMissed =
+            !!consultation.scheduled_end_time &&
+            new Date(consultation.scheduled_end_time) < now;
+          const existing = marks[date];
           marks[date] = {
             marked: true,
-            dotColor: C.ink2,
+            dotColor: (isMissed || existing?.dotColor === '#DC2626') ? '#DC2626' : C.ink2,
           };
         }
       });
@@ -98,14 +101,13 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
     }
   };
 
-  const applyFilter = (data: ConsultationWithTeacher[], status: 'all' | 'approved' | 'pending') => {
-    let filtered = data;
-    if (status === 'approved') {
-      filtered = data.filter(c => c.status === 'accepted');
-    } else if (status === 'pending') {
-      filtered = data.filter(c => c.status === 'pending' || c.status === 'awaiting_teacher');
-    }
-    setConsultations(filtered);
+  const applyFilter = (_data: ConsultationWithTeacher[], _status: string) => {
+    // filter is now handled by consultationTab in the accordion section
+  };
+
+  const checkIfMissed = (c: ConsultationWithTeacher): boolean => {
+    if (!c.scheduled_end_time) return false;
+    return new Date(c.scheduled_end_time) < new Date() && c.status === 'accepted';
   };
 
   useEffect(() => {
@@ -113,8 +115,8 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
   }, [userId]);
 
   useEffect(() => {
-    applyFilter(allConsultations, filterStatus);
-  }, [filterStatus]);
+    // No-op: kept for backward compat
+  }, [consultationTab]);
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -183,7 +185,12 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
     }
   };
 
-  const selectedDateConsultations = selectedDate ? getConsultationsForDate(selectedDate) : [];
+  const selectedDateConsultations = selectedDate
+    ? allConsultations.filter(c => {
+        if (!c.scheduled_start_time) return false;
+        return c.scheduled_start_time.split('T')[0] === selectedDate;
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -200,60 +207,39 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="chevron-back" size={20} color={C.ink1} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={18} color={C.ink2} />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Consultations</Text>
         <View style={styles.placeholder} />
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterTab, filterStatus === 'all' && styles.filterTabActive]}
-          onPress={() => setFilterStatus('all')}
-        >
-          <Text style={[styles.filterTabText, filterStatus === 'all' && styles.filterTabTextActive]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterTab, filterStatus === 'approved' && styles.filterTabActive]}
-          onPress={() => setFilterStatus('approved')}
-        >
-          <Text style={[styles.filterTabText, filterStatus === 'approved' && styles.filterTabTextActive]}>Approved</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterTab, filterStatus === 'pending' && styles.filterTabActive]}
-          onPress={() => setFilterStatus('pending')}
-        >
-          <Text style={[styles.filterTabText, filterStatus === 'pending' && styles.filterTabTextActive]}>Pending</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}>
         {/* Calendar */}
         <View style={styles.calendarContainer}>
           <Calendar
             markedDates={markedDates}
             onDayPress={onDayPress}
+            renderArrow={(direction) => (
+              <Ionicons
+                name={direction === 'left' ? 'chevron-back' : 'chevron-forward'}
+                size={20}
+                color={C.ink1}
+              />
+            )}
             theme={{
               backgroundColor: C.surface,
               calendarBackground: C.surface,
               textSectionTitleColor: C.ink1,
-              selectedDayBackgroundColor: C.ink2,
-              selectedDayTextColor: C.actionText,
-              todayTextColor: C.ink2,
+              selectedDayBackgroundColor: C.ink1,
+              selectedDayTextColor: '#ffffff',
+              todayTextColor: C.ink1,
               dayTextColor: C.ink1,
-              textDisabledColor: C.ink5,
+              textDisabledColor: C.border,
               dotColor: C.ink2,
-              selectedDotColor: C.actionText,
-              arrowColor: C.ink2,
+              selectedDotColor: '#ffffff',
+              arrowColor: C.ink1,
               monthTextColor: C.ink1,
               textMonthFontWeight: 'bold',
               textDayFontSize: 16,
@@ -267,198 +253,219 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: C.ink2 }]} />
-            <Text style={styles.legendText}>Has Consultations</Text>
+            <Text style={styles.legendText}>Scheduled</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#DC2626' }]} />
+            <Text style={styles.legendText}>Missed</Text>
           </View>
         </View>
 
         {/* Selected Date Consultations */}
         {selectedDate ? (
           <View style={styles.selectedDateSection}>
-            <Text style={styles.selectedDateTitle}>
-              {formatDate(selectedDate)}
-            </Text>
+            <Text style={styles.selectedDateTitle}>{formatDate(selectedDate)}</Text>
             {selectedDateConsultations.length > 0 ? (
-              selectedDateConsultations.map((consultation) => (
-                <View key={consultation.id} style={styles.consultationCard}>
-                  <View style={styles.consultationHeader}>
-                    <Text style={styles.teacherName}>{consultation.teacherName}</Text>
-                    <View style={[styles.statusBadge, getStatusBadgeStyle(consultation.status)]}>
-                      <Text style={[styles.statusText, getStatusTextStyle(consultation.status)]}>
-                        {consultation.status === 'accepted' ? 'Approved' : consultation.status === 'pending' ? 'Pending' : consultation.status}
-                      </Text>
+              selectedDateConsultations.map((c) => {
+                const missed = checkIfMissed(c);
+                return (
+                  <View key={c.id} style={styles.consultationCard}>
+                    <View style={styles.consultationHeader}>
+                      <Text style={styles.teacherName}>{c.teacherName}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: missed ? '#FEE2E2' : C.surfaceAlt }]}>
+                        <Text style={[styles.statusText, { color: missed ? '#DC2626' : C.ink2 }]}>
+                          {missed ? 'Missed' : c.status === 'accepted' ? 'Scheduled' : c.status === 'pending' ? 'Pending' : c.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.consultationDetails}>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Time:</Text>
+                        <Text style={styles.detailValue}>
+                          {formatTime(c.scheduled_start_time || '')} – {formatTime(c.scheduled_end_time || '')}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Subject:</Text>
+                        <Text style={styles.detailValue}>{c.subject_line}</Text>
+                      </View>
+                      {c.description ? (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Description:</Text>
+                          <Text style={styles.detailValue} numberOfLines={2}>{c.description}</Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
-                  
-                  <View style={styles.consultationDetails}>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Time:</Text>
-                      <Text style={styles.detailValue}>
-                        {formatTime(consultation.scheduled_start_time || '')} - {formatTime(consultation.scheduled_end_time || '')}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Subject:</Text>
-                      <Text style={styles.detailValue}>{consultation.subject_line}</Text>
-                    </View>
-                    
-                    {consultation.description && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Description:</Text>
-                        <Text style={styles.detailValue}>{consultation.description}</Text>
-                      </View>
-                    )}
-                    {(consultation as any).classroom_number ? (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Room:</Text>
-                        <Text style={styles.detailValue}>{(consultation as any).classroom_number}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              ))
+                );
+              })
             ) : (
               <View style={styles.noConsultationsCard}>
-                <Text style={styles.noConsultationsText}>
-                  No consultations scheduled for this date
-                </Text>
+                <Text style={styles.noConsultationsText}>No consultations on this date</Text>
               </View>
             )}
           </View>
         ) : (
           <View style={styles.noSelectionContainer}>
-            <Text style={styles.noSelectionText}>
-              Select a date to view consultations
-            </Text>
+            <Text style={styles.noSelectionText}>Select a date to view consultations</Text>
           </View>
         )}
 
-        {/* All Upcoming Consultations */}
+        {/* Consultations List — Tabs + Accordion */}
         <View style={styles.allConsultationsSection}>
-          <Text style={styles.sectionTitle}>All Upcoming Consultations</Text>
-          {consultations.length > 0 ? (
-            consultations
-              .filter(c => c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date())
-              .sort((a, b) => {
-                const dateA = new Date(a.scheduled_start_time || 0);
-                const dateB = new Date(b.scheduled_start_time || 0);
-                return dateA.getTime() - dateB.getTime();
-              })
-              .map((consultation) => (
-                <View key={consultation.id} style={styles.consultationCard}>
-                  <View style={styles.consultationHeader}>
-                    <Text style={styles.teacherName}>{consultation.teacherName}</Text>
-                    <View style={[styles.statusBadge, getStatusBadgeStyle(consultation.status)]}>
-                      <Text style={[styles.statusText, getStatusTextStyle(consultation.status)]}>
-                        {consultation.status === 'accepted' ? 'Approved' : consultation.status === 'pending' ? 'Pending' : consultation.status}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.consultationDetails}>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Date:</Text>
-                      <Text style={styles.detailValue}>
-                        {formatDate(consultation.scheduled_start_time || '')}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Time:</Text>
-                      <Text style={styles.detailValue}>
-                        {formatTime(consultation.scheduled_start_time || '')} - {formatTime(consultation.scheduled_end_time || '')}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Subject:</Text>
-                      <Text style={styles.detailValue}>{consultation.subject_line}</Text>
-                    </View>
-                    
-                    {consultation.description && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Description:</Text>
-                        <Text style={styles.detailValue}>{consultation.description}</Text>
-                      </View>
-                    )}
-                    {(consultation as any).classroom_number ? (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Room:</Text>
-                        <Text style={styles.detailValue}>{(consultation as any).classroom_number}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+          {/* Tab Bar */}
+          <View style={styles.tabRow}>
+            {(['upcoming', 'all', 'missed'] as const).map((tab) => {
+              const label = tab === 'upcoming' ? 'Upcoming' : tab === 'all' ? 'All' : 'Missed';
+              const count =
+                tab === 'upcoming'
+                  ? allConsultations.filter(c => c.status === 'accepted' && c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !checkIfMissed(c)).length
+                  : tab === 'missed'
+                  ? allConsultations.filter(c => checkIfMissed(c)).length
+                  : allConsultations.filter(c => {
+                      const missed = checkIfMissed(c);
+                      const upcoming = c.status === 'accepted' && !!c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !missed;
+                      return upcoming || missed;
+                    }).length;
+              const isActive = consultationTab === tab;
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.tabItem, isActive && styles.tabItemActive, tab === 'missed' && isActive && styles.tabItemMissedActive]}
+                  onPress={() => { setConsultationTab(tab); setExpandedCardId(null); }}
+                >
+                  <Text style={[styles.tabItemText, isActive && styles.tabItemTextActive]}>
+                    {label} ({count})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[styles.sectionTitle, { marginBottom: S.md }]}>
+            {consultationTab === 'upcoming' ? 'Upcoming Consultations' : consultationTab === 'missed' ? 'Missed Consultations' : 'All Consultations'}
+          </Text>
+
+          {/* Expandable Cards */}
+          {(() => {
+            const filtered =
+              consultationTab === 'upcoming'
+                ? allConsultations
+                    .filter(c => c.status === 'accepted' && c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !checkIfMissed(c))
+                    .sort((a, b) => new Date(a.scheduled_start_time || 0).getTime() - new Date(b.scheduled_start_time || 0).getTime())
+                : consultationTab === 'missed'
+                ? allConsultations
+                    .filter(c => checkIfMissed(c))
+                    .sort((a, b) => new Date(b.scheduled_start_time || 0).getTime() - new Date(a.scheduled_start_time || 0).getTime())
+                : allConsultations
+                    .filter(c => {
+                      const missed = checkIfMissed(c);
+                      const upcoming = c.status === 'accepted' && !!c.scheduled_start_time && new Date(c.scheduled_start_time) >= new Date() && !missed;
+                      return upcoming || missed;
+                    })
+                    .sort((a, b) => new Date(b.scheduled_start_time || 0).getTime() - new Date(a.scheduled_start_time || 0).getTime());
+
+            if (filtered.length === 0) {
+              return (
+                <View style={styles.noConsultationsCard}>
+                  <Text style={styles.noConsultationsText}>
+                    {consultationTab === 'missed'
+                      ? 'No missed consultations'
+                      : consultationTab === 'upcoming'
+                      ? 'No upcoming consultations'
+                      : 'No consultations'}
+                  </Text>
                 </View>
-              ))
-          ) : (
-            <View style={styles.noConsultationsCard}>
-              <Text style={styles.noConsultationsText}>
-                No upcoming consultations
-              </Text>
-            </View>
-          )}
+              );
+            }
+
+            return filtered.map((c) => {
+              const missed = checkIfMissed(c);
+              const isExpanded = expandedCardId === c.id;
+              const statusLabel = missed ? 'Missed' : c.status === 'accepted' ? 'Scheduled' : c.status === 'pending' ? 'Pending' : c.status;
+              return (
+                <View
+                  key={c.id}
+                  style={[styles.consultationCard, missed && styles.consultationCardMissed]}
+                >
+                  {/* Tap to expand/collapse */}
+                  <TouchableOpacity
+                    style={styles.cardHeaderRow}
+                    onPress={() => setExpandedCardId(isExpanded ? null : c.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.teacherName}>{c.teacherName}</Text>
+                      <Text style={[styles.cardDateLine, missed && { color: '#DC2626' }]}>
+                        {formatDate(c.scheduled_start_time || '')} · {formatTime(c.scheduled_start_time || '')}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.statusBadge, { backgroundColor: missed ? '#FEE2E2' : C.surfaceAlt }]}>
+                        <Text style={[styles.statusText, { color: missed ? '#DC2626' : C.ink2 }]}>{statusLabel}</Text>
+                      </View>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={C.ink3} />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded body */}
+                  {isExpanded && (
+                    <View style={styles.cardExpandedBody}>
+                      <View style={styles.cardExpandDivider} />
+                      <View style={styles.consultationDetails}>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Subject:</Text>
+                          <Text style={styles.detailValue}>{c.subject_line}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Time:</Text>
+                          <Text style={styles.detailValue}>
+                            {formatTime(c.scheduled_start_time || '')} – {formatTime(c.scheduled_end_time || '')}
+                          </Text>
+                        </View>
+                        {c.description ? (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Description:</Text>
+                            <Text style={styles.detailValue}>{c.description}</Text>
+                          </View>
+                        ) : null}
+                        {(c as any).classroom_number ? (
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Room:</Text>
+                            <Text style={styles.detailValue}>Room {(c as any).classroom_number}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const getStatusBadgeStyle = (status: string) => {
-  switch (status) {
-    case 'accepted':
-      return { backgroundColor: C.surfaceAlt };
-    case 'pending':
-    case 'awaiting_teacher':
-      return { backgroundColor: C.surfaceAlt };
-    case 'declined':
-      return { backgroundColor: C.surfaceAlt };
-    default:
-      return { backgroundColor: C.surfaceAlt };
-  }
-};
-
-const getStatusTextStyle = (status: string) => {
-  switch (status) {
-    case 'accepted':
-      return { color: C.ink2 };
-    case 'pending':
-    case 'awaiting_teacher':
-      return { color: C.ink3 };
-    case 'declined':
-      return { color: C.ink3 };
-    default:
-      return { color: C.ink3 };
-  }
-};
-
 const styles = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: C.bg },
+  container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText:      { ...T.body, color: C.ink4, marginTop: S.md },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.lg, paddingVertical: S.md,
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+    backgroundColor: 'transparent',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center',
-    ...shadow.soft,
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: S.sm, paddingVertical: 6,
   },
-  headerTitle:  { ...T.h2 },
-  placeholder:  { width: 60 },
-
-  // Filter
-  filterContainer: {
-    flexDirection: 'row', backgroundColor: C.surface,
-    paddingHorizontal: S.lg, paddingTop: S.md, paddingBottom: S.sm, gap: S.sm,
-  },
-  filterTab:           { flex: 1, paddingVertical: 9, borderRadius: R.md, alignItems: 'center', backgroundColor: C.surfaceAlt },
-  filterTabActive:     { backgroundColor: C.action },
-  filterTabText:       { ...T.label, color: C.ink3 },
-  filterTabTextActive: { ...T.label, color: C.actionText },
+  backButtonText: { ...T.body, color: C.ink2 },
+  headerTitle:    { ...T.h2 },
+  placeholder:    { width: 60 },
 
   // Calendar
   calendarContainer: {
@@ -467,38 +474,61 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
     ...shadow.soft,
   },
-  legend:      { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: S.lg, marginBottom: S.lg },
-  legendItem:  { flexDirection: 'row', alignItems: 'center', marginHorizontal: S.sm },
-  legendDot:   { width: 7, height: 7, borderRadius: 4, marginRight: S.xs, backgroundColor: C.ink2 },
-  legendText:  { ...T.tiny },
+  legend:     { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: S.lg, marginBottom: S.lg, gap: S.xl },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: S.xs },
+  legendDot:  { width: 7, height: 7, borderRadius: 4 },
+  legendText: { ...T.tiny },
 
   // Selected date section
-  selectedDateSection: { paddingHorizontal: S.lg, marginBottom: S.xl },
-  selectedDateTitle:   { ...T.h3, marginBottom: S.md },
-
+  selectedDateSection:  { paddingHorizontal: S.lg, marginBottom: S.xl },
+  selectedDateTitle:    { ...T.h3, marginBottom: S.md },
   noSelectionContainer: { paddingHorizontal: S.lg, paddingVertical: 32, alignItems: 'center' },
   noSelectionText:      { ...T.body, color: C.ink4, textAlign: 'center' },
 
+  // Consultation section
   allConsultationsSection: { paddingHorizontal: S.lg, marginBottom: S.xl },
-  sectionTitle:            { ...T.h3, marginBottom: S.md },
+  sectionTitle:            { ...T.h3 },
+
+  // Tab bar
+  tabRow: {
+    flexDirection: 'row', gap: S.sm, marginBottom: S.md,
+  },
+  tabItem: {
+    flex: 1, paddingVertical: 9, borderRadius: R.md, alignItems: 'center',
+    backgroundColor: C.surfaceAlt,
+  },
+  tabItemActive:       { backgroundColor: C.action },
+  tabItemMissedActive: { backgroundColor: '#DC2626' },
+  tabItemText:         { ...T.label, color: C.ink3, fontSize: 11 },
+  tabItemTextActive:   { color: C.actionText },
 
   // Consultation card
   consultationCard: {
     backgroundColor: C.surface,
-    borderRadius: R.lg, padding: S.lg, marginBottom: S.md,
+    borderRadius: R.lg, marginBottom: S.md,
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight,
+    overflow: 'hidden',
     ...shadow.soft,
   },
+  consultationCardMissed: {
+    borderColor: '#FCA5A5',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: S.lg,
+  },
+  cardDateLine:    { ...T.small, color: C.ink3, marginTop: 2 },
+  cardExpandedBody: { paddingHorizontal: S.lg, paddingBottom: S.lg },
+  cardExpandDivider: {
+    height: StyleSheet.hairlineWidth, backgroundColor: C.borderLight, marginBottom: S.md,
+  },
+
   consultationHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md,
   },
-  teacherName: { ...T.h3, flex: 1 },
-  statusBadge: {
-    backgroundColor: C.accent,
-    paddingHorizontal: S.md, paddingVertical: 3,
-    borderRadius: R.full,
-  },
-  statusText:          { color: C.actionText, ...T.tiny, fontWeight: '600' as const },
+  teacherName:         { ...T.h3, flex: 1 },
+  statusBadge:         { paddingHorizontal: S.md, paddingVertical: 3, borderRadius: R.full },
+  statusText:          { ...T.tiny, fontWeight: '600' as const },
   consultationDetails: { gap: S.sm },
   detailRow:           { flexDirection: 'row' },
   detailLabel:         { ...T.small, color: C.ink4, width: 100 },

@@ -356,13 +356,13 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     paddingHorizontal: S.lg, paddingTop: 56, paddingBottom: S.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backBtn:     { marginRight: S.md, padding: S.xs },
   headerTitle: { ...T.h2, flex: 1 },

@@ -13,6 +13,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +21,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { messageService, MessageWithSender } from '../../services/messageService';
 import { profileService, StudentProfile } from '../../services/profileService';
+import { documentService } from '../../services/documentService';
+import type { UploadedDocument } from '../../types';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { ConsultationRequest } from '../../types';
 import { C, F, T, S, R, shadow } from '../../config/theme';
@@ -48,6 +51,8 @@ export default function StudentDashboard({ navigation, route }: any) {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithTeacher | null>(null);
+  const [consultationDocs, setConsultationDocs] = useState<UploadedDocument[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     upcomingConsultations: [],
     pendingRequests: [],
@@ -212,6 +217,34 @@ export default function StudentDashboard({ navigation, route }: any) {
     navigation.navigate('FindTeacher');
   };
 
+  const openConsultationDetail = async (c: ConsultationWithTeacher) => {
+    setSelectedConsultation(c);
+    setConsultationDocs([]);
+    setShowDetailsModal(true);
+    setIsLoadingDocs(true);
+    try {
+      const result = await documentService.getConsultationDocuments(c.id);
+      setConsultationDocs(result.data || []);
+    } catch {
+      // silently fail — no docs to show
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  };
+
+  const openDocumentFile = async (doc: UploadedDocument) => {
+    try {
+      const result = await documentService.getDocumentUrl(doc.storage_path);
+      if (result.data) {
+        await Linking.openURL(result.data);
+      } else {
+        Alert.alert('Error', 'Could not retrieve file URL.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to open file.');
+    }
+  };
+
   const getGreeting = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Good Morning';
@@ -304,7 +337,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               return (
                 <TouchableOpacity
                   activeOpacity={0.88}
-                  onPress={() => { setSelectedConsultation(c); setShowDetailsModal(true); }}
+                  onPress={() => openConsultationDetail(c)}
                   style={styles.carouselSingleWrap}
                 >
                   <View style={[styles.carouselCardFull, { backgroundColor: cardBg }]}>
@@ -373,7 +406,7 @@ export default function StudentDashboard({ navigation, route }: any) {
                   <TouchableOpacity
                     key={c.id}
                     activeOpacity={0.88}
-                    onPress={() => { setSelectedConsultation(c); setShowDetailsModal(true); }}
+                    onPress={() => openConsultationDetail(c)}
                     style={styles.carouselCardWrap}
                   >
                     <View style={[styles.carouselCard, { backgroundColor: cardColor.bg }]}>
@@ -449,10 +482,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               <TouchableOpacity
                 key={request.id}
                 style={styles.pendingCard}
-                onPress={() => {
-                  setSelectedConsultation(request);
-                  setShowDetailsModal(true);
-                }}
+                onPress={() => openConsultationDetail(request)}
                 activeOpacity={0.7}
               >
                 <View style={styles.pendingAvatar}>
@@ -669,6 +699,50 @@ export default function StudentDashboard({ navigation, route }: any) {
                       )}
                     </View>
 
+                    {/* Attached Files */}
+                    {isLoadingDocs ? (
+                      <View style={styles.dmInfoCard}>
+                        <View style={styles.dmInfoRow}>
+                          <View style={styles.dmIconBox}><Ionicons name="attach-outline" size={16} color={C.ink2} /></View>
+                          <View style={styles.dmInfoContent}>
+                            <Text style={styles.dmInfoLabel}>Attached Files</Text>
+                            <ActivityIndicator size="small" color={C.ink3} style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+                          </View>
+                        </View>
+                      </View>
+                    ) : consultationDocs.length > 0 ? (
+                      <View style={styles.dmInfoCard}>
+                        <View style={[styles.dmInfoRow, { paddingBottom: S.sm }]}>
+                          <View style={styles.dmIconBox}><Ionicons name="attach-outline" size={16} color={C.ink2} /></View>
+                          <View style={styles.dmInfoContent}>
+                            <Text style={styles.dmInfoLabel}>Attached Files</Text>
+                          </View>
+                        </View>
+                        {consultationDocs.map((doc, idx) => (
+                          <React.Fragment key={doc.id}>
+                            {idx > 0 && <View style={styles.dmInfoDivider} />}
+                            <TouchableOpacity
+                              style={[styles.dmInfoRow, { paddingTop: S.sm }]}
+                              onPress={() => openDocumentFile(doc)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.dmIconBox, { backgroundColor: C.surfaceAlt }]}>
+                                <Ionicons
+                                  name={doc.file_type === 'pdf' ? 'document-outline' : 'document-text-outline'}
+                                  size={16}
+                                  color={C.ink2}
+                                />
+                              </View>
+                              <View style={[styles.dmInfoContent, { flexDirection: 'row', alignItems: 'center' }]}>
+                                <Text style={[styles.dmInfoValue, { flex: 1, fontSize: 13 }]} numberOfLines={1}>{doc.file_name}</Text>
+                                <Ionicons name="open-outline" size={14} color={C.ink3} style={{ marginLeft: S.sm }} />
+                              </View>
+                            </TouchableOpacity>
+                          </React.Fragment>
+                        ))}
+                      </View>
+                    ) : null}
+
                     <View style={{ height: 24 }} />
                   </ScrollView>
                 </>
@@ -719,12 +793,12 @@ function getStatusStyle(s: string): object {
 }
 
 const styles = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: C.bg },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  container:        { flex: 1, backgroundColor: 'transparent' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   loadingText:      { marginTop: S.md, ...T.body, color: C.ink4 },
 
   // ─── Top Bar ──────────────────────────────────────────
-  topBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, backgroundColor: C.bg },
+  topBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, backgroundColor: 'transparent' },
   topBarLeft:{ flexDirection: 'row', alignItems: 'center', gap: S.md },
   topBarRight:{ flexDirection: 'row', alignItems: 'center', gap: S.sm },
   iconButton:{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderLight },

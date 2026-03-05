@@ -262,7 +262,7 @@ export default function AllRequestsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.xl,
     paddingVertical: S.lg,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   backButton: {
     width: 40,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
     paddingHorizontal: S.xl,
     paddingTop: S.md,
     paddingBottom: S.sm,

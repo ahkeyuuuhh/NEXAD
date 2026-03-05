@@ -28,7 +28,6 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
   };
   const { user } = useAuth();
 
-  // â”€â”€ Form state â€“ pre-filled in edit mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [title, setTitle]             = useState(editMode ? existing?.title       || '' : '');
   const [description, setDescription] = useState(editMode ? existing?.description || '' : '');
   const [deadline, setDeadline]       = useState<Date | null>(
@@ -37,7 +36,6 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading]               = useState(false);
 
-  // â”€â”€ Student assignment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [members, setMembers]               = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const existingAssigned: string[] = existing?.assigned_to || [];
@@ -63,7 +61,6 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
     if (selectedDate) setDeadline(selectedDate);
   };
 
-  // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleSave = async () => {
     if (!title.trim()) { Alert.alert('Error', 'Please enter a title'); return; }
     if (!user?.user_id) { Alert.alert('Error', 'You must be logged in'); return; }
@@ -108,7 +105,6 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
     }
   };
 
-  // â”€â”€ UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       {/* Header */}
@@ -187,7 +183,6 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
           />
         )}
 
-        {/* â”€â”€ Assign To â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <View style={styles.assignCard}>
           <View style={styles.assignCardHeader}>
             <Ionicons name="people-outline" size={17} color={C.ink2} />
@@ -293,11 +288,11 @@ export default function CreateAttachmentBinScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent',
     paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40, height: 40, borderRadius: 20,
@@ -326,7 +321,6 @@ const styles = StyleSheet.create({
   dateButtonText: { flex: 1, fontSize: 16, color: C.ink1 },
   clearButton: { padding: 4 },
 
-  // â”€â”€ Assign card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   assignCard: {
     backgroundColor: C.surface, borderRadius: 12, padding: 16,
     marginBottom: 24, borderWidth: 1, borderColor: C.border,

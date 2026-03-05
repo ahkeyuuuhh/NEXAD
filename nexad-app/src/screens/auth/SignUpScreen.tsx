@@ -123,7 +123,7 @@ export default function SignUpScreen({ navigation, route }: SignUpScreenProps) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : ('height' as any)}
@@ -320,7 +320,7 @@ export default function SignUpScreen({ navigation, route }: SignUpScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
+  safe: { flex: 1, backgroundColor: 'transparent' },
   container: { flex: 1 },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,

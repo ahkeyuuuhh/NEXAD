@@ -431,14 +431,14 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   errorText: { fontSize: 16, color: C.ink4 },
   header: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'transparent',
     paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 40, height: 40, borderRadius: 20,

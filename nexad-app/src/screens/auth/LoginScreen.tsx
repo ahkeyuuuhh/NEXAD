@@ -63,7 +63,7 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
         {/* Back */}
@@ -143,7 +143,7 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   safeArea: {
     flex: 1,

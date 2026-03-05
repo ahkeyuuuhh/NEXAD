@@ -5,6 +5,7 @@
 import 'react-native-gesture-handler'; // MUST be at the very top
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators, TransitionSpecs } from '@react-navigation/stack';
@@ -125,7 +126,7 @@ const modalTransition = {
 function AuthStack() {
   return (
     <Stack.Navigator 
-      screenOptions={{ headerShown: false, ...fadeSlideTransition }}
+      screenOptions={{ headerShown: false, cardStyle: { backgroundColor: 'transparent' }, ...fadeSlideTransition }}
       initialRouteName="Welcome"
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -147,7 +148,7 @@ function AppStack() {
     : 'Home';
   
   return (
-    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, ...slideTransition }}>
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, cardStyle: { backgroundColor: 'transparent' }, ...slideTransition }}>
       <Stack.Screen 
         name="StudentDashboard" 
         component={StudentDashboard} 
@@ -479,6 +480,29 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
+      {/* Global silvery radial-glow background — grey corners with bright white center */}
+      <View style={StyleSheet.absoluteFill}>
+        {/* Base medium cool grey — this is the corner/edge colour */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#C2C5CE' }]} />
+        {/* Vertical white bloom through the centre */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.92)', 'rgba(255,255,255,0)']}
+          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Horizontal white bloom through the centre */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.78)', 'rgba(255,255,255,0)']}
+          start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Slightly darken bottom to match reference (bottom corners slightly darker) */}
+        <LinearGradient
+          colors={['transparent', 'rgba(100,104,116,0.18)']}
+          start={{ x: 0.5, y: 0.6 }} end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <SafeAreaProvider>
         <AuthProvider>
           <Navigation />
@@ -491,6 +515,7 @@ export default function App() {
 const styles = StyleSheet.create({
   gestureRoot: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,

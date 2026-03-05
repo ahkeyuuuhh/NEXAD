@@ -16,9 +16,10 @@ import { classroomService } from "../../services/classroomService";
 import { C } from "../../config/theme";
 
 export default function EnrolledStudentsScreen({ navigation, route }: any) {
-  const { classroomId, classroomName } = route.params as {
+  const { classroomId, classroomName, viewOnly } = route.params as {
     classroomId: string;
     classroomName: string;
+    viewOnly?: boolean;
   };
 
   const [members, setMembers] = useState<any[]>([]);
@@ -137,7 +138,7 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
         onPress={() => {
           if (selectionMode) {
             toggleSelect(item.id);
-          } else {
+          } else if (!viewOnly) {
             navigation.navigate("StudentWorks", {
               classroomId, classroomName,
               studentId: item.id,
@@ -146,7 +147,7 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
           }
         }}
         onLongPress={() => {
-          if (!selectionMode) enterSelection(item.id);
+          if (!selectionMode && !viewOnly) enterSelection(item.id);
         }}
       >
         {selectionMode && (
@@ -166,9 +167,9 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
           {item.email ? (
             <Text style={styles.email}>{item.email}</Text>
           ) : null}
-          {!selectionMode && <Text style={styles.tapHint}>Tap to view works • Long press to select</Text>}
+            {!selectionMode && !viewOnly && <Text style={styles.tapHint}>Tap to view works • Long press to select</Text>}
         </View>
-        {!selectionMode && (
+        {!selectionMode && !viewOnly && (
           unenrolling === item.id ? (
             <ActivityIndicator size="small" color="#D93025" />
           ) : (
@@ -269,23 +270,18 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F1F3F4" },
+  container: { flex: 1, backgroundColor: 'transparent' },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: 'transparent',
     paddingHorizontal: 8,
     paddingVertical: 14,
     paddingTop: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E0E0E0",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   iconBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
   headerCenter: { flex: 1, alignItems: "center" },

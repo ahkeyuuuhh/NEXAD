@@ -210,7 +210,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
@@ -229,9 +229,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.lg,
     paddingVertical: S.md,
-    backgroundColor: C.surface,
+    backgroundColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   backButton: {
     width: 36,
