@@ -31,6 +31,10 @@
     "**/.expo-shared": true
   },
   
+  // Deno — only active inside supabase/functions (not the React Native app)
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+
   // TypeScript memory optimization
   "typescript.tsserver.maxTsServerMemory": 4096,
   

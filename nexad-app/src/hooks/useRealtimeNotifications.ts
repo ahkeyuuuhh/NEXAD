@@ -206,15 +206,6 @@ export function useRealtimeNotifications(userId: string | undefined) {
     };
   }, [userId]); // intentionally only depends on userId — fetchNotifications is stable
 
-  // ─── polling fallback ──────────────────────────────────────────────────────
-  // Supabase Realtime may miss INSERTs from SECURITY DEFINER triggers (RLS bypass).
-  // Poll every 8 seconds to guarantee the badge count stays accurate.
-  useEffect(() => {
-    if (!userId) return;
-    const interval = setInterval(fetchNotifications, 8000);
-    return () => clearInterval(interval);
-  }, [userId, fetchNotifications]);
-
   return {
     notifications,
     unreadCount,

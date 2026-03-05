@@ -331,11 +331,13 @@ export const notificationService = {
         }
 
         console.log('[Notif] Fallback insert succeeded for user', userId);
+        // Send push from client so killed-app delivery works via FCM (Edge Function handles email)
         this.sendPushToUser(userId, title, message, { type, consultationRequestId, relatedId }).catch(() => {});
         return { data: fallbackData };
       }
 
       console.log('[Notif] RPC succeeded for user', userId, '| type:', type);
+      // Send push from client so killed-app delivery works via FCM (Edge Function handles email)
       this.sendPushToUser(userId, title, message, { type, consultationRequestId, relatedId }).catch(() => {});
 
       return { data };

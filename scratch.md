@@ -31,11 +31,3 @@ GENERAL UI:
     [] Fix the transition of the screens/pages (Because sometime when I go to another screen, the transition of the screen is overlapping and it does not look good). Make it smooth and consistent. Like add some fading animation or anything that would mock an IOS. 
     
 ==========================================================
-NOTIFICATION MODIFICATIONS:
-    [] In-App Sync: Use Supabase Realtime (Postgres Changes) to listen to the notifications table. When a new row is inserted (enrollment, comment, or file submission), the UI should immediately update the burger menu bubble.
-
-    [] Device-Level Notifications: Since Supabase doesn't send 'Push Notifications' directly to iOS/Android trays, please set up a Supabase Edge Function. This function should be triggered by a Database Webhook whenever a new notification is created, sending the payload to a provider like Firebase Cloud Messaging (FCM) or OneSignal.
-
-    [] Email via Google SSO: Use a Supabase Edge Function (or an integration like Resend/SendGrid) to trigger an email to the user's auth.users email address whenever a notification is generated.
-
-    []  Logic: Can you provide the Database Webhook configuration and the Edge Function structure needed to bridge the database to both FCM (for the device) and the Email provider?"
