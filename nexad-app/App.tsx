@@ -4,8 +4,9 @@
  */
 import 'react-native-gesture-handler'; // MUST be at the very top
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators, TransitionSpecs } from '@react-navigation/stack';
@@ -61,6 +62,7 @@ import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSu
 
 // Shared
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
+import NotificationToast from './src/components/NotificationToast';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -446,6 +448,19 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Set up Android notification channel with sound (required for Android 8+)
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('default', {
+        name: 'NEXAD Notifications',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#111111',
+        enableVibrate: true,
+        showBadge: true,
+      }).catch(() => {});
+    }
+
     // Check for OTA updates on app start
     async function checkForUpdates() {
       try {
@@ -507,6 +522,7 @@ export default function App() {
         <AuthProvider>
           <Navigation />
         </AuthProvider>
+        <NotificationToast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

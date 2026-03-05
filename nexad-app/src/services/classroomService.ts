@@ -362,14 +362,16 @@ export const classroomService = {
    */
   async leaveClassroom(
     classroomId: string,
-    studentId: string
+    _studentId: string
   ): Promise<ApiResponse<void>> {
     try {
-      const { error } = await supabase
-        .from('classroom_memberships')
-        .delete()
-        .eq('classroom_id', classroomId)
-        .eq('student_id', studentId);
+      // Use SECURITY DEFINER RPC — bypasses RLS so the DELETE always executes
+      // for the calling user.  A plain client-side DELETE is silently no-op'd
+      // when the RLS policy check fails (Supabase returns no error but deletes
+      // 0 rows), causing the classroom to re-appear on page refresh.
+      const { error } = await supabase.rpc('leave_classroom', {
+        p_classroom_id: classroomId,
+      });
 
       if (error) throw error;
       return { data: undefined };

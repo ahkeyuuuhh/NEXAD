@@ -15,16 +15,18 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
+import { notificationService } from '../../services/notificationService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, S, R, shadow } from '../../config/theme';
 
 export default function BinCommentsScreen({ navigation, route }: any) {
-  const { binId, studentId, binTitle, studentName, role } = route.params as {
+  const { binId, studentId, binTitle, studentName, role, teacherId } = route.params as {
     binId: string;
     studentId: string;
     binTitle: string;
     studentName: string;
     role: 'teacher' | 'student';
+    teacherId?: string;
   };
 
   const { user } = useAuth();
@@ -86,6 +88,17 @@ export default function BinCommentsScreen({ navigation, route }: any) {
     } else if (result.data) {
       setComments((prev) => [...prev, result.data]);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      // Notify the teacher when a student sends a private comment
+      if (role === 'student' && teacherId) {
+        notificationService.createNotification(
+          teacherId,
+          'New Private Comment',
+          `${studentName} sent a comment on "${binTitle}"`,
+          'classroom_announcement',
+          undefined,
+          binId
+        ).catch(() => {});
+      }
     }
     setSending(false);
   };

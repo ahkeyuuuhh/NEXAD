@@ -57,15 +57,18 @@ export default function CreateClassroomScreen({ navigation }: any) {
   // ── Upload image to Supabase storage, return public URL ─────────────────
   const uploadCoverImage = async (uri: string): Promise<string | null> => {
     try {
-      const ext = uri.split(".").pop()?.split("?")[0] || "jpg";
+      const rawExt = uri.split(".").pop()?.split("?")[0]?.toLowerCase() || "jpg";
+      const ext = ["jpg", "jpeg", "png", "webp"].includes(rawExt) ? rawExt : "jpg";
+      const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
       const fileName = `${user!.user_id}_${Date.now()}.${ext}`;
       const filePath = `covers/${fileName}`;
-      const fetchResp = await fetch(uri);
-      const blob = await fetchResp.blob();
-      const arrayBuffer = await new Response(blob).arrayBuffer();
+      // Use fetch + arrayBuffer — the reliable approach for React Native/Expo
+      const fetchResponse = await fetch(uri);
+      if (!fetchResponse.ok) { console.warn("Cover fetch failed:", fetchResponse.status); return null; }
+      const arrayBuffer = await fetchResponse.arrayBuffer();
       const { error } = await supabase.storage
         .from("classroom-covers")
-        .upload(filePath, arrayBuffer, { contentType: `image/${ext}`, upsert: true });
+        .upload(filePath, arrayBuffer, { contentType: mime, upsert: true });
       if (error) { console.warn("Cover upload error:", error.message); return null; }
       const { data } = supabase.storage.from("classroom-covers").getPublicUrl(filePath);
       return data.publicUrl;

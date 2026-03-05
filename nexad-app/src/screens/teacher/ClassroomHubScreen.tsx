@@ -18,9 +18,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../contexts/AuthContext";
 import { classroomService } from "../../services/classroomService";
+import { profileService } from "../../services/profileService";
 import { supabase } from "../../config/supabase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { C, S, R } from "../../config/theme";
+import { useRealtimeNotifications } from "../../hooks/useRealtimeNotifications";
 
 // Monochromatic fallback palette matching app aesthetic
 const BANNER_COLORS = [
@@ -67,6 +69,7 @@ export default function ClassroomHubScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [teacherPhotoUrl, setTeacherPhotoUrl] = useState<string | undefined>();
   const menuAnim = useRef(new Animated.Value(300)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
@@ -74,7 +77,20 @@ export default function ClassroomHubScreen({ navigation }: any) {
   const displayName = user?.email?.split("@")[0] || "Teacher";
   const displayInitial = displayName.charAt(0).toUpperCase();
 
-  useEffect(() => { loadClassrooms(); }, []);
+  const { unreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(user?.user_id);
+
+  useEffect(() => {
+    if (user?.user_id) {
+      profileService.getTeacherProfile(user.user_id).then(result => {
+        if (result.data?.profile_photo_url) setTeacherPhotoUrl(result.data.profile_photo_url);
+      });
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadClassrooms();
+    refreshNotifCount();
+  }, [user?.user_id, refreshNotifCount]));
 
   const loadClassrooms = async () => {
     if (!user?.user_id) return;
@@ -107,9 +123,9 @@ export default function ClassroomHubScreen({ navigation }: any) {
       {
         text: "Delete", style: "destructive",
         onPress: async () => {
+          setClassrooms(prev => prev.filter((c: any) => c.id !== classroomId));
           const result = await classroomService.deleteClassroom(classroomId);
-          if (result.error) Alert.alert("Error", result.error);
-          else loadClassrooms();
+          if (result.error) { Alert.alert("Error", result.error); loadClassrooms(); }
         },
       },
     ]);
@@ -128,13 +144,16 @@ export default function ClassroomHubScreen({ navigation }: any) {
     menuAnim.setValue(300);
     backdropAnim.setValue(0);
     Animated.parallel([
-      Animated.timing(menuAnim, {
-        toValue: 0, duration: 340,
-        easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+      Animated.spring(menuAnim, {
+        toValue: 0,
+        damping: 28,
+        stiffness: 280,
+        mass: 0.8,
+        overshootClamping: true,
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 1, duration: 300,
+        toValue: 1, duration: 250,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -144,12 +163,12 @@ export default function ClassroomHubScreen({ navigation }: any) {
   const closeMenu = () => {
     Animated.parallel([
       Animated.timing(menuAnim, {
-        toValue: 300, duration: 220,
-        easing: Easing.in(Easing.bezier(0.6, 0, 1, 1)),
+        toValue: 300, duration: 200,
+        easing: Easing.in(Easing.bezier(0.4, 0, 1, 1)),
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 0, duration: 180,
+        toValue: 0, duration: 160,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
@@ -226,15 +245,25 @@ export default function ClassroomHubScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView style={styles.container} edges={["bottom", "top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* App Bar */}
       <View style={styles.appBar}>
         <Text style={styles.appBarTitle}>Classroom</Text>
-        <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
-          <Ionicons name="menu" size={26} color="#3C4043" />
-        </TouchableOpacity>
+        <View style={styles.appBarRight}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate("Notifications")}>
+            <Ionicons name="notifications-outline" size={22} color="#3C4043" />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
+            <Ionicons name="menu" size={26} color="#3C4043" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -267,7 +296,11 @@ export default function ClassroomHubScreen({ navigation }: any) {
             {/* Drawer header */}
             <View style={styles.drawerHeader}>
               <View style={styles.drawerAvatar}>
-                <Text style={styles.drawerAvatarText}>{displayInitial}</Text>
+                {teacherPhotoUrl ? (
+                  <Image source={{ uri: teacherPhotoUrl }} style={styles.drawerAvatarImg} />
+                ) : (
+                  <Text style={styles.drawerAvatarText}>{displayInitial}</Text>
+                )}
               </View>
               <View style={styles.drawerHeaderInfo}>
                 <Text style={styles.drawerName}>{displayName}</Text>
@@ -322,9 +355,18 @@ const styles = StyleSheet.create({
   appBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: 'transparent', paddingHorizontal: 8,
-    paddingTop: 25, paddingBottom: 14,
+    paddingTop: 8, paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
   },
+  appBarRight: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  notifBadge: {
+    position: 'absolute', top: 2, right: 2,
+    backgroundColor: '#D93025', borderRadius: 10, minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: '#fff',
+  },
+  notifBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' as const },
   menuBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
   appBarTitle: { fontSize: 22, fontWeight: "700" as const, color: "#202124", flex: 1 },
 
@@ -398,6 +440,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   drawerAvatarText: { color: "#fff", fontSize: 18, fontWeight: "700" as const },
+  drawerAvatarImg:  { width: 44, height: 44, borderRadius: 22 },
   drawerHeaderInfo: { flex: 1 },
   drawerName: { fontSize: 15, fontWeight: "600" as const, color: "#202124" },
   drawerRole: { fontSize: 12, color: "#5F6368", marginTop: 2 },

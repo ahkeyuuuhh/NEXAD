@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -163,9 +164,13 @@ export default function FindTeacherScreen({ navigation }: any) {
               onPress={() => handleSelectTeacher(teacher)}
             >
               <View style={styles.teacherAvatar}>
-                <Text style={styles.teacherAvatarText}>
-                  {teacher.first_name[0]}{teacher.last_name[0]}
-                </Text>
+                {teacher.profile_photo_url ? (
+                  <Image source={{ uri: teacher.profile_photo_url }} style={styles.teacherAvatarImg} />
+                ) : (
+                  <Text style={styles.teacherAvatarText}>
+                    {teacher.first_name[0]}{teacher.last_name[0]}
+                  </Text>
+                )}
               </View>
               <View style={styles.teacherInfo}>
                 <Text style={styles.teacherName}>
@@ -326,6 +331,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     color: C.ink3,
+  },
+  teacherAvatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
   teacherInfo: {
     flex: 1,

@@ -30,16 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log('🔵 [AuthProvider] Initializing...');
-    
-    // Don't load existing sessions - force user to sign in
-    // But listen for SIGNED_IN events from OAuth
-    setUser(null);
-    setLoading(false);
-    console.log('🟡 [AuthProvider] Ready for sign-in (existing sessions ignored)');
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔵 [AuthProvider] Auth state changed:', event, session?.user?.email);
-      
+
       // Handle sign out
       if (event === 'SIGNED_OUT') {
         console.log('🟡 [AuthProvider] User signed out');
@@ -47,24 +41,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return;
       }
-      
-      // Handle sign in
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('🟢 [AuthProvider] User signed in:', session.user.email);
-        setLoading(false); // Immediately set to false to unblock UI
-        
-        // Load profile asynchronously
+
+      // INITIAL_SESSION fires when the app reopens with a saved session.
+      // SIGNED_IN fires on a fresh Google/email login.
+      // Both need the profile loaded BEFORE loading=false so there's no Welcome-screen flash.
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        console.log('🟢 [AuthProvider] Session active:', session.user.email);
         loadUserProfile(session.user.id)
           .then(() => {
-            console.log('🟢 [AuthProvider] Profile loaded, navigation should trigger');
+            console.log('🟢 [AuthProvider] Profile loaded');
           })
           .catch((error: any) => {
             console.error('🔴 [AuthProvider] Error loading profile:', error);
             setUser(null);
+          })
+          .finally(() => {
+            setLoading(false);
           });
         return;
       }
-      
+
+      // INITIAL_SESSION with no user = no saved session, go to login
+      if (event === 'INITIAL_SESSION' && !session?.user) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       // Handle token refresh
       if (event === 'TOKEN_REFRESHED') {
         if (!session) {
@@ -75,8 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return;
       }
-      
-      // Other events - just set loading false
+
+      // Other events
       setLoading(false);
     });
 

@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   Linking,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { classroomService } from '../../services/classroomService';
@@ -208,7 +209,11 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
             activeOpacity={0.7}
           >
             <View style={styles.avatar}>
-              <Text style={styles.avatarLetter}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+              {member.profile_photo_url ? (
+                <Image source={{ uri: member.profile_photo_url }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarLetter}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+              )}
             </View>
             <View style={styles.studentCardInfo}>
               <Text style={styles.studentName}>{member.first_name} {member.last_name}</Text>
@@ -276,7 +281,11 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
         <View key={member.id} style={[styles.studentCard, styles.missingCard]}>
           <View style={styles.studentCardTop}>
             <View style={[styles.avatar, styles.missingAvatar]}>
-              <Text style={[styles.avatarLetter, styles.missingAvatarLetter]}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+              {member.profile_photo_url ? (
+                <Image source={{ uri: member.profile_photo_url }} style={styles.avatarImg} />
+              ) : (
+                <Text style={[styles.avatarLetter, styles.missingAvatarLetter]}>{member.first_name?.[0]?.toUpperCase() || '?'}</Text>
+              )}
             </View>
             <View style={styles.studentCardInfo}>
               <Text style={[styles.studentName, styles.missingText]}>{member.first_name} {member.last_name}</Text>
@@ -435,6 +444,7 @@ const styles = StyleSheet.create({
   commentsBtnText: { flex: 1, ...T.small, color: C.ink3 },
   avatar:              { width: 40, height: 40, borderRadius: 20, backgroundColor: C.ink1, justifyContent: 'center', alignItems: 'center' },
   avatarLetter:        { color: C.actionText, fontSize: 16, fontWeight: '600' as const },
+  avatarImg:           { width: 40, height: 40, borderRadius: 20 },
   missingAvatar:       { backgroundColor: C.ink4 },
   missingAvatarLetter: { color: C.surface },
   missingBadge:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.full, borderWidth: 1, borderColor: C.borderLight },

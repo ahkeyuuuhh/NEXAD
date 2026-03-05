@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { documentService } from '../../services/documentService';
 import { consultationService } from '../../services/consultationService';
+import { notificationService } from '../../services/notificationService';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { C, F, T, S, R, shadow } from '../../config/theme';
@@ -102,6 +103,17 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
       Alert.alert('Success', 'Document submitted successfully!', [
         { text: 'OK', onPress: () => { setSelectedFile(null); loadBinData(); } },
       ]);
+      // Notify the teacher about the new submission
+      if (bin?.teacher_id) {
+        notificationService.createNotification(
+          bin.teacher_id,
+          'New File Submission',
+          `${user.first_name} ${user.last_name} submitted a file to "${bin.title || 'Attachment Bin'}"`,
+          'classroom_announcement',
+          undefined,
+          binId
+        ).catch(() => {});
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to submit document');
     } finally {
@@ -116,6 +128,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
       binTitle: bin?.title || 'Bin',
       studentName: `${user?.first_name || ''} ${user?.last_name || ''}`.trim(),
       role: 'student',
+      teacherId: bin?.teacher_id,
     });
   };
 

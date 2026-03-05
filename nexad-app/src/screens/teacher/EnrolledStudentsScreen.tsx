@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   StatusBar,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -156,9 +157,13 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
           </View>
         )}
         <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>
-            {(item.first_name?.[0] || "?").toUpperCase()}
-          </Text>
+          {item.profile_photo_url ? (
+            <Image source={{ uri: item.profile_photo_url }} style={styles.avatarImg} />
+          ) : (
+            <Text style={styles.avatarText}>
+              {(item.first_name?.[0] || "?").toUpperCase()}
+            </Text>
+          )}
         </View>
         <View style={styles.info}>
           <Text style={styles.name}>
@@ -322,6 +327,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  avatarImg: { width: 44, height: 44, borderRadius: 22 },
   info: { flex: 1 },
   name: { fontSize: 15, fontWeight: "600", color: "#202124" },
   email: { fontSize: 13, color: "#5F6368", marginTop: 2 },

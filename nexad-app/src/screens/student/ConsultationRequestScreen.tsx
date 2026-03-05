@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -285,6 +286,13 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
       // NOTE: DB trigger (notify_teacher_new_request) automatically notifies the teacher
       // on INSERT into consultation_requests, so no manual notification call is needed here.
+      // We also send a device push directly to ensure the teacher hears a sound immediately.
+      notificationService.sendPushToUser(
+        teacher.user_id,
+        'New Consultation Request',
+        `${studentName} sent a consultation request: "${helpNeeded}"`,
+        { type: 'request_submitted', consultationRequestId: result.data?.id }
+      ).catch(() => {});
 
       // If triggered from an attachment bin, mark the document as consultation_requested
       // so the bin screen immediately reflects the booking.
@@ -350,9 +358,13 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               style={styles.teacherCardBanner}
             >
               <View style={styles.teacherAvatar}>
-                <Text style={styles.teacherAvatarText}>
-                  {teacher.first_name[0]}{teacher.last_name[0]}
-                </Text>
+                {teacher.profile_photo_url ? (
+                  <Image source={{ uri: teacher.profile_photo_url }} style={styles.teacherAvatarImg} />
+                ) : (
+                  <Text style={styles.teacherAvatarText}>
+                    {teacher.first_name[0]}{teacher.last_name[0]}
+                  </Text>
+                )}
               </View>
               <View style={styles.teacherInfo}>
                 <Text style={styles.teacherName}>
@@ -646,6 +658,7 @@ const styles = StyleSheet.create({
   },
   teacherCard: {
     marginBottom: S.sm,
+    marginHorizontal: S.lg,
     borderRadius: R.lg,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -657,12 +670,12 @@ const styles = StyleSheet.create({
   teacherCardBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: S.xl,
-    paddingVertical: S.xl + 4,
+    padding: S.md,
+    paddingVertical: S.lg,
   },
   teacherAvatar: {
-    width: 52,
-    height: 52,
+    width: 42,
+    height: 42,
     borderRadius: R.full,
     backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 2,
@@ -672,21 +685,26 @@ const styles = StyleSheet.create({
     marginRight: S.md,
   },
   teacherAvatarText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  teacherAvatarImg: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   teacherInfo: {
     flex: 1,
   },
   teacherName: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700' as const,
     color: '#fff',
     marginBottom: 2,
   },
   teacherDepartment: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '400' as const,
     color: 'rgba(255,255,255,0.7)',
   },

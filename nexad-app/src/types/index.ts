@@ -83,6 +83,7 @@ export interface ConsultationRequest {
   preferred_time_slots?: TimeSlot[];
   scheduled_start_time?: string;
   scheduled_end_time?: string;
+  classroom_number?: string;
   
   // Timestamps
   submitted_at: string;

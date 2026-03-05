@@ -14,6 +14,7 @@ import {
   Dimensions,
   Easing,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -35,6 +36,7 @@ const MESSAGE_LIMIT = 5;
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;
+  teacherPhotoUrl?: string;
 }
 
 interface DashboardData {
@@ -73,13 +75,16 @@ export default function StudentDashboard({ navigation, route }: any) {
     menuAnim.setValue(300);
     backdropAnim.setValue(0);
     Animated.parallel([
-      Animated.timing(menuAnim, {
-        toValue: 0, duration: 340,
-        easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+      Animated.spring(menuAnim, {
+        toValue: 0,
+        damping: 28,
+        stiffness: 280,
+        mass: 0.8,
+        overshootClamping: true,
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 1, duration: 300,
+        toValue: 1, duration: 250,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -88,12 +93,12 @@ export default function StudentDashboard({ navigation, route }: any) {
   const closeMenu = () => {
     Animated.parallel([
       Animated.timing(menuAnim, {
-        toValue: 300, duration: 220,
-        easing: Easing.in(Easing.bezier(0.6, 0, 1, 1)),
+        toValue: 300, duration: 200,
+        easing: Easing.in(Easing.bezier(0.4, 0, 1, 1)),
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 0, duration: 180,
+        toValue: 0, duration: 160,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
@@ -124,6 +129,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               teacherName: teacherProfile.data
                 ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
                 : 'Unknown Teacher',
+              teacherPhotoUrl: teacherProfile.data?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -144,6 +150,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               teacherName: teacherProfile.data
                 ? `${teacherProfile.data.first_name} ${teacherProfile.data.last_name}`
                 : 'Unknown Teacher',
+              teacherPhotoUrl: teacherProfile.data?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -272,7 +279,11 @@ export default function StudentDashboard({ navigation, route }: any) {
         <View style={styles.topBarLeft}>
           <TouchableOpacity style={styles.profileButton} onPress={() => setShowProfileMenu(true)}>
             <View style={styles.profileImage}>
-              <Text style={styles.profileInitial}>{getUserName().charAt(0).toUpperCase()}</Text>
+              {dashboardData.profile?.profile_photo_url ? (
+                <Image source={{ uri: dashboardData.profile.profile_photo_url }} style={styles.profileImg} />
+              ) : (
+                <Text style={styles.profileInitial}>{getUserName().charAt(0).toUpperCase()}</Text>
+              )}
             </View>
           </TouchableOpacity>
           <Text style={styles.appTitle}>NEXAD</Text>
@@ -345,7 +356,10 @@ export default function StudentDashboard({ navigation, route }: any) {
                     <View style={[styles.carouselDecorCircle2, { backgroundColor: decorBg }]} />
                     <View style={styles.carouselCardTop}>
                       <View style={styles.carouselAvatar}>
-                        <Text style={styles.carouselAvatarText}>{c.teacherName.charAt(0).toUpperCase()}</Text>
+                        {c.teacherPhotoUrl
+                          ? <Image source={{ uri: c.teacherPhotoUrl }} style={styles.carouselAvatarImg} />
+                          : <Text style={styles.carouselAvatarText}>{c.teacherName.charAt(0).toUpperCase()}</Text>
+                        }
                       </View>
                       {isMissed ? (
                         <View style={styles.carouselMissedBadge}><Text style={styles.carouselMissedBadgeText}>MISSED</Text></View>
@@ -414,7 +428,10 @@ export default function StudentDashboard({ navigation, route }: any) {
                       <View style={[styles.carouselDecorCircle2, { backgroundColor: cardColor.accent2 }]} />
                       <View style={styles.carouselCardTop}>
                         <View style={styles.carouselAvatar}>
-                          <Text style={styles.carouselAvatarText}>{c.teacherName.charAt(0).toUpperCase()}</Text>
+                          {c.teacherPhotoUrl
+                            ? <Image source={{ uri: c.teacherPhotoUrl }} style={styles.carouselAvatarImg} />
+                            : <Text style={styles.carouselAvatarText}>{c.teacherName.charAt(0).toUpperCase()}</Text>
+                          }
                         </View>
                         {isMissed ? (
                           <View style={styles.carouselMissedBadge}><Text style={styles.carouselMissedBadgeText}>MISSED</Text></View>
@@ -486,7 +503,10 @@ export default function StudentDashboard({ navigation, route }: any) {
                 activeOpacity={0.7}
               >
                 <View style={styles.pendingAvatar}>
-                  <Text style={styles.pendingAvatarText}>{request.teacherName.charAt(0)}</Text>
+                  {request.teacherPhotoUrl
+                    ? <Image source={{ uri: request.teacherPhotoUrl }} style={styles.pendingAvatarImg} />
+                    : <Text style={styles.pendingAvatarText}>{request.teacherName.charAt(0)}</Text>
+                  }
                 </View>
                 <View style={styles.pendingContent}>
                   <Text style={styles.pendingTeacher}>{request.teacherName}</Text>
@@ -526,7 +546,11 @@ export default function StudentDashboard({ navigation, route }: any) {
                 activeOpacity={0.7}
               >
                 <View style={styles.messageAvatar}>
-                  <Text style={styles.messageAvatarText}>{(m.sender?.first_name || 'U').charAt(0)}</Text>
+                  {m.sender?.profile_photo_url ? (
+                    <Image source={{ uri: m.sender.profile_photo_url }} style={styles.messageAvatarImg} />
+                  ) : (
+                    <Text style={styles.messageAvatarText}>{(m.sender?.first_name || 'U').charAt(0)}</Text>
+                  )}
                 </View>
                 <View style={styles.messageContent}>
                   <Text style={styles.messageSender}>{m.sender?.first_name} {m.sender?.last_name}</Text>
@@ -550,7 +574,11 @@ export default function StudentDashboard({ navigation, route }: any) {
           <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
             <View style={styles.drawerHeader}>
               <View style={styles.drawerAvatar}>
-                <Text style={styles.drawerAvatarText}>{getUserName().charAt(0).toUpperCase()}</Text>
+                {dashboardData.profile?.profile_photo_url ? (
+                  <Image source={{ uri: dashboardData.profile.profile_photo_url }} style={styles.drawerAvatarImg} />
+                ) : (
+                  <Text style={styles.drawerAvatarText}>{getUserName().charAt(0).toUpperCase()}</Text>
+                )}
               </View>
               <View style={styles.drawerHeaderInfo}>
                 <Text style={styles.drawerName}>{getUserName()} {dashboardData.profile?.last_name || ''}</Text>
@@ -572,6 +600,10 @@ export default function StudentDashboard({ navigation, route }: any) {
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('FindTeacher'); }}>
               <Ionicons name="search-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Find a Teacher</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentConsultations'); }}>
+              <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Consultations</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentConsultations'); }}>
               <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
@@ -599,7 +631,13 @@ export default function StudentDashboard({ navigation, route }: any) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
           <View style={styles.profileMenu}>
             <View style={styles.profileMenuHeader}>
-              <View style={styles.profileMenuAvatar}><Text style={styles.profileMenuAvatarText}>{getUserName().charAt(0).toUpperCase()}</Text></View>
+              <View style={styles.profileMenuAvatar}>
+                {dashboardData.profile?.profile_photo_url ? (
+                  <Image source={{ uri: dashboardData.profile.profile_photo_url }} style={styles.profileMenuAvatarImg} />
+                ) : (
+                  <Text style={styles.profileMenuAvatarText}>{getUserName().charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
               <View style={styles.profileMenuInfo}>
                 <Text style={styles.profileMenuName}>{getUserName()} {dashboardData.profile?.last_name || ''}</Text>
                 <Text style={styles.profileMenuEmail}>{dashboardData.profile?.email || currentUser?.email || ''}</Text>
@@ -642,7 +680,10 @@ export default function StudentDashboard({ navigation, route }: any) {
                       <Ionicons name="close" size={18} color="rgba(255,255,255,0.8)" />
                     </TouchableOpacity>
                     <View style={styles.dmAvatarWrap}>
-                      <Text style={styles.dmAvatarText}>{selectedConsultation.teacherName.charAt(0).toUpperCase()}</Text>
+                      {selectedConsultation.teacherPhotoUrl
+                        ? <Image source={{ uri: selectedConsultation.teacherPhotoUrl }} style={styles.dmAvatarImg} />
+                        : <Text style={styles.dmAvatarText}>{selectedConsultation.teacherName.charAt(0).toUpperCase()}</Text>
+                      }
                     </View>
                     <Text style={styles.dmTeacherName}>{selectedConsultation.teacherName}</Text>
                     <Text style={styles.dmSubjectLine} numberOfLines={2}>{selectedConsultation.subject_line}</Text>
@@ -809,6 +850,7 @@ const styles = StyleSheet.create({
   profileButton:  { },
   profileImage:   { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
   profileInitial: { color: C.ink1, fontSize: 16, fontWeight: '600' as const },
+  profileImg:     { width: 40, height: 40, borderRadius: 20 },
 
   // ─── Scroll ───────────────────────────────────────────
   scrollView:    { flex: 1 },
@@ -852,6 +894,7 @@ const styles = StyleSheet.create({
   carouselCardTop:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: S.lg },
   carouselAvatar:         { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)' },
   carouselAvatarText:     { color: '#FFFFFF', fontSize: 20, fontWeight: '700' as const },
+  carouselAvatarImg:      { width: 48, height: 48, borderRadius: 24 },
   carouselDurationBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.full },
   carouselDurationText:   { color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: '600' as const },
   carouselMissedBadge:    { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: R.full },
@@ -947,6 +990,7 @@ const styles = StyleSheet.create({
   },
   messageAvatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   messageAvatarText: { color: C.ink2, fontSize: 16, fontWeight: '600' as const },
+  messageAvatarImg:  { width: 44, height: 44, borderRadius: 22 },
   messageContent:    { flex: 1 },
   messageSender:     { ...T.label, color: C.ink1, fontSize: 14 },
   messagePreview:    { ...T.small, color: C.ink3, marginTop: 4, lineHeight: 19 },
@@ -961,6 +1005,7 @@ const styles = StyleSheet.create({
   profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
   profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md },
   profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
+  profileMenuAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   profileMenuInfo:  { flex: 1 },
   profileMenuName:  { ...T.label, color: C.ink1, fontSize: 14 },
   profileMenuEmail: { ...T.small, color: C.ink3, marginTop: 2 },
@@ -977,6 +1022,7 @@ const styles = StyleSheet.create({
   drawerHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingBottom: S.lg },
   drawerAvatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
   drawerAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
+  drawerAvatarImg:  { width: 52, height: 52, borderRadius: 26 },
   drawerHeaderInfo: { flex: 1 },
   drawerName:       { ...T.label, color: C.ink1, fontSize: 15 },
   drawerRole:       { ...T.small, color: C.ink3, marginTop: 2 },
@@ -1011,6 +1057,7 @@ const styles = StyleSheet.create({
   },
   pendingAvatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   pendingAvatarText:   { fontSize: 18, fontWeight: '600' as const, color: C.ink2 },
+  pendingAvatarImg:    { width: 44, height: 44, borderRadius: 22 },
   pendingContent:      { flex: 1 },
   pendingTeacher:      { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 2 },
   pendingTopic:        { ...T.small, color: C.ink3, marginBottom: 4 },
@@ -1029,6 +1076,7 @@ const styles = StyleSheet.create({
   dmCloseBtn:         { position: 'absolute' as const, top: S.lg, right: S.lg, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   dmAvatarWrap:       { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', marginBottom: S.md },
   dmAvatarText:       { color: '#FFFFFF', fontSize: 26, fontWeight: '700' as const },
+  dmAvatarImg:        { width: 64, height: 64, borderRadius: 32 },
   dmTeacherName:      { color: '#FFFFFF', fontSize: 18, fontWeight: '700' as const, textAlign: 'center' as const, marginBottom: 4 },
   dmSubjectLine:      { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' as const, lineHeight: 18, marginBottom: S.md, paddingHorizontal: S.xl },
   dmStatusPill:       { flexDirection: 'row' as const, alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full },

@@ -144,13 +144,13 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
 
   const getStatusDisplay = (consultation: ConsultationWithTeacher) => {
     if (consultation.status === 'completed') {
-      return { text: 'Completed', color: C.ink2, bgColor: C.surfaceAlt };
+      return { text: 'Completed', color: '#166534', bgColor: '#DCFCE7' };
     }
     if (consultation.status === 'cancelled') {
-      return { text: 'Cancelled', color: C.ink3, bgColor: C.surfaceAlt };
+      return { text: 'Cancelled', color: '#92400E', bgColor: '#FEF3C7' };
     }
     if (consultation.status === 'declined') {
-      return { text: 'Declined', color: C.ink4, bgColor: C.surfaceAlt };
+      return { text: 'Declined', color: '#991B1B', bgColor: '#FEE2E2' };
     }
     return { text: 'Unknown', color: C.ink3, bgColor: C.surfaceAlt };
   };
@@ -275,7 +275,7 @@ export default function ConsultationHistoryScreen({ navigation, route }: any) {
           {isSelectMode ? `${selectedIds.size} selected` : 'Consultation History'}
         </Text>
         {isSelectMode ? (
-          <TouchableOpacity onPress={handleSelectAll} style={styles.backButton}>
+          <TouchableOpacity onPress={handleSelectAll} style={styles.headerTextBtn}>
             <Text style={{ fontSize: 13, fontWeight: '600' as const, color: C.ink2 }}>
               {selectedIds.size === filteredConsultations.length ? 'Deselect all' : 'Select all'}
             </Text>
@@ -530,6 +530,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center',
     ...shadow.soft,
   },
+  headerTextBtn: { paddingHorizontal: S.sm, paddingVertical: S.sm },
   headerTitle:   { ...T.h2 },
   placeholder:   { width: 60 },
 
@@ -606,4 +607,6 @@ const styles = StyleSheet.create({
   docName:  { ...T.label, color: C.ink1 },
   docMeta:  { ...T.tiny, marginTop: 2 },
   noDocText:{ ...T.small, color: C.ink4, fontStyle: 'italic', marginTop: 4 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
+  statusText:  { fontSize: 12, fontWeight: '600' as const },
 });

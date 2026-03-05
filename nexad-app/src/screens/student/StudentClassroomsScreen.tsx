@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,15 @@ import {
   StatusBar,
   Animated,
   Easing,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { classroomService } from '../../services/classroomService';
+import { notificationService } from '../../services/notificationService';
+import { profileService } from '../../services/profileService';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { C, S, R } from '../../config/theme';
 
@@ -54,14 +59,71 @@ function AnimatedCard({ index, children }: { index: number; children: React.Reac
 
 export default function StudentClassroomsScreen({ navigation }: any) {
   const { user } = useAuth();
+  const authContext = useAuth();
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [studentPhotoUrl, setStudentPhotoUrl] = useState<string | undefined>();
+  const menuAnim = useRef(new Animated.Value(300)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => { loadClassrooms(); }, []);
+  const { unreadCount, refresh: refreshNotifCount } = useRealtimeNotifications(user?.user_id);
+
+  const displayName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email?.split('@')[0] || 'Student' : 'Student';
+  const displayInitial = displayName.charAt(0).toUpperCase();
+
+  const openMenu = () => {
+    setShowMenu(true);
+    menuAnim.setValue(300);
+    backdropAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(menuAnim, {
+        toValue: 0, damping: 28, stiffness: 280, mass: 0.8,
+        overshootClamping: true, useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1, duration: 250,
+        easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeMenu = () => {
+    Animated.parallel([
+      Animated.timing(menuAnim, {
+        toValue: 300, duration: 200,
+        easing: Easing.in(Easing.bezier(0.4, 0, 1, 1)), useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0, duration: 160,
+        easing: Easing.in(Easing.quad), useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => { if (finished) setShowMenu(false); });
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: () => authContext.signOut() },
+    ]);
+  };
+
+  useEffect(() => {
+    if (user?.user_id) {
+      profileService.getStudentProfile(user.user_id).then(result => {
+        if (result.data?.profile_photo_url) setStudentPhotoUrl(result.data.profile_photo_url);
+      });
+    }
+  }, [user?.user_id]);
+
+  useFocusEffect(useCallback(() => {
+    loadClassrooms();
+    refreshNotifCount();
+  }, [user?.user_id, refreshNotifCount]));
 
   const loadClassrooms = async () => {
     if (!user?.user_id) return;
@@ -102,6 +164,22 @@ export default function StudentClassroomsScreen({ navigation }: any) {
         setShowJoinModal(false);
         setInviteCode('');
         loadClassrooms();
+        // Notify the classroom's teacher
+        const classroomId = result.data?.classroom_id;
+        if (classroomId) {
+          classroomService.getClassroom(classroomId).then(({ data: cls }) => {
+            if (cls?.teacher_id) {
+              notificationService.createNotification(
+                cls.teacher_id,
+                'New Student Joined',
+                `${user.first_name} ${user.last_name} joined ${cls.name}`,
+                'classroom_announcement',
+                undefined,
+                cls.id
+              ).catch(() => {});
+            }
+          }).catch(() => {});
+        }
       } else if (result.error) {
         Alert.alert('Error', result.error);
       }
@@ -112,16 +190,31 @@ export default function StudentClassroomsScreen({ navigation }: any) {
     }
   };
 
-  const handleLeaveClassroom = (classroomId: string, classroomName: string) => {
+  const handleLeaveClassroom = (classroomId: string, classroomName: string, teacherId?: string) => {
     Alert.alert('Leave Classroom', `Are you sure you want to leave "${classroomName}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Leave', style: 'destructive',
         onPress: async () => {
           if (!user?.user_id) return;
+          setClassrooms(prev => prev.filter((c: any) => c.id !== classroomId));
           const result = await classroomService.leaveClassroom(classroomId, user.user_id);
-          if (result.error) Alert.alert('Error', result.error);
-          else loadClassrooms();
+          if (result.error) {
+            Alert.alert('Error', result.error);
+            loadClassrooms();
+          } else {
+            // Notify the classroom's teacher
+            if (teacherId) {
+              notificationService.createNotification(
+                teacherId,
+                'Student Unenrolled',
+                `${user.first_name} ${user.last_name} left "${classroomName}"`,
+                'classroom_announcement',
+                undefined,
+                classroomId
+              ).catch(() => {});
+            }
+          }
         },
       },
     ]);
@@ -130,7 +223,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
   const handleCardOptions = (item: any) => {
     Alert.alert(item.name, 'Choose an action', [
       { text: 'Open Classroom', onPress: () => navigation.navigate('StudentClassroomDetail', { classroomId: item.id }) },
-      { text: 'Unenroll', style: 'destructive', onPress: () => handleLeaveClassroom(item.id, item.name) },
+      { text: 'Unenroll', style: 'destructive', onPress: () => handleLeaveClassroom(item.id, item.name, item.teacher_id) },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -138,6 +231,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
   const renderClassroom = ({ item, index }: { item: any; index: number }) => {
     const cover = item.cover_color || getFallbackColor(item.id);
     const initial = getInitial(item.name);
+    const isImageCover = cover.startsWith('http');
     return (
       <AnimatedCard index={index}>
         <TouchableOpacity
@@ -145,7 +239,9 @@ export default function StudentClassroomsScreen({ navigation }: any) {
           onPress={() => navigation.navigate('StudentClassroomDetail', { classroomId: item.id })}
           activeOpacity={0.88}
         >
-          <View style={[styles.cardBanner, { backgroundColor: cover }]}>
+          <View style={[styles.cardBanner, !isImageCover && { backgroundColor: cover }]}>
+            {isImageCover && <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+            {isImageCover && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.40)' }]} />}
             <View style={styles.bannerTop}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
@@ -196,15 +292,25 @@ export default function StudentClassroomsScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* App Bar */}
       <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={22} color="#3C4043" />
-        </TouchableOpacity>
         <Text style={styles.appBarTitle}>My Classrooms</Text>
+        <View style={styles.appBarRight}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Notifications')}>
+            <Ionicons name="notifications-outline" size={22} color="#3C4043" />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
+            <Ionicons name="menu" size={26} color="#3C4043" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -258,6 +364,59 @@ export default function StudentClassroomsScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Burger Menu Drawer */}
+      <Modal visible={showMenu} transparent animationType="none" onRequestClose={closeMenu}>
+        <View style={styles.drawerOverlay}>
+          <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
+          </Animated.View>
+          <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerAvatar}>
+                {studentPhotoUrl ? (
+                  <Image source={{ uri: studentPhotoUrl }} style={styles.drawerAvatarImg} />
+                ) : (
+                  <Text style={styles.drawerAvatarText}>{displayInitial}</Text>
+                )}
+              </View>
+              <View style={styles.drawerHeaderInfo}>
+                <Text style={styles.drawerName}>{displayName}</Text>
+                <Text style={styles.drawerRole}>Student</Text>
+              </View>
+              <TouchableOpacity onPress={closeMenu} style={styles.drawerClose}>
+                <Ionicons name="close" size={20} color={C.ink3} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.drawerDivider} />
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentDashboard'); }}>
+              <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => closeMenu()}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('FindTeacher'); }}>
+              <Ionicons name="search-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Find a Teacher</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentConsultations'); }}>
+              <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Consultations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Notifications'); }}>
+              <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Notifications</Text>
+            </TouchableOpacity>
+            <View style={styles.drawerDivider} />
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); handleSignOut(); }}>
+              <Ionicons name="log-out-outline" size={20} color={C.red} style={styles.drawerItemIcon} />
+              <Text style={[styles.drawerItemText, { color: C.red }]}>Sign Out</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -272,13 +431,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(0,0,0,0.06)',
   },
-  backBtn: { padding: 4, marginRight: 8 },
-  appBarTitle: { flex: 1, fontSize: 20, fontWeight: '600', color: '#202124' },
+  appBarTitle: { flex: 1, fontSize: 22, fontWeight: '700', color: '#202124', paddingLeft: 8 },
+  appBarRight: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  notifBadge: {
+    position: 'absolute', top: 2, right: 2,
+    backgroundColor: '#D93025', borderRadius: 10, minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: '#fff',
+  },
+  notifBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' as const },
+  menuBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
 
   // List
   listContent: { padding: 16, paddingBottom: 88 },
@@ -358,4 +527,34 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   submitButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // Drawer
+  drawerOverlay: { flex: 1 },
+  drawerBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  drawer: {
+    position: 'absolute', top: 0, bottom: 0, right: 0,
+    width: 300, backgroundColor: '#fff',
+    elevation: 16, shadowColor: '#000',
+    shadowOffset: { width: -2, height: 0 }, shadowOpacity: 0.15, shadowRadius: 16,
+  },
+  drawerHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 20, paddingTop: 52,
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E8EAED',
+  },
+  drawerAvatar: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: '#202124', justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
+  },
+  drawerAvatarImg: { width: 48, height: 48, borderRadius: 24 },
+  drawerAvatarText: { color: '#fff', fontSize: 20, fontWeight: '700' as const },
+  drawerHeaderInfo: { flex: 1, marginLeft: 12 },
+  drawerName: { fontSize: 15, fontWeight: '600' as const, color: '#202124' },
+  drawerRole: { fontSize: 12, color: '#5F6368', marginTop: 2 },
+  drawerClose: { padding: 4 },
+  drawerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED', marginVertical: 8 },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
+  drawerItemIcon: { marginRight: 14 },
+  drawerItemText: { fontSize: 15, color: '#202124' },
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../config/supabase';
 import { notificationService } from '../services/notificationService';
+import { triggerToast } from '../components/NotificationToast';
 
 export interface AppNotification {
   id: string;
@@ -139,6 +140,8 @@ export function useRealtimeNotifications(userId: string | undefined) {
           setUnreadCount(prev => prev + 1);
           // Only fire local push for truly new notifications (not the initial load)
           if (initialLoadDone.current) {
+            // Show in-app banner toast
+            triggerToast(newNotif.title, newNotif.message);
             notificationService
               .sendLocalNotification(newNotif.title, newNotif.message, {
                 type: newNotif.type,
@@ -202,6 +205,15 @@ export function useRealtimeNotifications(userId: string | undefined) {
       initialLoadDone.current = false;
     };
   }, [userId]); // intentionally only depends on userId — fetchNotifications is stable
+
+  // ─── polling fallback ──────────────────────────────────────────────────────
+  // Supabase Realtime may miss INSERTs from SECURITY DEFINER triggers (RLS bypass).
+  // Poll every 8 seconds to guarantee the badge count stays accurate.
+  useEffect(() => {
+    if (!userId) return;
+    const interval = setInterval(fetchNotifications, 8000);
+    return () => clearInterval(interval);
+  }, [userId, fetchNotifications]);
 
   return {
     notifications,

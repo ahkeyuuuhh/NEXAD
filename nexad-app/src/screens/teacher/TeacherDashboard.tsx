@@ -13,6 +13,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // react-native-calendars not used — replaced with custom week strip
@@ -24,6 +25,7 @@ import { messageService, MessageWithSender } from '../../services/messageService
 import { notificationService } from '../../services/notificationService';
 import { profileService, TeacherProfile } from '../../services/profileService';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { supabase } from '../../config/supabase';
 import type { ConsultationRequest } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shadow } from '../../config/theme';
@@ -35,6 +37,7 @@ const MESSAGE_LIMIT = 5;
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
+  studentPhotoUrl?: string;
 }
 
 interface MarkedDates {
@@ -84,13 +87,16 @@ export default function TeacherDashboard({ navigation, route }: any) {
     menuAnim.setValue(300);
     backdropAnim.setValue(0);
     Animated.parallel([
-      Animated.timing(menuAnim, {
-        toValue: 0, duration: 340,
-        easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)),
+      Animated.spring(menuAnim, {
+        toValue: 0,
+        damping: 28,
+        stiffness: 280,
+        mass: 0.8,
+        overshootClamping: true,
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 1, duration: 300,
+        toValue: 1, duration: 250,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -99,12 +105,12 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const closeMenu = () => {
     Animated.parallel([
       Animated.timing(menuAnim, {
-        toValue: 300, duration: 220,
-        easing: Easing.in(Easing.bezier(0.6, 0, 1, 1)),
+        toValue: 300, duration: 200,
+        easing: Easing.in(Easing.bezier(0.4, 0, 1, 1)),
         useNativeDriver: true,
       }),
       Animated.timing(backdropAnim, {
-        toValue: 0, duration: 180,
+        toValue: 0, duration: 160,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
@@ -130,6 +136,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
             return {
               ...request,
               studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+              studentPhotoUrl: profile?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -150,6 +157,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
             return {
               ...consultation,
               studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+              studentPhotoUrl: profile?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -445,7 +453,11 @@ export default function TeacherDashboard({ navigation, route }: any) {
         <View style={styles.headerLeft}>
           <TouchableOpacity style={styles.avatarBtn} onPress={() => setShowProfileMenu(true)}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{fullName[0] || 'P'}</Text>
+              {profile?.profile_photo_url ? (
+                <Image source={{ uri: profile.profile_photo_url }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarText}>{fullName[0] || 'P'}</Text>
+              )}
             </View>
           </TouchableOpacity>
           <View style={styles.headerTextWrap}>
@@ -709,9 +721,12 @@ export default function TeacherDashboard({ navigation, route }: any) {
               >
                 <View style={styles.requestCardHeader}>
                   <View style={styles.requestAvatar}>
-                    <Text style={styles.requestAvatarText}>
-                      {request.studentName?.[0] || 'S'}
-                    </Text>
+                    {request.studentPhotoUrl
+                      ? <Image source={{ uri: request.studentPhotoUrl }} style={styles.requestAvatarImg} />
+                      : <Text style={styles.requestAvatarText}>
+                          {request.studentName?.[0] || 'S'}
+                        </Text>
+                    }
                   </View>
                   <View style={styles.requestInfo}>
                     <Text style={styles.requestName}>
@@ -780,7 +795,11 @@ export default function TeacherDashboard({ navigation, route }: any) {
           <Animated.View style={[styles.drawer, { transform: [{ translateX: menuAnim }] }]}>
             <View style={styles.drawerHeader}>
               <View style={styles.drawerAvatar}>
-                <Text style={styles.drawerAvatarText}>{fullName[0] || 'P'}</Text>
+                {profile?.profile_photo_url ? (
+                  <Image source={{ uri: profile.profile_photo_url }} style={styles.drawerAvatarImg} />
+                ) : (
+                  <Text style={styles.drawerAvatarText}>{fullName[0] || 'P'}</Text>
+                )}
               </View>
               <View style={styles.drawerHeaderInfo}>
                 <Text style={styles.drawerName}>{fullName}</Text>
@@ -795,7 +814,14 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ClassroomHub'); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => {
+              closeMenu();
+              navigation.navigate('ClassroomHub');
+              // Mark all classroom_announcement notifications as read
+              supabase.from('notifications').update({ is_read: true })
+                .eq('user_id', userId).eq('type', 'classroom_announcement').eq('is_read', false)
+                .then(() => setClassroomUnreadCount(0));
+            }}>
               <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Classes</Text>
             </TouchableOpacity>
@@ -830,7 +856,11 @@ export default function TeacherDashboard({ navigation, route }: any) {
           <View style={styles.profileMenu}>
             <View style={styles.profileMenuHeader}>
               <View style={styles.profileMenuAvatar}>
-                <Text style={styles.profileMenuAvatarText}>{fullName[0] || 'P'}</Text>
+                {profile?.profile_photo_url ? (
+                  <Image source={{ uri: profile.profile_photo_url }} style={styles.profileMenuAvatarImg} />
+                ) : (
+                  <Text style={styles.profileMenuAvatarText}>{fullName[0] || 'P'}</Text>
+                )}
               </View>
               <View style={styles.profileMenuInfo}>
                 <Text style={styles.profileMenuName}>{fullName}</Text>
@@ -877,7 +907,10 @@ export default function TeacherDashboard({ navigation, route }: any) {
                       <Ionicons name="close" size={18} color="rgba(255,255,255,0.8)" />
                     </TouchableOpacity>
                     <View style={styles.tdmAvatarWrap}>
-                      <Text style={styles.tdmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
+                      {selectedConsultation.studentPhotoUrl
+                        ? <Image source={{ uri: selectedConsultation.studentPhotoUrl }} style={styles.tdmAvatarImg} />
+                        : <Text style={styles.tdmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
+                      }
                     </View>
                     <Text style={styles.tdmStudentName}>{selectedConsultation.studentName}</Text>
                     <Text style={styles.tdmSubjectLine} numberOfLines={2}>{selectedConsultation.subject_line}</Text>
@@ -973,6 +1006,7 @@ const styles = StyleSheet.create({
   headerLeft:    { flexDirection: 'row', alignItems: 'center', flex: 1 },
   avatar:        { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
   avatarText:    { color: C.ink1, fontSize: 19, fontWeight: '600' as const },
+  avatarImg:     { width: 44, height: 44, borderRadius: 22 },
   headerTextWrap:{ flex: 1 },
   headerGreeting:{ ...T.small, color: C.ink3, marginBottom: 2 },
   headerTitle:   { ...T.h2, color: C.ink1 },
@@ -1041,6 +1075,7 @@ const styles = StyleSheet.create({
   requestCardHeader: { flexDirection: 'row' },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink2 },
+  requestAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   requestInfo:       { flex: 1 },
   requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4 },
   requestSubject:    { ...T.small, color: C.ink3, marginBottom: 4 },
@@ -1071,6 +1106,7 @@ const styles = StyleSheet.create({
   drawerHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingBottom: S.lg },
   drawerAvatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
   drawerAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
+  drawerAvatarImg:  { width: 52, height: 52, borderRadius: 26 },
   drawerHeaderInfo: { flex: 1 },
   drawerName:       { ...T.label, color: C.ink1, fontSize: 15 },
   drawerRole:       { ...T.small, color: C.ink3, marginTop: 2 },
@@ -1086,6 +1122,7 @@ const styles = StyleSheet.create({
   profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
   profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md },
   profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
+  profileMenuAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   profileMenuInfo:       { flex: 1 },
   profileMenuName:       { ...T.label, color: C.ink1, fontSize: 14 },
   profileMenuEmail:      { ...T.small, color: C.ink3, marginTop: 2 },
@@ -1116,6 +1153,7 @@ const styles = StyleSheet.create({
   tdmCloseBtn:        { position: 'absolute' as const, top: S.lg, right: S.lg, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center' as const, alignItems: 'center' as const },
   tdmAvatarWrap:      { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center' as const, alignItems: 'center' as const, marginBottom: S.md },
   tdmAvatarText:      { color: '#FFFFFF', fontSize: 26, fontWeight: '700' as const },
+  tdmAvatarImg:       { width: 64, height: 64, borderRadius: 32 },
   tdmStudentName:     { color: '#FFFFFF', fontSize: 18, fontWeight: '700' as const, textAlign: 'center' as const, marginBottom: 4 },
   tdmSubjectLine:     { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' as const, lineHeight: 18, marginBottom: S.md, paddingHorizontal: S.xl },
   tdmStatusPill:      { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full },

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { classroomService } from '../../services/classroomService';
+import { notificationService } from '../../services/notificationService';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -86,6 +87,17 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
             if (result.error) {
               Alert.alert('Error', result.error);
             } else {
+              // Notify the teacher
+              if (classroom?.teacher_id) {
+                notificationService.createNotification(
+                  classroom.teacher_id,
+                  'Student Unenrolled',
+                  `${user!.first_name} ${user!.last_name} unenrolled from "${classroom.name}"`,
+                  'classroom_announcement',
+                  undefined,
+                  classroomId
+                ).catch(() => {});
+              }
               navigation.goBack();
             }
           },

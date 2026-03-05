@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,7 @@ import type { ConsultationRequest } from '../../types';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;
+  teacherPhotoUrl?: string;
 }
 
 export default function PendingRequestsScreen({ navigation }: any) {
@@ -51,6 +53,7 @@ export default function PendingRequestsScreen({ navigation }: any) {
             return {
               ...request,
               teacherName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Teacher',
+              teacherPhotoUrl: profile?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -166,9 +169,13 @@ export default function PendingRequestsScreen({ navigation }: any) {
             <View key={request.id} style={styles.requestCard}>
               <View style={styles.requestHeader}>
                 <View style={styles.teacherAvatar}>
-                  <Text style={styles.teacherAvatarText}>
-                    {request.teacherName.charAt(0)}
-                  </Text>
+                  {request.teacherPhotoUrl ? (
+                    <Image source={{ uri: request.teacherPhotoUrl }} style={styles.teacherAvatarImg} />
+                  ) : (
+                    <Text style={styles.teacherAvatarText}>
+                      {request.teacherName.charAt(0)}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.requestInfo}>
                   <Text style={styles.teacherName}>{request.teacherName}</Text>
@@ -304,6 +311,7 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: C.ink2,
   },
+  teacherAvatarImg: { width: 48, height: 48, borderRadius: 24 },
   requestInfo: {
     flex: 1,
   },

@@ -252,6 +252,17 @@ export const authService = {
 
     if (roleResult.data?.profile) {
       console.log('🟢 [handleAuthenticatedUser] Found existing profile');
+
+      // Role mismatch — prevent a teacher logging in via the Student portal and vice-versa
+      if (roleResult.data.role !== role) {
+        await supabase.auth.signOut();
+        const existingRole = roleResult.data.role;
+        const portalName = existingRole === 'teacher' ? 'Faculty (Teacher)' : 'Student';
+        return {
+          error: `This Google account is already registered as a ${existingRole}. Please sign in through the ${portalName} portal instead.`,
+        };
+      }
+
       if (roleResult.data.role === 'student') {
         await profileService.updateStudentLastLogin(userId);
       } else {

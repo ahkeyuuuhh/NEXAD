@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -22,6 +23,7 @@ import { C, F, T, S, R, shadow } from '../../config/theme';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
+  studentPhotoUrl?: string;
 }
 
 interface MarkedDates {
@@ -63,6 +65,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
             return {
               ...consultation,
               studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+              studentPhotoUrl: profile?.profile_photo_url,
             };
           } catch (error) {
             console.error('Error loading student profile:', error);
@@ -563,7 +566,11 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
                       <Ionicons name="close" size={18} color="rgba(255,255,255,0.8)" />
                     </TouchableOpacity>
                     <View style={styles.dmAvatarWrap}>
-                      <Text style={styles.dmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
+                      {selectedConsultation.studentPhotoUrl ? (
+                        <Image source={{ uri: selectedConsultation.studentPhotoUrl }} style={styles.dmAvatarImg} />
+                      ) : (
+                        <Text style={styles.dmAvatarText}>{selectedConsultation.studentName.charAt(0).toUpperCase()}</Text>
+                      )}
                     </View>
                     <Text style={styles.dmName}>{selectedConsultation.studentName}</Text>
                     <Text style={styles.dmSubject} numberOfLines={2}>{selectedConsultation.subject_line}</Text>
@@ -970,6 +977,7 @@ const styles = StyleSheet.create({
   dmCloseBtn:    { position: 'absolute' as const, top: S.lg, right: S.lg, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
   dmAvatarWrap:  { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', marginBottom: S.md },
   dmAvatarText:  { color: '#FFFFFF', fontSize: 24, fontWeight: '700' as const },
+  dmAvatarImg:   { width: 60, height: 60, borderRadius: 30 },
   dmName:        { color: '#FFFFFF', fontSize: 17, fontWeight: '700' as const, textAlign: 'center' as const, marginBottom: 3 },
   dmSubject:     { color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' as const, lineHeight: 18, marginBottom: S.md, paddingHorizontal: S.xl },
   dmStatusPill:       { flexDirection: 'row' as const, alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full },

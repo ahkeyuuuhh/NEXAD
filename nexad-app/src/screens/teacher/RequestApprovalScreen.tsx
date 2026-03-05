@@ -12,6 +12,7 @@ import {
   Modal,
   LayoutAnimation,
   UIManager,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,6 +47,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const userId = authContext.user?.user_id;
 
   const [studentName, setStudentName] = useState('Loading...');
+  const [studentPhotoUrl, setStudentPhotoUrl] = useState<string | undefined>();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [startHour, setStartHour] = useState(13);
   const [startMinute, setStartMinute] = useState(0);
@@ -141,6 +143,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       const result = await profileService.getStudentProfile(request.student_id);
       if (result.data) {
         setStudentName(`${result.data.first_name} ${result.data.last_name}`);
+        setStudentPhotoUrl(result.data.profile_photo_url);
       } else {
         setStudentName('Student Name');
       }
@@ -170,6 +173,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       // Get document name from uploaded docs or fall back to subject line
       const docs = await documentService.getConsultationDocuments(request.id);
       const firstDoc = docs.data?.[0];
+
+      // If no file was submitted, skip AI/plagiarism analysis entirely
+      if (!firstDoc) {
+        setConsultationBrief(null);
+        return;
+      }
+
       const fileName = firstDoc?.file_name || request.subject_line || 'Student Document';
 
       // Extract file text if a document was uploaded
@@ -247,6 +257,18 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       return false;
     }
 
+    // If today is selected, validate the start time is not already past
+    const isToday = selDate.getTime() === today.getTime();
+    if (isToday) {
+      const now = new Date();
+      const startDateTime = new Date(selectedDate);
+      startDateTime.setHours(startHour, startMinute, 0, 0);
+      if (startDateTime <= now) {
+        Alert.alert('Invalid Time', 'The selected start time has already passed. Please choose a future time.');
+        return false;
+      }
+    }
+
     // Validate end time is after start time
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
@@ -314,6 +336,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       }
 
       // NOTE: DB trigger (notify_student_status_change) handles student notification.
+      // Also send a device push so the student gets a sound immediately.
+      notificationService.sendPushToUser(
+        request.student_id,
+        'Consultation Approved ✓',
+        'Your consultation request has been approved and scheduled.',
+        { type: 'request_accepted', consultationRequestId: request.id }
+      ).catch(() => {});
       Alert.alert(
         'Request Approved',
         'The consultation request has been approved and scheduled.',
@@ -352,6 +381,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
               }
 
               // NOTE: DB trigger (notify_student_status_change) handles student notification.
+              // Also send a device push so the student gets a sound immediately.
+              notificationService.sendPushToUser(
+                request.student_id,
+                'Consultation Request Update',
+                'Your consultation request has been reviewed by the teacher.',
+                { type: 'request_declined', consultationRequestId: request.id }
+              ).catch(() => {});
               Alert.alert(
                 'Request Declined',
                 'The consultation request has been declined.',
@@ -392,9 +428,13 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             <View style={styles.heroGlassCard}>
               <View style={styles.gradientStudentRow}>
                 <View style={styles.gradientAvatar}>
-                  <Text style={styles.gradientAvatarText}>
-                    {(isLoadingStudent ? '?' : studentName)[0]?.toUpperCase() || 'S'}
-                  </Text>
+                  {studentPhotoUrl ? (
+                    <Image source={{ uri: studentPhotoUrl }} style={styles.gradientAvatarImg} />
+                  ) : (
+                    <Text style={styles.gradientAvatarText}>
+                      {(isLoadingStudent ? '?' : studentName)[0]?.toUpperCase() || 'S'}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.gradientStudentInfo}>
                   <Text style={styles.gradientStudentName}>
@@ -614,7 +654,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             </>
           ) : (
             <View style={styles.noDataCard}>
-              <Text style={styles.noDataText}>Could not generate brief. Please review the request manually.</Text>
+              <Text style={styles.noDataText}>No document submitted — AI analysis is not available for this request.</Text>
             </View>
           )}
         </View>
@@ -1710,6 +1750,7 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#ffffff',
   },
+  gradientAvatarImg: { width: 52, height: 52, borderRadius: 26 },
   gradientStudentInfo: {
     flex: 1,
   },

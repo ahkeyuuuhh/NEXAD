@@ -9,6 +9,7 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ navigation, route }: LoginScreenProps) {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [roleErrorMsg, setRoleErrorMsg] = useState('');
   const { signInWithGoogle } = useAuth();
   const selectedRole = route?.params?.role || 'student';
 
@@ -45,11 +47,16 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
     try {
       const result = await signInWithGoogle(selectedRole);
       if (result?.error) {
-        Alert.alert(
-          'Google Sign-In Failed',
-          result.error + '\n\nPlease make sure:\n• You have a stable internet connection\n• Google OAuth is properly configured in Supabase\n• You are using a valid Google account',
-          [{ text: 'OK' }]
-        );
+        if (result.error.includes('already registered as a')) {
+          // Role mismatch — show styled modal instead of generic Alert
+          setRoleErrorMsg(result.error);
+        } else {
+          Alert.alert(
+            'Google Sign-In Failed',
+            result.error + '\n\nPlease make sure:\n• You have a stable internet connection\n• Google OAuth is properly configured in Supabase\n• You are using a valid Google account',
+            [{ text: 'OK' }]
+          );
+        }
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'An unexpected error occurred');
@@ -136,6 +143,34 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
         </View>
 
       </SafeAreaView>
+
+      {/* Role Mismatch Modal */}
+      <Modal
+        visible={!!roleErrorMsg}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRoleErrorMsg('')}
+      >
+        <View style={styles.roleModalOverlay}>
+          <View style={styles.roleModalCard}>
+            <View style={styles.roleModalIconWrap}>
+              <Ionicons name="warning" size={32} color="#F59E0B" />
+            </View>
+            <Text style={styles.roleModalTitle}>Access Restricted</Text>
+            <Text style={styles.roleModalBody}>{roleErrorMsg}</Text>
+            <Text style={styles.roleModalHint}>
+              Please go back and select the correct portal for your account.
+            </Text>
+            <TouchableOpacity
+              style={styles.roleModalBtn}
+              onPress={() => { setRoleErrorMsg(''); navigation.goBack(); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.roleModalBtnText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -276,5 +311,64 @@ const styles = StyleSheet.create({
     color: C.ink4,
     textAlign: 'center',
     lineHeight: 16,
+  },
+
+  // ── Role mismatch modal ────────────────────────────────────────────────────
+  roleModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 28,
+  },
+  roleModalCard: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    ...shadow.lift,
+  },
+  roleModalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(245,158,11,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  roleModalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  roleModalBody: {
+    fontSize: 14,
+    color: '#D1D5DB',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  roleModalHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 24,
+  },
+  roleModalBtn: {
+    backgroundColor: C.ink1,
+    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+  },
+  roleModalBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
 });

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +21,7 @@ import { C, F, T, S, R, shadow } from '../../config/theme';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
+  studentPhotoUrl?: string;
 }
 
 export default function AllRequestsScreen({ navigation }: any) {
@@ -54,6 +56,7 @@ export default function AllRequestsScreen({ navigation }: any) {
             return {
               ...request,
               studentName: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown Student',
+              studentPhotoUrl: profile?.profile_photo_url,
             };
           } catch (error) {
             return {
@@ -216,9 +219,13 @@ export default function AllRequestsScreen({ navigation }: any) {
             >
               <View style={styles.requestHeader}>
                 <View style={styles.studentAvatar}>
-                  <Text style={styles.studentAvatarText}>
-                    {request.studentName.charAt(0)}
-                  </Text>
+                  {request.studentPhotoUrl ? (
+                    <Image source={{ uri: request.studentPhotoUrl }} style={styles.studentAvatarImg} />
+                  ) : (
+                    <Text style={styles.studentAvatarText}>
+                      {request.studentName.charAt(0)}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.requestInfo}>
                   <Text style={styles.studentName}>{request.studentName}</Text>
@@ -358,6 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: C.accent,
   },
+  studentAvatarImg: { width: 48, height: 48, borderRadius: 24 },
   requestInfo: {
     flex: 1,
   },
