@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { classroomService } from '../../services/classroomService';
 import { notificationService } from '../../services/notificationService';
+import { conversationService } from '../../services/conversationService';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -147,6 +148,27 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
               year: 'numeric',
             })}
           </Text>
+          <TouchableOpacity
+            style={styles.replyBtn}
+            onPress={async () => {
+              if (!user?.user_id || !classroom?.teacher_id) return;
+              const result = await conversationService.getOrCreateAnnouncementThread(
+                user.user_id,
+                classroom.teacher_id,
+                ann.id
+              );
+              if (result.data) {
+                navigation.navigate('Chat', {
+                  conversationId: result.data,
+                  title: `Re: ${ann.title}`,
+                  type: 'ANNOUNCEMENT_THREAD',
+                });
+              }
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={13} color={C.ink3} />
+            <Text style={styles.replyBtnText}>Reply to Teacher</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -363,6 +385,8 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 4 },
   cardBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8 },
   cardDate: { fontSize: 12, color: '#9AA0A6' },
+  replyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, alignSelf: 'flex-start', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: '#F1F3F4', borderRadius: 999 },
+  replyBtnText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
 
   pinnedBadge: {
     flexDirection: 'row',

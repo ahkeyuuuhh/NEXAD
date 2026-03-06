@@ -1,0 +1,1 @@
+﻿{"query":"CREATE OR REPLACE VIEW public.profiles AS\n  SELECT user_id, first_name, last_name, profile_photo_url, \u0027student\u0027::TEXT AS role\n  FROM public.student_profiles\n  UNION ALL\n  SELECT user_id, first_name, last_name, profile_photo_url, \u0027teacher\u0027::TEXT AS role\n  FROM public.teacher_profiles;"}

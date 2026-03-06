@@ -1,25 +1,5 @@
-ONE LAST FEATURE OF THIS APP:
-    [] Unified Messaging System: 
-        [] Unified Data Model: 
-            Conversation Types: Define a conversations table with a type enum: CONSULTATION, ANNOUNCEMENT_THREAD, or INQUIRY.
-
-            Automatic Thread Creation: * Consultations: When a teacher status updates to ACCEPTED in the consultation_requests table, automatically insert a new row into conversations.
-
-            Announcements: When a student replies to a global announcement, create a unique conversation_id linked to that announcement_id and the student_id (Private Thread).
-
-            Participants: Use a conversation_participants table to link multiple users (Teacher/Student) to a single chat.
-        [] Messaging UI & Shortcuts:
-            Inbox: A single view fetching all conversations where the current user_id is a participant, sorted by last_message_at.Contextual Shortcuts: Within the chat interface, if type == 'CONSULTATION', display persistent action buttons:View Smart Brief: Deep link to the consultation summary.View Files: Filtered view of all attachments sent within that specific conversation_id.File Handling: Support PDF/Docx uploads. Validate file size ($< 5\text{MB}$) via client-side logic and Supabase Storage bucket policies.
-        [] Real-time and System Notifications:
-            Supabase Realtime: Enable REPLICA identity on the messages table. The frontend must subscribe to INSERT changes on messages where conversation_id matches the active chat.
-
-            Push Notifications: Create a Supabase Database Webhook on the messages table. On every INSERT, trigger an Edge Function to:
-
-            Identify the recipient(s) not currently "active" in the chat.
-
-            Send a push notification via FCM/OneSignal.
-
-            Send an Email Notification (via Resend/SMTP) if the user is offline.
+BUG FIXES:
+    [] 
 
 ==============================================================
 GENERAL UI:

@@ -675,7 +675,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.statCardWrap}
-              onPress={() => Alert.alert('Messages', 'View all messages')}
+              onPress={() => navigation.navigate('Inbox')}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -752,7 +752,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Unread Messages</Text>
             {dashboardData.unreadMessages.length > MESSAGE_LIMIT && (
-              <TouchableOpacity onPress={() => Alert.alert('Coming Soon', 'View all messages')}>
+              <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={styles.viewAllText}>View All</Text>
                   <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
@@ -770,7 +770,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <TouchableOpacity 
                 key={message.id} 
                 style={styles.messageCard}
-                onPress={() => Alert.alert('Coming Soon', 'Open message thread')}
+                onPress={() => navigation.navigate('Inbox')}
               >
                 <View style={styles.messageHeader}>
                   <Text style={styles.messageSubject} numberOfLines={1}>
@@ -829,7 +829,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Requests</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherConsultations'); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
               <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Messages</Text>
             </TouchableOpacity>

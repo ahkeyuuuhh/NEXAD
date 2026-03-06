@@ -241,6 +241,47 @@ export interface SharedResource {
   url: string;
 }
 
+// ─── Unified Messaging System ────────────────────────────────────────────────
+
+export type ConversationType = 'CONSULTATION' | 'ANNOUNCEMENT_THREAD' | 'INQUIRY';
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  title?: string;
+  consultation_request_id?: string;
+  announcement_id?: string;
+  last_message_at: string;
+  last_message_preview?: string;
+  created_at: string;
+  created_by?: string;
+  my_unread_count?: number;
+  other_user?: Partial<User>;
+}
+
+export interface ConversationParticipant {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  unread_count: number;
+  last_read_at?: string;
+  joined_at: string;
+  user?: Partial<User>;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  file_url?: string;
+  file_name?: string;
+  file_type?: string;
+  file_size_bytes?: number;
+  created_at: string;
+  sender?: Partial<User>;
+}
+
 // API Response types
 export interface ApiResponse<T> {
   data?: T;

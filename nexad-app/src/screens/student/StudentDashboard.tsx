@@ -530,7 +530,7 @@ export default function StudentDashboard({ navigation, route }: any) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Unread Messages</Text>
-            <TouchableOpacity><Text style={styles.viewAllText}>View All</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Inbox')}><Text style={styles.viewAllText}>View All</Text></TouchableOpacity>
           </View>
           {dashboardData.unreadMessages.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -542,7 +542,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               <TouchableOpacity
                 key={m.id}
                 style={styles.messageCard}
-                onPress={() => navigation.navigate('StudentConsultations')}
+                onPress={() => navigation.navigate('Inbox')}
                 activeOpacity={0.7}
               >
                 <View style={styles.messageAvatar}>
@@ -605,7 +605,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Consultations</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentConsultations'); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
               <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Messages</Text>
             </TouchableOpacity>

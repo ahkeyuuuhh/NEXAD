@@ -62,6 +62,8 @@ import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSu
 
 // Shared
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
+import InboxScreen from './src/screens/shared/InboxScreen';
+import ChatScreen from './src/screens/shared/ChatScreen';
 import NotificationToast from './src/components/NotificationToast';
 
 function HomeScreen() {
@@ -281,6 +283,17 @@ function AppStack() {
       <Stack.Screen 
         name="BinComments" 
         component={BinCommentsScreen} 
+        options={{ headerShown: false }} 
+      />
+      {/* Unified Messaging */}
+      <Stack.Screen 
+        name="Inbox" 
+        component={InboxScreen} 
+        options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="Chat" 
+        component={ChatScreen} 
         options={{ headerShown: false }} 
       />
     </Stack.Navigator>
