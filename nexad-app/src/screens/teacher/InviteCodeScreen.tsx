@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,14 @@ import {
   Platform,
   Animated,
   Easing,
+  Image,
+  ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { C } from "../../config/theme";
+import { cacheDirectory, downloadAsync } from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 
 export default function InviteCodeScreen({ navigation, route }: any) {
   const { classroomName, inviteCode } = route.params as {
@@ -48,6 +53,10 @@ export default function InviteCodeScreen({ navigation, route }: any) {
     ).start();
   }, []);
 
+  const [saving, setSaving] = useState(false);
+
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(inviteCode)}&color=202124&bgcolor=ffffff&margin=12`;
+
   const handleCopy = () => {
     Clipboard.setString(inviteCode);
     if (Platform.OS === "android") {
@@ -55,10 +64,49 @@ export default function InviteCodeScreen({ navigation, route }: any) {
     }
   };
 
+  // Save / download QR code directly to gallery
+  const handleSaveQR = async () => {
+    setSaving(true);
+    try {
+      // Request media library permission
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Gallery permission is required to save the QR code.', ToastAndroid.LONG);
+        }
+        return;
+      }
+      // Download QR image to cache
+      const localPath = `${cacheDirectory}nexad_qr_${inviteCode}.png`;
+      await downloadAsync(qrImageUrl, localPath);
+      // Save to gallery
+      await MediaLibrary.saveToLibraryAsync(localPath);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('QR code saved to your gallery!', ToastAndroid.SHORT);
+      }
+    } catch (e) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Failed to save QR code. Please try again.', ToastAndroid.SHORT);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Combined share: text invite + QR image attachment
   const handleShare = async () => {
-    await Share.share({
-      message: `Join "${classroomName}" on Nexad!\n\nInvite Code: ${inviteCode}`,
-    });
+    const msg = `Join "${classroomName}" on Nexad!\n\nInvite Code: ${inviteCode}`;
+    try {
+      const localPath = `${cacheDirectory}qr_share_${inviteCode}.png`;
+      await downloadAsync(qrImageUrl, localPath);
+      if (Platform.OS === 'ios') {
+        await Share.share({ message: msg, url: localPath });
+      } else {
+        await Share.share({ message: `${msg}\n\nQR Image: ${qrImageUrl}` });
+      }
+    } catch {
+      await Share.share({ message: msg });
+    }
   };
 
   return (
@@ -75,7 +123,11 @@ export default function InviteCodeScreen({ navigation, route }: any) {
       </View>
 
       {/* Content */}
-      <View style={styles.body}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Classroom name label */}
         <Animated.Text style={[styles.classroomLabel, { opacity: fadeLabel }]}>
           {classroomName}
@@ -94,18 +146,41 @@ export default function InviteCodeScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </Animated.View>
 
+        {/* QR Code card */}
+        <Animated.View style={[styles.qrCard, { opacity: fadeCard, transform: [{ translateY: slideCard }] }]}>
+          <Text style={styles.qrLabel}>QR Code</Text>
+          <Image
+            source={{ uri: qrImageUrl }}
+            style={styles.qrImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.qrHint}>Students can scan this to join</Text>
+        </Animated.View>
+
         <Text style={styles.hint}>
-          Share this code with your students so they can join the classroom.
+          Share the code or QR with your students so they can join.
         </Text>
 
-        {/* Share Code button */}
-        <Animated.View style={{ opacity: fadeBtn, width: "100%", alignItems: "center" }}>
+        {/* Action buttons */}
+        <Animated.View style={[styles.btnRow, { opacity: fadeBtn }]}>
+          <TouchableOpacity
+            style={[styles.outlineBtn, saving && { opacity: 0.6 }]}
+            onPress={handleSaveQR}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator size="small" color="#202124" />
+              : <Ionicons name="download-outline" size={18} color="#202124" />
+            }
+            <Text style={styles.outlineBtnText}>Save QR</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85}>
-            <Ionicons name="share-social-outline" size={20} color="#fff" />
-            <Text style={styles.shareBtnText}>Share Code</Text>
+            <Ionicons name="share-social-outline" size={18} color="#fff" />
+            <Text style={styles.shareBtnText}>Share</Text>
           </TouchableOpacity>
         </Animated.View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -138,6 +213,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 28,
     paddingBottom: 60,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    paddingVertical: 32,
   },
 
   classroomLabel: {
@@ -197,12 +280,14 @@ const styles = StyleSheet.create({
   },
 
   shareBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    gap: 8,
     backgroundColor: "#202124",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderRadius: 14,
     elevation: 4,
     shadowColor: "#000",
@@ -212,8 +297,73 @@ const styles = StyleSheet.create({
   },
   shareBtnText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+
+  // QR code section
+  qrCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    marginBottom: 20,
+  },
+  qrLabel: {
+    fontSize: 13,
+    color: "#9AA0A6",
+    fontWeight: "500",
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  qrImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+  },
+  qrHint: {
+    fontSize: 12,
+    color: "#9AA0A6",
+    marginTop: 12,
+    textAlign: "center",
+  },
+
+  // Button row
+  btnRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  outlineBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: "#202124",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  outlineBtnText: {
+    color: "#202124",
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+
+  // QR display size bumped for better scan accuracy
+  qrDisplayImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 8,
   },
 });

@@ -59,6 +59,7 @@ import StudentWorksScreen from './src/screens/teacher/StudentWorksScreen';
 import StudentClassroomsScreen from './src/screens/student/StudentClassroomsScreen';
 import StudentClassroomDetailScreen from './src/screens/student/StudentClassroomDetailScreen';
 import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSubmissionScreen';
+import QRScannerScreen from './src/screens/student/QRScannerScreen';
 
 // Shared
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
@@ -249,6 +250,11 @@ function AppStack() {
         name="StudentClassrooms" 
         component={StudentClassroomsScreen} 
         options={{ headerShown: false }} 
+      />
+      <Stack.Screen 
+        name="QRScanner" 
+        component={QRScannerScreen} 
+        options={{ headerShown: false, presentation: 'fullScreenModal' }} 
       />
       <Stack.Screen 
         name="StudentClassroomDetail" 

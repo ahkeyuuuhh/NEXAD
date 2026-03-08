@@ -24,6 +24,8 @@ import { profileService } from '../../services/profileService';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { C, S, R } from '../../config/theme';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadAsync, FileSystemUploadType, copyAsync, deleteAsync, cacheDirectory } from 'expo-file-system/legacy';
 
 const BANNER_COLORS = [
   '#202124', '#3C4043', '#5F6368', '#37474F',
@@ -66,6 +68,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [studentPhotoUrl, setStudentPhotoUrl] = useState<string | undefined>();
   const menuAnim = useRef(new Animated.Value(300)).current;
@@ -150,15 +153,16 @@ export default function StudentClassroomsScreen({ navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); loadClassrooms(); };
 
-  const handleJoinClassroom = async () => {
-    if (!inviteCode.trim() || inviteCode.trim().length !== 6) {
+  const handleJoinClassroom = async (codeOverride?: string) => {
+    const code = codeOverride ?? inviteCode.trim().toUpperCase();
+    if (!code || code.length !== 6) {
       Alert.alert('Error', 'Please enter a valid 6-digit invite code');
       return;
     }
     if (!user?.user_id) { Alert.alert('Error', 'You must be logged in'); return; }
     setJoining(true);
     try {
-      const result = await classroomService.joinClassroom(user.user_id, inviteCode.trim().toUpperCase());
+      const result = await classroomService.joinClassroom(user.user_id, code);
       if (result.data) {
         Alert.alert('Success', 'You joined the classroom!');
         setShowJoinModal(false);
@@ -187,6 +191,81 @@ export default function StudentClassroomsScreen({ navigation }: any) {
       Alert.alert('Error', 'Failed to join classroom');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const decodeQRFromUri = async (uri: string): Promise<string | null> => {
+    let uploadUri = uri;
+    let tempPath: string | null = null;
+    try {
+      // Android image picker can return content:// URIs — copy to cache for uploadAsync
+      if (!uri.startsWith('file://')) {
+        tempPath = `${cacheDirectory}qr_decode_${Date.now()}.jpg`;
+        await copyAsync({ from: uri, to: tempPath });
+        uploadUri = tempPath;
+      }
+      const response = await uploadAsync(
+        'https://api.qrserver.com/v1/read-qr-code/',
+        uploadUri,
+        {
+          httpMethod: 'POST',
+          uploadType: FileSystemUploadType.MULTIPART,
+          fieldName: 'file',
+          mimeType: 'image/jpeg',
+        }
+      );
+      const result = JSON.parse(response.body);
+      const symbol = result?.[0]?.symbol?.[0];
+      // API returns error string when no QR found
+      if (!symbol || symbol.error) return null;
+      const decoded: string = (symbol.data ?? '').trim().toUpperCase();
+      // Accept any non-empty decoded string; join validation checks length
+      return decoded.length > 0 ? decoded : null;
+    } catch {
+      return null;
+    } finally {
+      if (tempPath) deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+    }
+  };
+
+  const handleScanQR = () => {
+    setShowJoinModal(false);
+    // Navigate to the real-time QR scanner; callback fires when code is detected
+    navigation.navigate('QRScanner', {
+      onCodeScanned: async (code: string) => {
+        setQrLoading(true);
+        try {
+          await handleJoinClassroom(code);
+        } finally {
+          setQrLoading(false);
+        }
+      },
+    });
+  };
+
+  const handlePickQR = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Gallery access is required to upload QR codes');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setQrLoading(true);
+      try {
+        const code = await decodeQRFromUri(result.assets[0].uri);
+        if (code) {
+          await handleJoinClassroom(code);
+        } else {
+          Alert.alert('Not found', 'Could not read a valid invite code. Make sure the image contains a Nexad classroom QR code.');
+        }
+      } finally {
+        setQrLoading(false);
+      }
     }
   };
 
@@ -354,10 +433,37 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               autoCapitalize="characters"
               autoCorrect={false}
             />
+            {/* QR Code options */}
+            <View style={styles.qrDivider}>
+              <View style={styles.qrDividerLine} />
+              <Text style={styles.qrDividerText}>or use QR code</Text>
+              <View style={styles.qrDividerLine} />
+            </View>
+            <View style={styles.qrOptRow}>
+              <TouchableOpacity
+                style={styles.qrOptBtn}
+                onPress={handleScanQR}
+                disabled={qrLoading || joining}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="camera-outline" size={22} color="#202124" />
+                <Text style={styles.qrOptText}>Scan QR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.qrOptBtn}
+                onPress={handlePickQR}
+                disabled={qrLoading || joining}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="image-outline" size={22} color="#202124" />
+                <Text style={styles.qrOptText}>Upload QR</Text>
+              </TouchableOpacity>
+            </View>
+            {qrLoading && <ActivityIndicator size="small" color="#202124" style={{ marginBottom: 12 }} />}
             <TouchableOpacity
-              style={[styles.submitButton, joining && { opacity: 0.6 }]}
-              onPress={handleJoinClassroom}
-              disabled={joining}
+              style={[styles.submitButton, (joining || qrLoading) && { opacity: 0.6 }]}
+              onPress={() => handleJoinClassroom()}
+              disabled={joining || qrLoading}
             >
               {joining ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Join</Text>}
             </TouchableOpacity>
@@ -527,6 +633,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   submitButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // QR join options
+  qrDivider: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, marginTop: 4 },
+  qrDividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED' },
+  qrDividerText: { fontSize: 11, color: '#9AA0A6', paddingHorizontal: 10, fontWeight: '500' },
+  qrOptRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  qrOptBtn: {
+    flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderWidth: 1.5, borderColor: '#E8EAED', borderRadius: 12, paddingVertical: 14,
+  },
+  qrOptText: { fontSize: 12, color: '#202124', fontWeight: '600' },
 
   // Drawer
   drawerOverlay: { flex: 1 },
