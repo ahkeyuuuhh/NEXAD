@@ -630,6 +630,14 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Notifications</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentProfile'); }}>
+              <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AccountSettings'); }}>
+              <Ionicons name="settings-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Settings</Text>
+            </TouchableOpacity>
             <View style={styles.drawerDivider} />
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); handleSignOut(); }}>
               <Ionicons name="log-out-outline" size={20} color={C.red} style={styles.drawerItemIcon} />
@@ -657,9 +665,13 @@ export default function StudentDashboard({ navigation, route }: any) {
               </View>
             </View>
             <View style={styles.profileMenuDivider} />
-            <TouchableOpacity style={styles.profileMenuItem} onPress={() => setShowProfileMenu(false)}>
+            <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); navigation.navigate('StudentProfile'); }}>
               <Ionicons name="person-outline" size={18} color={C.ink2} style={{ marginRight: S.md }} />
-              <Text style={styles.profileMenuItemText}>Account Profile Settings</Text>
+              <Text style={styles.profileMenuItemText}>My Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); navigation.navigate('AccountSettings'); }}>
+              <Ionicons name="settings-outline" size={18} color={C.ink2} style={{ marginRight: S.md }} />
+              <Text style={styles.profileMenuItemText}>Account Settings</Text>
             </TouchableOpacity>
             <View style={styles.profileMenuDivider} />
             <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); handleSignOut(); }}>

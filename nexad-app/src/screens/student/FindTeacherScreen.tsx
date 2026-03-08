@@ -92,7 +92,7 @@ export default function FindTeacherScreen({ navigation }: any) {
   };
 
   const handleSelectTeacher = (teacher: Teacher) => {
-    navigation.navigate('ConsultationRequest', { teacher });
+    navigation.navigate('TeacherProfile', { userId: teacher.user_id, isOwnProfile: false });
   };
 
   return (

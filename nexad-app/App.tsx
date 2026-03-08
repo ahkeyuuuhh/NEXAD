@@ -61,6 +61,12 @@ import StudentClassroomDetailScreen from './src/screens/student/StudentClassroom
 import AttachmentBinSubmissionScreen from './src/screens/student/AttachmentBinSubmissionScreen';
 import QRScannerScreen from './src/screens/student/QRScannerScreen';
 
+// Profile & Settings
+import TeacherProfileScreen from './src/screens/teacher/TeacherProfileScreen';
+import StudentProfileScreen from './src/screens/student/StudentProfileScreen';
+import AccountSettingsScreen from './src/screens/shared/AccountSettingsScreen';
+import TeacherSetupScreen from './src/screens/auth/TeacherSetupScreen';
+
 // Shared
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
 import InboxScreen from './src/screens/shared/InboxScreen';
@@ -145,11 +151,17 @@ function AuthStack() {
 function AppStack() {
   const { user } = useAuth();
   
-  // Determine initial route based on user role
-  const initialRoute = user?.role === 'student' 
-    ? 'StudentDashboard' 
-    : user?.role === 'teacher' 
-    ? 'TeacherDashboard' 
+  // Determine initial route — new teachers without specialties go to setup first
+  const needsTeacherSetup =
+    user?.role === 'teacher' &&
+    (!(user as any).expertise_tags || (user as any).expertise_tags.length === 0);
+
+  const initialRoute = needsTeacherSetup
+    ? 'TeacherSetup'
+    : user?.role === 'student'
+    ? 'StudentDashboard'
+    : user?.role === 'teacher'
+    ? 'TeacherDashboard'
     : 'Home';
   
   return (
@@ -290,6 +302,27 @@ function AppStack() {
         name="BinComments" 
         component={BinCommentsScreen} 
         options={{ headerShown: false }} 
+      />
+      {/* Profile & Settings */}
+      <Stack.Screen
+        name="TeacherProfile"
+        component={TeacherProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="StudentProfile"
+        component={StudentProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AccountSettings"
+        component={AccountSettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="TeacherSetup"
+        component={TeacherSetupScreen}
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       {/* Unified Messaging */}
       <Stack.Screen 
