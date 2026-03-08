@@ -11,11 +11,13 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { notificationService } from '../../services/notificationService';
+import { supabase } from '../../config/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, S, R, shadow } from '../../config/theme';
 
@@ -36,6 +38,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [senderProfiles, setSenderProfiles] = useState<Record<string, any>>({});
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -62,6 +65,23 @@ export default function BinCommentsScreen({ navigation, route }: any) {
     const result = await classroomService.getBinComments(binId, studentId);
     if (result.data) {
       setComments(result.data);
+      // Fetch sender profiles
+      const senderIds = [...new Set(result.data.map((c: any) => c.sender_id).filter(Boolean))];
+      if (senderIds.length > 0) {
+        const { data: stuProfiles } = await supabase
+          .from('student_profiles')
+          .select('user_id, first_name, last_name, profile_photo_url')
+          .in('user_id', senderIds);
+        const { data: tchProfiles } = await supabase
+          .from('teacher_profiles')
+          .select('user_id, first_name, last_name, profile_photo_url')
+          .in('user_id', senderIds);
+        const profiles: Record<string, any> = {};
+        [...(stuProfiles || []), ...(tchProfiles || [])].forEach((p: any) => {
+          profiles[p.user_id] = p;
+        });
+        setSenderProfiles(profiles);
+      }
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
     }
     setLoading(false);
@@ -106,19 +126,37 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   const renderComment = ({ item }: { item: any }) => {
     const isMe = item.sender_id === user?.user_id;
     const isTeacher = item.sender_role === 'teacher';
+    const senderProfile = senderProfiles[item.sender_id];
+    const senderName = senderProfile
+      ? `${senderProfile.first_name} ${senderProfile.last_name}`
+      : (isTeacher ? 'Teacher' : studentName);
+    const initials = senderProfile
+      ? ((senderProfile.first_name?.[0] || '') + (senderProfile.last_name?.[0] || '')).toUpperCase()
+      : (isTeacher ? 'T' : 'S');
+    const profilePhotoUrl = senderProfile?.profile_photo_url;
+
     return (
-      <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+      <View style={[styles.bubbleRow, isMe ? styles.bubbleRowMe : styles.bubbleRowThem]}>
         {!isMe && (
-          <Text style={styles.senderLabel}>
-            {isTeacher ? 'Teacher' : studentName}
-          </Text>
+          <View style={styles.bubbleAvatar}>
+            {profilePhotoUrl ? (
+              <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.bubbleAvatarText}>{initials}</Text>
+            )}
+          </View>
         )}
-        <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
-          {item.message}
-        </Text>
-        <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>
-          {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
+        <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
+          {!isMe && (
+            <Text style={styles.senderLabel}>{senderName}</Text>
+          )}
+          <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
+            {item.message}
+          </Text>
+          <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
       </View>
     );
   };
@@ -228,6 +266,28 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 12, fontWeight: '400' as const, color: C.ink3, marginTop: 2 },
   listContent: { padding: S.lg, paddingBottom: S.sm, flexGrow: 1 },
   emptyText: { fontSize: 14, fontWeight: '400' as const, color: C.ink4, textAlign: 'center', marginTop: S.md },
+
+  bubbleRow: { flexDirection: 'row', marginVertical: 3, alignItems: 'flex-end' },
+  bubbleRowMe: { justifyContent: 'flex-end' },
+  bubbleRowThem: { justifyContent: 'flex-start' },
+
+  bubbleAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: C.surfaceAlt,
+    borderWidth: 1,
+    borderColor: C.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+    marginBottom: 2,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  avatarImage: { width: 28, height: 28, borderRadius: 14 },
+  bubbleAvatarText: { fontSize: 10, fontWeight: '700' as const, color: C.ink2 },
+
   bubble: {
     maxWidth: '78%',
     padding: S.md,

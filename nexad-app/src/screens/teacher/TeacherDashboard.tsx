@@ -21,8 +21,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
-import { messageService, MessageWithSender } from '../../services/messageService';
+import { conversationService } from '../../services/conversationService';
 import { notificationService } from '../../services/notificationService';
+import type { Conversation } from '../../types';
 import { profileService, TeacherProfile } from '../../services/profileService';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { supabase } from '../../config/supabase';
@@ -52,7 +53,7 @@ interface MarkedDates {
 
 interface DashboardData {
   pendingRequests: ConsultationWithStudent[];
-  unreadMessages: MessageWithSender[];
+  conversations: Conversation[];
   profile: TeacherProfile | null;
   upcomingAppointments: ConsultationWithStudent[];
 }
@@ -69,7 +70,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationWithStudent | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     pendingRequests: [],
-    unreadMessages: [],
+    conversations: [],
     profile: null,
     upcomingAppointments: [],
   });
@@ -120,9 +121,9 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
-      const [pendingResult, messagesResult, profileResult] = await Promise.all([
+      const [pendingResult, conversationsResult, profileResult] = await Promise.all([
         consultationService.getTeacherRequests(userId, 'pending', 1, CONSULTATION_LIMIT),
-        messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
+        conversationService.getConversations(userId),
         profileService.getTeacherProfile(userId),
       ]);
 
@@ -199,7 +200,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
 
       setDashboardData({
         pendingRequests: pendingWithNames,
-        unreadMessages: messagesResult.data || [],
+        conversations: (conversationsResult.data || []).slice(0, MESSAGE_LIMIT),
         profile: profileResult.data || null,
         upcomingAppointments: upcomingWithNames,
       });
@@ -257,6 +258,27 @@ export default function TeacherDashboard({ navigation, route }: any) {
       });
     } catch (error) {
       return 'Invalid date';
+    }
+  };
+
+  const formatPreferredDateRange = (request: ConsultationWithStudent) => {
+    try {
+      const firstSlot = request.preferred_time_slots?.[0];
+      if (!firstSlot?.start) return 'No preferred range';
+
+      const startDate = new Date(firstSlot.start);
+      const endDate = firstSlot.end ? new Date(firstSlot.end) : startDate;
+
+      const startText = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endText = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      if (startDate.toDateString() === endDate.toDateString()) {
+        return `Preferred: ${endText}`;
+      }
+
+      return `Preferred: ${startText} - ${endText}`;
+    } catch {
+      return 'Preferred range unavailable';
     }
   };
 
@@ -687,7 +709,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
                 <View style={styles.statIconCircle}>
                   <Ionicons name="chatbubble" size={20} color={C.ink2} />
                 </View>
-                <Text style={styles.statNumber}>{dashboardData.unreadMessages.length}</Text>
+                <Text style={styles.statNumber}>{dashboardData.conversations.length}</Text>
                 <Text style={styles.statLabel}>Messages</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -736,9 +758,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
                       {request.subject_line || 'No subject provided'}
                     </Text>
                     <Text style={styles.requestDate}>
-                      {request.preferred_time_slots && request.preferred_time_slots.length > 0 
-                        ? new Date(request.preferred_time_slots[0].start).toLocaleDateString() 
-                        : 'No date'}
+                      {formatPreferredDateRange(request)}
                     </Text>
                   </View>
                 </View>
@@ -747,41 +767,63 @@ export default function TeacherDashboard({ navigation, route }: any) {
           )}
         </View>
 
-        {/* Unread Messages */}
+        {/* Inbox */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Unread Messages</Text>
-            {dashboardData.unreadMessages.length > MESSAGE_LIMIT && (
-              <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.viewAllText}>View All</Text>
-                  <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
-                </View>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.sectionTitle}>Inbox</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.viewAllText}>View All</Text>
+                <Ionicons name="arrow-forward" size={14} color={C.ink2} style={{ marginLeft: 4 }} />
+              </View>
+            </TouchableOpacity>
           </View>
 
-          {dashboardData.unreadMessages.length === 0 ? (
+          {dashboardData.conversations.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No unread messages</Text>
+              <Text style={styles.emptyStateText}>No messages yet</Text>
             </View>
           ) : (
-            dashboardData.unreadMessages.map((message) => (
-              <TouchableOpacity 
-                key={message.id} 
-                style={styles.messageCard}
-                onPress={() => navigation.navigate('Inbox')}
-              >
-                <View style={styles.messageHeader}>
-                  <Text style={styles.messageSubject} numberOfLines={1}>
-                    {message.sender ? `From ${message.sender.first_name} ${message.sender.last_name}` : 'Unknown Sender'}
-                  </Text>
-                </View>
-                <Text style={styles.messagePreview} numberOfLines={2}>
-                  {message.content}
-                </Text>
-              </TouchableOpacity>
-            ))
+            dashboardData.conversations.map((conv) => {
+              const name = conv.other_user
+                ? `${conv.other_user.first_name || ''} ${conv.other_user.last_name || ''}`.trim()
+                : conv.title || 'Chat';
+              const initials = name.charAt(0).toUpperCase() || '?';
+              const hasUnread = (conv.my_unread_count || 0) > 0;
+              const timeStr = conv.last_message_at
+                ? (() => {
+                    const diffMins = Math.floor((Date.now() - new Date(conv.last_message_at).getTime()) / 60000);
+                    if (diffMins < 1) return 'Just now';
+                    if (diffMins < 60) return `${diffMins}m ago`;
+                    const diffH = Math.floor(diffMins / 60);
+                    if (diffH < 24) return `${diffH}h ago`;
+                    return `${Math.floor(diffH / 24)}d ago`;
+                  })()
+                : '';
+              return (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={[styles.messageCard, !hasUnread && { opacity: 0.4 }]}
+                  onPress={() => navigation.navigate('Chat', { conversationId: conv.id, title: name, type: conv.type })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.messageAvatar}>
+                    {conv.other_user?.profile_photo_url ? (
+                      <Image source={{ uri: conv.other_user.profile_photo_url as string }} style={styles.messageAvatarImg} />
+                    ) : (
+                      <Text style={styles.messageAvatarText}>{initials}</Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.messageSubject, hasUnread && { fontWeight: '700' as const }]} numberOfLines={1}>{name}</Text>
+                      {timeStr ? <Text style={{ fontSize: 11, color: C.ink4, flexShrink: 0 }}>{timeStr}</Text> : null}
+                    </View>
+                    <Text style={styles.messagePreview} numberOfLines={1}>{conv.last_message_preview || 'No messages yet'}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -1085,15 +1127,21 @@ const styles = StyleSheet.create({
   messageCard: {
     backgroundColor: C.surface,
     borderRadius: R.xl,
-    padding: S.lg,
-    marginBottom: S.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     borderWidth: 1,
     borderColor: C.borderLight,
     ...shadow.soft,
   },
+  messageAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: C.surfaceAlt, justifyContent: 'center' as const, alignItems: 'center' as const, marginRight: 10 },
+  messageAvatarText: { color: C.ink2, fontSize: 15, fontWeight: '600' as const },
+  messageAvatarImg:  { width: 38, height: 38, borderRadius: 19 },
   messageHeader:  { marginBottom: S.sm },
-  messageSubject: { ...T.label, color: C.ink1, fontSize: 14 },
-  messagePreview: { ...T.small, color: C.ink3, lineHeight: 20 },
+  messageSubject: { ...T.label, color: C.ink1, fontSize: 13, flex: 1, marginRight: 6 },
+  messagePreview: { ...T.small, color: C.ink3, lineHeight: 17, marginTop: 2 },
 
   // ─── Empty State ──────────────────────────────────────
   emptyState:     { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },

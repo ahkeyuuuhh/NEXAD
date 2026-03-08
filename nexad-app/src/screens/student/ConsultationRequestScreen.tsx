@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
@@ -25,6 +26,7 @@ import { aiService } from '../../services/aiService';
 import { profileService } from '../../services/profileService';
 import { documentService } from '../../services/documentService';
 import { classroomService } from '../../services/classroomService';
+import { cloudmersiveService } from '../../services/cloudmersiveService';
 import type { ConsultationTopic, UrgencyLevel, TimeSlot, UploadedDocument } from '../../types';
 
 const REASON_PRESETS = [
@@ -57,6 +59,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
   const [hasOfferedHelp, setHasOfferedHelp] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string>('');
   const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([
@@ -70,6 +73,21 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
   const [aiInput, setAiInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
+  
+  // New state for plagiarism check
+  const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+  const [plagiarismResults, setPlagiarismResults] = useState<any[]>([]);
+  const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+  
+  // State for analyze prompt suggestion
+  const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
+  
+  // New state for date range scheduling
+  const [hasDateRange, setHasDateRange] = useState(false);
+  const [preferredStartDate, setPreferredStartDate] = useState<Date | null>(null);
+  const [preferredEndDate, setPreferredEndDate] = useState<Date | null>(null);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -81,12 +99,44 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
     }
   };
 
+  const isImageFile = (name?: string, mimeType?: string) => {
+    const lowerName = (name || '').toLowerCase();
+    const lowerMime = (mimeType || '').toLowerCase();
+    return /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(lowerName) || lowerMime.includes('image');
+  };
+
+  const formatDateLabel = (date: Date | null) => {
+    if (!date) return 'Select date';
+    return date.toLocaleDateString();
+  };
+
+  const handleStartDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      setPreferredStartDate(selectedDate);
+      if (preferredEndDate && selectedDate > preferredEndDate) {
+        setPreferredEndDate(selectedDate);
+      }
+    }
+  };
+
+  const handleEndDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      setPreferredEndDate(selectedDate);
+    }
+  };
+
   // Handle file upload
   const handleFileUpload = async () => {
+    setShowAttachMenu(prev => !prev);
+  };
+
+  const pickDocumentAttachment = async () => {
     try {
       setIsUploadingFile(true);
+      setShowAttachMenu(false);
       const pickResult = await documentService.pickDocument();
-      
       if (pickResult.error) {
         if (pickResult.error !== 'Document selection cancelled') {
           Alert.alert('Error', pickResult.error);
@@ -96,9 +146,34 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
       if (pickResult.data && !pickResult.data.canceled) {
         const file = pickResult.data.assets[0];
-        // Store temporarily until consultation is created
         setUploadedDocuments(prev => [...prev, file]);
-        Alert.alert('Success', `${file.name} added! It will be uploaded when you submit.`);
+        // Show analyze suggestion prompt
+        setShowAnalyzePrompt(true);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const pickImageAttachment = async () => {
+    try {
+      setIsUploadingFile(true);
+      setShowAttachMenu(false);
+      const imageResult = await documentService.pickImage();
+      if (imageResult.error) {
+        if (imageResult.error !== 'Image selection cancelled') {
+          Alert.alert('Error', imageResult.error);
+        }
+        return;
+      }
+
+      if (imageResult.data) {
+        const imageFile = imageResult.data;
+        setUploadedDocuments(prev => [...prev, imageFile]);
+        // Show analyze suggestion prompt
+        setShowAnalyzePrompt(true);
       }
     } catch (error: any) {
       Alert.alert('Error', 'Failed to pick document');
@@ -211,18 +286,98 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
       return;
     }
 
+    if (hasDateRange && (!preferredStartDate || !preferredEndDate)) {
+      Alert.alert('Schedule Required', 'Please pick both start and end dates for your preferred schedule.');
+      return;
+    }
+
+    if (hasDateRange && preferredStartDate && preferredEndDate && preferredEndDate < preferredStartDate) {
+      Alert.alert('Invalid Date Range', 'End date cannot be earlier than start date.');
+      return;
+    }
+
+    await proceedWithSubmission();
+  };
+
+  const performPlagiarismCheck = async (documentsToCheck: any[] = uploadedDocuments) => {
+    setShowPlagiarismModal(true);
+    setCheckingPlagiarism(true);
+    setPlagiarismResults([]);
+
+    try {
+      const results = [];
+
+      for (const doc of documentsToCheck) {
+        if (isImageFile(doc.name, doc.mimeType)) {
+          results.push({
+            fileName: doc.name,
+            error: 'Images are not included in academic integrity analysis.',
+          });
+          continue;
+        }
+
+        // Extract text from document
+        const extractResult = await cloudmersiveService.extractTextFromFile(
+          doc.uri,
+          doc.name,
+          doc.mimeType
+        );
+
+        if (extractResult.error) {
+          results.push({
+            fileName: doc.name,
+            error: extractResult.error,
+          });
+          continue;
+        }
+
+        // Check plagiarism
+        const plagiarismResult = await cloudmersiveService.checkPlagiarism(extractResult.data!);
+
+        if (plagiarismResult.error) {
+          results.push({
+            fileName: doc.name,
+            error: plagiarismResult.error,
+          });
+          continue;
+        }
+
+        results.push({
+          fileName: doc.name,
+          originalityScore: plagiarismResult.data!.originalityScore,
+          plagiarismPercentage: Math.max(0, 100 - plagiarismResult.data!.originalityScore),
+          isHighRisk: plagiarismResult.data!.isHighRisk,
+          matches: plagiarismResult.data!.matches,
+        });
+      }
+
+      setPlagiarismResults(results);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to check plagiarism: ' + error.message);
+    } finally {
+      setCheckingPlagiarism(false);
+    }
+  };
+
+  const proceedWithSubmission = async () => {
     setIsSubmitting(true);
 
     try {
+      const timeSlots: TimeSlot[] | undefined = 
+        hasDateRange && preferredStartDate && preferredEndDate
+          ? [{ start: preferredStartDate.toISOString(), end: preferredEndDate.toISOString() }]
+          : undefined;
+
       const requestData = {
         student_id: user?.user_id,
         teacher_id: teacher.user_id,
-        topic: 'academic' as ConsultationTopic, // Default, could be made selectable
+        topic: 'academic' as ConsultationTopic,
         subject_line: helpNeeded,
         description: reason,
         urgency: 'normal' as UrgencyLevel,
         status: 'pending' as const,
         submitted_at: new Date().toISOString(),
+        preferred_time_slots: timeSlots,
       };
 
       const result = await consultationService.createRequest(requestData);
@@ -263,7 +418,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         ? `${studentProfile.data.first_name} ${studentProfile.data.last_name}`
         : 'A student';
 
-      // Generate AI Smart Brief for the teacher (pass uploaded file names)
+      // Generate AI Smart Brief for the teacher
       if (result.data?.id) {
         const docNames = uploadedDocuments.map((d: any) => d.name || d.file_name || 'Unknown file');
         const aiResult = await aiService.generateSmartBrief(
@@ -278,15 +433,11 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
         if (aiResult.error) {
           console.error('AI Smart Brief generation failed:', aiResult.error);
-          // Continue anyway - brief is helpful but not critical
         } else {
           console.log('AI Smart Brief generated successfully');
         }
       }
 
-      // NOTE: DB trigger (notify_teacher_new_request) automatically notifies the teacher
-      // on INSERT into consultation_requests, so no manual notification call is needed here.
-      // We also send a device push directly to ensure the teacher hears a sound immediately.
       notificationService.sendPushToUser(
         teacher.user_id,
         'New Consultation Request',
@@ -294,11 +445,11 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         { type: 'request_submitted', consultationRequestId: result.data?.id }
       ).catch(() => {});
 
-      // If triggered from an attachment bin, mark the document as consultation_requested
-      // so the bin screen immediately reflects the booking.
       if (sourceDocumentId) {
         await classroomService.updateSubmissionStatus(sourceDocumentId, 'consultation_requested');
       }
+
+      setShowPlagiarismModal(false);
 
       Alert.alert(
         'Request Submitted',
@@ -308,7 +459,6 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
             text: 'OK',
             onPress: () => {
               if (sourceBinId) {
-                // Go back to the bin screen so the student sees the updated status
                 navigation.navigate('AttachmentBinSubmission', { binId: sourceBinId });
               } else {
                 navigation.navigate('StudentDashboard');
@@ -468,7 +618,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 <Ionicons name="attach" size={16} color={C.ink2} />
                 <Text style={styles.uploadLabel}>Upload Documents (Optional)</Text>
               </View>
-              <Text style={styles.uploadHint}>DOCX only, up to 5MB</Text>
+              <Text style={styles.uploadHint}>PDF, DOCX, or Images up to 10MB</Text>
               
               <TouchableOpacity
                 style={styles.uploadButton}
@@ -480,10 +630,23 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 ) : (
                   <>
                     <Ionicons name="document-outline" size={20} color={C.action} />
-                    <Text style={styles.uploadButtonText}>Choose File</Text>
+                    <Text style={styles.uploadButtonText}>Attach File</Text>
                   </>
                 )}
               </TouchableOpacity>
+
+              {showAttachMenu && (
+                <View style={styles.attachMenuCard}>
+                  <TouchableOpacity style={styles.attachMenuItem} onPress={pickDocumentAttachment}>
+                    <Ionicons name="document-text-outline" size={16} color={C.ink2} />
+                    <Text style={styles.attachMenuItemText}>File (PDF or DOCX)</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.attachMenuItem} onPress={pickImageAttachment}>
+                    <Ionicons name="image-outline" size={16} color={C.ink2} />
+                    <Text style={styles.attachMenuItemText}>Images</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {uploadedDocuments.length > 0 && (
                 <View style={styles.uploadedFilesList}>
@@ -503,6 +666,13 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                     </View>
                   ))}
                 </View>
+              )}
+
+              {uploadedDocuments.length > 0 && (
+                <TouchableOpacity style={styles.analyzeAllButton} onPress={() => performPlagiarismCheck()}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={C.actionText} />
+                  <Text style={styles.analyzeAllButtonText}>Analyze Attached Files</Text>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -533,6 +703,74 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Date Range Scheduling (Optional) */}
+            <View style={styles.inputGroup}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: S.sm, marginBottom: S.sm }}>
+                <Ionicons name="calendar-outline" size={16} color={C.ink2} />
+                <Text style={styles.inputLabel}>Preferred Schedule (Optional)</Text>
+              </View>
+              
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() => setHasDateRange(!hasDateRange)}
+              >
+                <View style={[styles.checkbox, hasDateRange && styles.checkboxChecked]}>
+                  {hasDateRange && <Ionicons name="checkmark" size={16} color="#fff" />}
+                </View>
+                <Text style={styles.checkboxLabel}>I have a preferred date range</Text>
+              </TouchableOpacity>
+
+              {hasDateRange && (
+                <View style={styles.dateRangeContainer}>
+                  <View style={styles.dateInputWrapper}>
+                    <Text style={styles.dateLabel}>From</Text>
+                    <TouchableOpacity
+                      style={styles.dateInput}
+                      onPress={() => setShowStartDatePicker(true)}
+                    >
+                      <Text style={[styles.dateValue, !preferredStartDate && styles.datePlaceholder]}>
+                        {formatDateLabel(preferredStartDate)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.dateInputWrapper}>
+                    <Text style={styles.dateLabel}>To</Text>
+                    <TouchableOpacity
+                      style={styles.dateInput}
+                      onPress={() => setShowEndDatePicker(true)}
+                    >
+                      <Text style={[styles.dateValue, !preferredEndDate && styles.datePlaceholder]}>
+                        {formatDateLabel(preferredEndDate)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.dateHint}>
+                    Teacher will schedule within this range if provided
+                  </Text>
+                </View>
+              )}
+
+              {showStartDatePicker && (
+                <DateTimePicker
+                  value={preferredStartDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minimumDate={new Date()}
+                  onChange={handleStartDateChange}
+                />
+              )}
+
+              {showEndDatePicker && (
+                <DateTimePicker
+                  value={preferredEndDate || preferredStartDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minimumDate={preferredStartDate || new Date()}
+                  onChange={handleEndDateChange}
+                />
+              )}
+            </View>
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -612,6 +850,159 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               </TouchableOpacity>
             </View>
           </SafeAreaView>
+        </Modal>
+
+        {/* Plagiarism Check Modal */}
+        <Modal
+          visible={showPlagiarismModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowPlagiarismModal(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="shield-checkmark-outline" size={24} color={C.ink1} style={{ marginRight: S.sm }} />
+              <Text style={styles.modalTitle}>Academic Integrity Check</Text>
+              <TouchableOpacity
+                onPress={() => setShowPlagiarismModal(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color={C.ink3} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.plagiarismContainer}>
+              {checkingPlagiarism ? (
+                <View style={styles.checkingContainer}>
+                  <ActivityIndicator size="large" color={C.action} />
+                  <Text style={styles.checkingText}>Analyzing documents...</Text>
+                  <Text style={styles.checkingSubtext}>This may take a moment</Text>
+                </View>
+              ) : (
+                <View>
+                  {plagiarismResults.map((result, index) => (
+                    <View key={index} style={styles.plagiarismCard}>
+                      <View style={styles.plagiarismHeader}>
+                        <Ionicons name="document-text-outline" size={20} color={C.ink2} />
+                        <Text style={styles.plagiarismFileName}>{result.fileName}</Text>
+                      </View>
+                      
+                      {result.error ? (
+                        <View style={styles.errorContainer}>
+                          <Ionicons name="alert-circle-outline" size={18} color={C.red} />
+                          <Text style={styles.errorText}>{result.error}</Text>
+                        </View>
+                      ) : (
+                        <View>
+                          <View style={styles.scoreContainer}>
+                            <Text style={styles.scoreLabel}>Originality Score</Text>
+                            <View
+                              style={[
+                                styles.scoreCircle,
+                                result.isHighRisk ? styles.scoreCircleRisk : styles.scoreCircleGood,
+                              ]}
+                            >
+                              <Text style={[
+                                styles.scoreValue,
+                                result.isHighRisk ? styles.scoreRisk : styles.scoreGood,
+                              ]}>
+                                {result.originalityScore}%
+                              </Text>
+                            </View>
+                            <Text style={styles.integrityMetaText}>
+                              Estimated Plagiarism Match: {result.plagiarismPercentage ?? Math.max(0, 100 - result.originalityScore)}%
+                            </Text>
+                          </View>
+                          
+                          {result.isHighRisk && (
+                            <View style={styles.warningBox}>
+                              <Ionicons name="warning-outline" size={16} color={C.red} />
+                              <Text style={styles.warningText}>
+                                Score below 70% may indicate potential plagiarism concerns
+                              </Text>
+                            </View>
+                          )}
+                          
+                          {!result.isHighRisk && (
+                            <View style={styles.successBox}>
+                              <Ionicons name="checkmark-circle-outline" size={16} color={C.ink1} />
+                              <Text style={styles.successText}>
+                                Document shows good academic integrity
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  ))}
+
+                  <View style={styles.plagiarismActions}>
+                    <TouchableOpacity
+                      style={styles.secondaryButton}
+                      onPress={() => setShowPlagiarismModal(false)}
+                    >
+                      <Text style={styles.secondaryButtonText}>Go Back</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.primaryButton}
+                      onPress={() => proceedWithSubmission()}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.primaryButtonText}>Submit Anyway</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.disclaimerText}>
+                    Note: This check is for guidance only. Results shown here will also be visible to your teacher.
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Analyze Prompt Modal - Suggestion to analyze files when attached */}
+        <Modal
+          visible={showAnalyzePrompt}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowAnalyzePrompt(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: S.lg }}>
+            <View style={[styles.analyzePromptCard, { marginTop: 0, maxWidth: 300, paddingVertical: S.lg, alignSelf: 'center' }]}>
+              <View style={{ alignItems: 'center', marginBottom: S.md }}>
+                <Ionicons name="sparkles-outline" size={32} color={C.action} style={{ marginBottom: S.sm }} />
+                <Text style={[styles.analyzePromptTitle, { fontSize: 17, color: C.ink1 }]}>Ready to Check Your Work?</Text>
+              </View>
+              
+              <Text style={[styles.analyzePromptText, { fontSize: 14, marginBottom: S.lg, textAlign: 'center' }]}>
+                You've attached a document. Run an integrity check to see how your work looks before submitting?
+              </Text>
+
+              <View style={styles.analyzePromptActions}>
+                <TouchableOpacity
+                  style={[styles.analyzePromptLaterBtn]}
+                  onPress={() => setShowAnalyzePrompt(false)}
+                >
+                  <Text style={styles.analyzePromptLaterText}>Later</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.analyzePromptNowBtn, { flexDirection: 'row', justifyContent: 'center', gap: S.xs }]}
+                  onPress={() => {
+                    setShowAnalyzePrompt(false);
+                    performPlagiarismCheck();
+                  }}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={14} color={C.actionText} />
+                  <Text style={styles.analyzePromptNowText}>Analyze Now</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1018,6 +1409,107 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: C.action,
   },
+  attachMenuCard: {
+    marginTop: S.sm,
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    ...shadow.soft,
+  },
+  attachMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderLight,
+  },
+  attachMenuItemText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: C.ink2,
+  },
+  analyzePromptCard: {
+    marginTop: S.sm,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: S.md,
+  },
+  analyzePromptTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: C.ink2,
+    marginBottom: 4,
+  },
+  analyzePromptText: {
+    fontSize: 13,
+    color: C.ink3,
+    marginBottom: S.sm,
+  },
+  analyzePromptActions: {
+    flexDirection: 'row',
+    gap: S.sm,
+  },
+  analyzePromptLaterBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.full,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: C.surface,
+  },
+  analyzePromptLaterText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.ink3,
+  },
+  analyzePromptNowBtn: {
+    flex: 1,
+    borderRadius: R.full,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: C.action,
+  },
+  analyzePromptNowText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.actionText,
+  },
+  analyzeNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.xs,
+    backgroundColor: C.action,
+    borderRadius: R.full,
+    paddingHorizontal: S.sm,
+    paddingVertical: 6,
+    marginRight: S.sm,
+  },
+  analyzeNowButtonText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.actionText,
+  },
+  analyzeAllButton: {
+    marginTop: S.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: S.xs,
+    backgroundColor: C.action,
+    borderRadius: R.full,
+    paddingVertical: S.sm,
+  },
+  analyzeAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: C.actionText,
+  },
   uploadedFilesList: {
     marginTop: S.md,
   },
@@ -1090,4 +1582,236 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
   },
+  // Date Range Styles
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: S.md,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: C.border,
+    marginRight: S.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: C.action,
+    borderColor: C.action,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: C.ink2,
+  },
+  dateRangeContainer: {
+    marginTop: S.sm,
+    padding: S.md,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+  },
+  dateInputWrapper: {
+    marginBottom: S.sm,
+  },
+  dateLabel: {
+    fontSize: 13,
+    color: C.ink3,
+    marginBottom: 4,
+    fontWeight: '500' as const,
+  },
+  dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.sm,
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm,
+    fontSize: 14,
+    color: C.ink1,
+  },
+  dateValue: {
+    fontSize: 14,
+    color: C.ink1,
+  },
+  datePlaceholder: {
+    color: C.ink4,
+  },
+  dateHint: {
+    fontSize: 12,
+    color: C.ink4,
+    marginTop: S.xs,
+    fontStyle: 'italic',
+  },
+  // Plagiarism Modal Styles
+  plagiarismContainer: {
+    flex: 1,
+    padding: S.lg,
+  },
+  checkingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: S.xl2 * 2,
+  },
+  checkingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginTop: S.lg,
+  },
+  checkingSubtext: {
+    fontSize: 14,
+    color: C.ink3,
+    marginTop: S.xs,
+  },
+  plagiarismCard: {
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    padding: S.lg,
+    marginBottom: S.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...shadow.soft,
+  },
+  plagiarismHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: S.md,
+    gap: S.sm,
+  },
+  plagiarismFileName: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    flex: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#FEE2E2',
+    borderRadius: R.sm,
+  },
+  errorText: {
+    fontSize: 13,
+    color: C.red,
+    flex: 1,
+  },
+  scoreContainer: {
+    alignItems: 'center',
+    marginBottom: S.md,
+    paddingVertical: S.md,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+  },
+  scoreLabel: {
+    fontSize: 14,
+    color: C.ink2,
+    fontWeight: '500' as const,
+    marginBottom: S.sm,
+    textAlign: 'center',
+  },
+  scoreCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: R.full,
+    borderWidth: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: C.surface,
+  },
+  scoreCircleGood: {
+    borderColor: '#10B981',
+  },
+  scoreCircleRisk: {
+    borderColor: C.red,
+  },
+  scoreValue: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+  },
+  integrityMetaText: {
+    marginTop: S.sm,
+    fontSize: 12,
+    color: C.ink3,
+    textAlign: 'center',
+  },
+  scoreGood: {
+    color: C.ink1,
+  },
+  scoreRisk: {
+    color: C.red,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#FEF3C7',
+    borderRadius: R.sm,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#92400E',
+    flex: 1,
+  },
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#D1FAE5',
+    borderRadius: R.sm,
+  },
+  successText: {
+    fontSize: 13,
+    color: '#065F46',
+    flex: 1,
+  },
+  plagiarismActions: {
+    flexDirection: 'row',
+    gap: S.md,
+    marginTop: S.lg,
+    marginBottom: S.md,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: C.action,
+    borderRadius: R.full,
+    paddingVertical: S.md,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: C.actionText,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.full,
+    paddingVertical: S.md,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: C.ink2,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: C.ink4,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: S.sm,
+  },
 });
+

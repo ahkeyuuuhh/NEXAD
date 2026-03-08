@@ -274,7 +274,7 @@ export const conversationService = {
 
       for (const uid of otherUserIds) {
         notificationService
-          .createNotification(uid, notifTitle, preview, 'new_message')
+          .createNotification(uid, notifTitle, preview, 'new_message', undefined, conversationId)
           .catch(() => {});
         notificationService
           .sendPushToUser(uid, notifTitle, preview, { type: 'new_message', conversationId })

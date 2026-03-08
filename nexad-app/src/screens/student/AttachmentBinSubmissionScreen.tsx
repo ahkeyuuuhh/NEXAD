@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,8 +15,8 @@ import { classroomService } from '../../services/classroomService';
 import { documentService } from '../../services/documentService';
 import { consultationService } from '../../services/consultationService';
 import { notificationService } from '../../services/notificationService';
+import { cloudmersiveService } from '../../services/cloudmersiveService';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -36,6 +37,24 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
+  // Plagiarism check states
+  const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+  const [plagiarismResults, setPlagiarismResults] = useState<Array<{
+    fileName: string;
+    originalityScore: number | null;
+    isHighRisk: boolean;
+    error?: string;
+  }>>([]);
+  const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+
+  const isImageFile = (name?: string, mimeType?: string) => {
+    const lowerName = (name || '').toLowerCase();
+    const lowerMime = (mimeType || '').toLowerCase();
+    return /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(lowerName) || lowerMime.includes('image');
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -74,20 +93,141 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   };
 
   const handleChooseFile = async () => {
+    setShowAttachMenu(prev => !prev);
+  };
+
+  const pickDocumentAttachment = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setSelectedFile(result.assets[0]);
+      setIsUploadingFile(true);
+      setShowAttachMenu(false);
+      const result = await documentService.pickDocument();
+      if (result.error) {
+        if (result.error !== 'Document selection cancelled') {
+          Alert.alert('Error', result.error);
+        }
+        return;
+      }
+
+      if (result.data && !result.data.canceled) {
+        const pickedFile = result.data.assets[0];
+        setSelectedFile(pickedFile);
+        setShowAnalyzePrompt(true);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const pickImageAttachment = async () => {
+    try {
+      setIsUploadingFile(true);
+      setShowAttachMenu(false);
+      const imageResult = await documentService.pickImage();
+      if (imageResult.error) {
+        if (imageResult.error !== 'Image selection cancelled') {
+          Alert.alert('Error', imageResult.error);
+        }
+        return;
+      }
+
+      if (imageResult.data) {
+        setSelectedFile(imageResult.data);
+        setShowAnalyzePrompt(false);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      setIsUploadingFile(false);
     }
   };
 
   const handleSubmit = async () => {
+    if (!selectedFile || !user?.user_id) return;
+    await proceedWithSubmission();
+  };
+
+  const performPlagiarismCheck = async (fileToCheck?: any) => {
+    const activeFile = fileToCheck || selectedFile;
+    if (!activeFile) return;
+
+    setShowPlagiarismModal(true);
+    setCheckingPlagiarism(true);
+    setPlagiarismResults([]);
+
+    try {
+      if (isImageFile(activeFile.name, activeFile.mimeType)) {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: 'Images are not included in academic integrity analysis.',
+        }]);
+        setCheckingPlagiarism(false);
+        return;
+      }
+
+      // Extract text from the document
+      const extractResult = await cloudmersiveService.extractTextFromFile(
+        activeFile.uri,
+        activeFile.name,
+        activeFile.mimeType
+      );
+
+      if (extractResult.error) {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: extractResult.error,
+        }]);
+        setCheckingPlagiarism(false);
+        return;
+      }
+
+      // Check plagiarism on the extracted text
+      if (extractResult.data) {
+        const checkResult = await cloudmersiveService.checkPlagiarism(extractResult.data);
+
+        if (checkResult.error) {
+          setPlagiarismResults([{
+            fileName: activeFile.name,
+            originalityScore: null,
+            isHighRisk: false,
+            error: checkResult.error,
+          }]);
+          setCheckingPlagiarism(false);
+          return;
+        }
+
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: checkResult.data!.originalityScore,
+          isHighRisk: checkResult.data!.isHighRisk,
+        }]);
+      } else {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: 'No text could be extracted from this file.',
+        }]);
+      }
+    } catch (error) {
+      console.error('Plagiarism check error:', error);
+      setPlagiarismResults([{
+        fileName: activeFile.name,
+        originalityScore: null,
+        isHighRisk: false,
+        error: 'An unexpected error occurred during the check.',
+      }]);
+    } finally {
+      setCheckingPlagiarism(false);
+    }
+  };
+
+  const proceedWithSubmission = async () => {
     if (!selectedFile || !user?.user_id) return;
     setUploading(true);
     try {
@@ -118,6 +258,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
       Alert.alert('Error', 'Failed to submit document');
     } finally {
       setUploading(false);
+      setShowPlagiarismModal(false);
     }
   };
 
@@ -383,16 +524,65 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                <Ionicons name="close-circle" size={24} color={C.ink4} />
-              </TouchableOpacity>
+              <View style={styles.selectedFileActions}>
+                <TouchableOpacity
+                  style={styles.analyzeNowButton}
+                  onPress={() => performPlagiarismCheck(selectedFile)}
+                >
+                  <Ionicons name="analytics-outline" size={14} color={C.actionText} />
+                  <Text style={styles.analyzeNowButtonText}>Analyze</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                  <Ionicons name="close-circle" size={24} color={C.ink4} />
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <TouchableOpacity style={styles.chooseFileButton} onPress={handleChooseFile}>
-              <Ionicons name="cloud-upload-outline" size={32} color={C.ink2} />
-              <Text style={styles.chooseFileText}>Choose File</Text>
-              <Text style={styles.chooseFileHint}>Tap to select a document</Text>
+              {isUploadingFile ? (
+                <ActivityIndicator size="small" color={C.ink2} />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={32} color={C.ink2} />
+                  <Text style={styles.chooseFileText}>Attach File</Text>
+                  <Text style={styles.chooseFileHint}>Tap to choose File or Images</Text>
+                </>
+              )}
             </TouchableOpacity>
+          )}
+
+          {showAttachMenu && (
+            <View style={styles.attachMenuCard}>
+              <TouchableOpacity style={styles.attachMenuItem} onPress={pickDocumentAttachment}>
+                <Ionicons name="document-text-outline" size={16} color={C.ink2} />
+                <Text style={styles.attachMenuItemText}>File (PDF or DOCX)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.attachMenuItem} onPress={pickImageAttachment}>
+                <Ionicons name="image-outline" size={16} color={C.ink2} />
+                <Text style={styles.attachMenuItemText}>Images</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {showAnalyzePrompt && selectedFile && !isImageFile(selectedFile.name, selectedFile.mimeType) && (
+            <View style={styles.analyzePromptCard}>
+              <Text style={styles.analyzePromptTitle}>Academic Integrity Check</Text>
+              <Text style={styles.analyzePromptText} numberOfLines={2}>{selectedFile.name}</Text>
+              <View style={styles.analyzePromptActions}>
+                <TouchableOpacity style={styles.analyzePromptLaterBtn} onPress={() => setShowAnalyzePrompt(false)}>
+                  <Text style={styles.analyzePromptLaterText}>Later</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.analyzePromptNowBtn}
+                  onPress={() => {
+                    setShowAnalyzePrompt(false);
+                    performPlagiarismCheck(selectedFile);
+                  }}
+                >
+                  <Text style={styles.analyzePromptNowText}>Analyze Now</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           <View style={styles.aiNotice}>
@@ -439,6 +629,109 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
       )}
 
       <View style={{ height: 40 }} />
+
+      {/* Plagiarism Check Modal */}
+      <Modal
+        visible={showPlagiarismModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowPlagiarismModal(false)}
+      >
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowPlagiarismModal(false)} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color={C.ink2} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Academic Integrity Check</Text>
+        </View>
+        <ScrollView style={styles.plagiarismContainer}>
+          {checkingPlagiarism ? (
+            <View style={styles.checkingContainer}>
+              <ActivityIndicator size="large" color={C.ink2} />
+              <Text style={styles.checkingText}>Analyzing document...</Text>
+              <Text style={styles.checkingSubtext}>This may take a moment</Text>
+            </View>
+          ) : (
+            <>
+              {plagiarismResults.map((result, index) => (
+                <View key={index} style={styles.plagiarismCard}>
+                  <View style={styles.plagiarismHeader}>
+                    <Ionicons name="shield-checkmark" size={20} color={C.ink2} />
+                    <Text style={styles.plagiarismFileName}>{result.fileName}</Text>
+                  </View>
+
+                  {result.error ? (
+                    <View style={styles.plagiarismErrorContainer}>
+                      <Ionicons name="alert-circle" size={20} color={C.red} />
+                      <Text style={styles.plagiarismErrorText}>{result.error}</Text>
+                    </View>
+                  ) : result.originalityScore !== null ? (
+                    <>
+                      <View style={styles.scoreContainer}>
+                        <Text style={styles.scoreLabel}>Originality Score</Text>
+                        <View
+                          style={[
+                            styles.scoreCircle,
+                            result.originalityScore >= 70 ? styles.scoreCircleGood : styles.scoreCircleRisk,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.scoreValue,
+                              result.originalityScore >= 70 ? styles.scoreGood : styles.scoreRisk,
+                            ]}
+                          >
+                            {result.originalityScore}%
+                          </Text>
+                        </View>
+                      </View>
+
+                      {result.isHighRisk ? (
+                        <View style={styles.warningBox}>
+                          <Ionicons name="warning" size={18} color="#92400E" />
+                          <Text style={styles.warningText}>
+                            This document has a low originality score. Please review your sources and citations.
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.successBox}>
+                          <Ionicons name="checkmark-circle" size={18} color="#065F46" />
+                          <Text style={styles.successText}>
+                            This document appears to have acceptable originality.
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  ) : null}
+                </View>
+              ))}
+
+              <View style={styles.plagiarismActions}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => setShowPlagiarismModal(false)}
+                >
+                  <Text style={styles.secondaryButtonText}>Go Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={proceedWithSubmission}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <ActivityIndicator color={C.actionText} />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Submit Anyway</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.disclaimerText}>
+                The results shown here will also be visible to your teacher.
+              </Text>
+            </>
+          )}
+        </ScrollView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -520,11 +813,97 @@ const styles = StyleSheet.create({
   },
   chooseFileText: { fontSize: 16, fontWeight: '600' as const, color: C.ink2, marginTop: 12 },
   chooseFileHint: { fontSize: 12, color: C.ink3, marginTop: 4 },
+  attachMenuCard: {
+    marginBottom: 12,
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    ...shadow.soft,
+  },
+  attachMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.borderLight,
+  },
+  attachMenuItemText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: C.ink2,
+  },
+  analyzePromptCard: {
+    marginBottom: 12,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: S.md,
+  },
+  analyzePromptTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: C.ink2,
+    marginBottom: 4,
+  },
+  analyzePromptText: {
+    fontSize: 13,
+    color: C.ink3,
+    marginBottom: S.sm,
+  },
+  analyzePromptActions: {
+    flexDirection: 'row',
+    gap: S.sm,
+  },
+  analyzePromptLaterBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.full,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: C.surface,
+  },
+  analyzePromptLaterText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.ink3,
+  },
+  analyzePromptNowBtn: {
+    flex: 1,
+    borderRadius: R.full,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: C.action,
+  },
+  analyzePromptNowText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.actionText,
+  },
   selectedFileCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: C.bg, padding: 16, borderRadius: 12, marginBottom: 16,
   },
   fileInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  selectedFileActions: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
+  analyzeNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.xs,
+    backgroundColor: C.action,
+    borderRadius: R.full,
+    paddingHorizontal: S.sm,
+    paddingVertical: 6,
+  },
+  analyzeNowButtonText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: C.actionText,
+  },
   fileDetails: { flex: 1 },
   fileName: { fontSize: 14, fontWeight: '600' as const, color: C.ink1, marginBottom: 4 },
   fileSize: { fontSize: 12, color: C.ink3 },
@@ -553,4 +932,171 @@ const styles = StyleSheet.create({
   },
   approvedTitle: { fontSize: 20, fontWeight: '600' as const, color: C.ink2, marginTop: 16, marginBottom: 8 },
   approvedText: { fontSize: 14, color: C.ink3, textAlign: 'center' },
+  // Plagiarism Modal Styles
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  plagiarismContainer: {
+    flex: 1,
+    padding: S.lg,
+    backgroundColor: 'transparent',
+  },
+  checkingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: S.xl2 * 2,
+  },
+  checkingText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    marginTop: S.lg,
+  },
+  checkingSubtext: {
+    fontSize: 14,
+    color: C.ink3,
+    marginTop: S.xs,
+  },
+  plagiarismCard: {
+    backgroundColor: C.surface,
+    borderRadius: R.md,
+    padding: S.lg,
+    marginBottom: S.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...shadow.soft,
+  },
+  plagiarismHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: S.md,
+    gap: S.sm,
+  },
+  plagiarismFileName: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: C.ink1,
+    flex: 1,
+  },
+  plagiarismErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#FEE2E2',
+    borderRadius: R.sm,
+  },
+  plagiarismErrorText: {
+    fontSize: 13,
+    color: C.red,
+    flex: 1,
+  },
+  scoreContainer: {
+    alignItems: 'center',
+    marginBottom: S.md,
+    paddingVertical: S.md,
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+  },
+  scoreLabel: {
+    fontSize: 14,
+    color: C.ink2,
+    fontWeight: '500' as const,
+    marginBottom: S.sm,
+    textAlign: 'center',
+  },
+  scoreCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: R.full,
+    borderWidth: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: C.surface,
+  },
+  scoreCircleGood: {
+    borderColor: '#10B981',
+  },
+  scoreCircleRisk: {
+    borderColor: C.red,
+  },
+  scoreValue: {
+    fontSize: 28,
+    fontWeight: '700' as const,
+  },
+  scoreGood: {
+    color: C.ink1,
+  },
+  scoreRisk: {
+    color: C.red,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#FEF3C7',
+    borderRadius: R.sm,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#92400E',
+    flex: 1,
+  },
+  successBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.sm,
+    padding: S.md,
+    backgroundColor: '#D1FAE5',
+    borderRadius: R.sm,
+  },
+  successText: {
+    fontSize: 13,
+    color: '#065F46',
+    flex: 1,
+  },
+  plagiarismActions: {
+    flexDirection: 'row',
+    gap: S.md,
+    marginTop: S.lg,
+    marginBottom: S.md,
+  },
+  primaryButton: {
+    flex: 1,
+    backgroundColor: C.action,
+    borderRadius: R.full,
+    paddingVertical: S.md,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: C.actionText,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: R.full,
+    paddingVertical: S.md,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: C.ink2,
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: C.ink4,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: S.sm,
+  },
 });

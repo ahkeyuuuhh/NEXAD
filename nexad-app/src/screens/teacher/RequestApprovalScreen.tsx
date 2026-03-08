@@ -24,6 +24,7 @@ import { profileService } from '../../services/profileService';
 import { notificationService } from '../../services/notificationService';
 import { aiService } from '../../services/aiService';
 import { documentService } from '../../services/documentService';
+import { cloudmersiveService } from '../../services/cloudmersiveService';
 import type { ConsultationRequest } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { C, T, S, R, F, shadow } from '../../config/theme';
@@ -65,6 +66,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const [isLoadingBrief, setIsLoadingBrief] = useState(true);
   const [consultationBrief, setConsultationBrief] = useState<any>(null);
   const [isLoadingConsultationBrief, setIsLoadingConsultationBrief] = useState(true);
+  const [analysisUnavailableReason, setAnalysisUnavailableReason] = useState('No document submitted - AI analysis is not available for this request.');
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
@@ -85,6 +87,44 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     setExpandedCards(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const toYmd = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const getCalendarBounds = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const preferredStart = request.preferred_time_slots?.[0]?.start;
+    const preferredEnd = request.preferred_time_slots?.[0]?.end;
+
+    if (!preferredStart || !preferredEnd) {
+      return {
+        minDate: toYmd(today),
+        maxDate: undefined as string | undefined,
+        restrictedToPreferredRange: false,
+      };
+    }
+
+    const startDate = new Date(preferredStart);
+    const endDate = new Date(preferredEnd);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    const effectiveStart = startDate > today ? startDate : today;
+    const minDate = toYmd(effectiveStart);
+    const maxDate = toYmd(endDate >= effectiveStart ? endDate : effectiveStart);
+
+    return {
+      minDate,
+      maxDate,
+      restrictedToPreferredRange: true,
+    };
+  };
+
   useEffect(() => {
     loadStudentProfile();
     loadExistingConsultations();
@@ -92,6 +132,20 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     loadUploadedDocuments();
     loadConsultationBrief();
   }, []);
+
+  useEffect(() => {
+    const bounds = getCalendarBounds();
+    const selectedYmd = toYmd(selectedDate);
+
+    if (selectedYmd < bounds.minDate) {
+      setSelectedDate(new Date(bounds.minDate));
+      return;
+    }
+
+    if (bounds.maxDate && selectedYmd > bounds.maxDate) {
+      setSelectedDate(new Date(bounds.maxDate));
+    }
+  }, [request.preferred_time_slots, selectedDate]);
 
   const loadExistingConsultations = async () => {
     if (!userId) return;
@@ -121,15 +175,19 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       
       // Mark dates on calendar
       const marks: MarkedDates = {};
+
+      // Mark existing consultations with red dots
       consultationsWithNames.forEach(consultation => {
         if (consultation.scheduled_start_time) {
           const date = consultation.scheduled_start_time.split('T')[0];
           marks[date] = {
             marked: true,
-            dotColor: C.ink4,
+            dotColor: '#EF4444', // Red for conflicts/existing consultations
+            selected: false,
           };
         }
       });
+      
       setMarkedDates(marks);
     } catch (error) {
       console.error('Error loading consultations:', error);
@@ -177,18 +235,38 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
       // If no file was submitted, skip AI/plagiarism analysis entirely
       if (!firstDoc) {
         setConsultationBrief(null);
+        setAnalysisUnavailableReason('No document submitted - AI analysis is not available for this request.');
+        return;
+      }
+
+      const fileNameLower = (firstDoc.file_name || '').toLowerCase();
+      const fileTypeLower = (firstDoc.file_type || '').toLowerCase();
+      const isImageSubmission = /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/.test(fileNameLower)
+        || /(jpg|jpeg|png|gif|bmp|tiff|webp|image)/.test(fileTypeLower);
+
+      // Teacher side: do not run AI/plagiarism analysis for image-only submissions
+      if (isImageSubmission) {
+        setConsultationBrief(null);
+        setAnalysisUnavailableReason('Image submission detected - AI content and integrity analysis is skipped for images.');
         return;
       }
 
       const fileName = firstDoc?.file_name || request.subject_line || 'Student Document';
 
       // Extract file text if a document was uploaded
+      // Use cloudmersiveService which tries cloud API first (handles custom PDF font encodings)
       let fileContent: string | undefined;
       if (firstDoc?.storage_path) {
-        fileContent = await documentService.extractTextFromFile(
-          firstDoc.storage_path,
-          firstDoc.file_type || 'pdf'
-        );
+        const urlResult = await documentService.getDocumentUrl(firstDoc.storage_path);
+        if (urlResult.data) {
+          const textResult = await cloudmersiveService.extractTextFromFile(
+            urlResult.data,
+            firstDoc.file_name || fileName,
+            firstDoc.file_type || 'pdf'
+          );
+          fileContent = textResult.data || '';
+          console.log('[RequestApproval] Extracted text length:', fileContent.length);
+        }
       }
 
       const brief = await aiService.generateConsultationBrief({
@@ -199,6 +277,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         fileContent,
       });
       setConsultationBrief(brief);
+      setAnalysisUnavailableReason('No document submitted - AI analysis is not available for this request.');
     } catch (error) {
       console.error('Error generating consultation brief:', error);
     } finally {
@@ -239,6 +318,27 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     });
   };
 
+  const formatPreferredDateRange = () => {
+    try {
+      const firstSlot = request.preferred_time_slots?.[0];
+      if (!firstSlot?.start) return 'No preferred range provided';
+
+      const startDate = new Date(firstSlot.start);
+      const endDate = firstSlot.end ? new Date(firstSlot.end) : startDate;
+
+      const startText = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endText = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      if (startDate.toDateString() === endDate.toDateString()) {
+        return endText;
+      }
+
+      return `${startText} - ${endText}`;
+    } catch {
+      return 'Preferred range unavailable';
+    }
+  };
+
   const validateDateTime = () => {
     // Validate classroom number
     if (!classroomNumber.trim()) {
@@ -255,6 +355,27 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
     if (selDate < today) {
       Alert.alert('Invalid Date', 'Please select a future date');
       return false;
+    }
+
+    // ─── NEW: Validate date is within student's preferred range ─────────────────────────
+    const preferredStart = request.preferred_time_slots?.[0]?.start;
+    const preferredEnd = request.preferred_time_slots?.[0]?.end;
+    
+    if (preferredStart && preferredEnd) {
+      const startDate = new Date(preferredStart);
+      const endDate = new Date(preferredEnd);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      if (selDate < startDate || selDate > endDate) {
+        const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        Alert.alert(
+          'Date Outside Preferred Range',
+          `Student's preferred dates are ${startStr} - ${endStr}. Please select a date within this range.`
+        );
+        return false;
+      }
     }
 
     // If today is selected, validate the start time is not already past
@@ -465,9 +586,9 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                 </View>
                 {request.preferred_time_slots && request.preferred_time_slots.length > 0 && (
                   <View style={styles.gradientMetaChip}>
-                    <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.55)" />
+                    <Ionicons name="calendar-clear-outline" size={11} color="rgba(255,255,255,0.55)" />
                     <Text style={styles.gradientMetaText}>
-                      {formatTime(request.preferred_time_slots[0].start)}
+                      Preferred: {formatPreferredDateRange()}
                     </Text>
                   </View>
                 )}
@@ -654,7 +775,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             </>
           ) : (
             <View style={styles.noDataCard}>
-              <Text style={styles.noDataText}>No document submitted — AI analysis is not available for this request.</Text>
+              <Text style={styles.noDataText}>{analysisUnavailableReason}</Text>
             </View>
           )}
         </View>
@@ -725,7 +846,12 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         {/* ─── Calendar Section ─── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Schedule - Available Times</Text>
-          <Text style={styles.calendarSubtext}>Red dots indicate existing consultations</Text>
+          {getCalendarBounds().restrictedToPreferredRange && (
+            <Text style={styles.calendarSubtext}>Only dates within the student's preferred range are selectable.</Text>
+          )}
+          <Text style={[styles.calendarSubtext, { marginTop: getCalendarBounds().restrictedToPreferredRange ? 4 : 0 }]}>
+            <Text style={{ color: '#EF4444', fontWeight: '600' }}>Red dots:</Text> Your existing consultations
+          </Text>
           {isLoadingConsultations ? (
             <ActivityIndicator size="large" color={C.ink2} style={{ marginVertical: 20 }} />
           ) : (
@@ -740,7 +866,8 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                   },
                 }}
                 onDayPress={(day: DateData) => setSelectedDate(new Date(day.dateString))}
-                minDate={new Date().toISOString().split('T')[0]}
+                minDate={getCalendarBounds().minDate}
+                maxDate={getCalendarBounds().maxDate}
                 renderArrow={(direction) => (
                   <Ionicons
                     name={direction === 'left' ? 'chevron-back' : 'chevron-forward'}

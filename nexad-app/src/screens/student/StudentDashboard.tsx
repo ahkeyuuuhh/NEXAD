@@ -20,8 +20,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
-import { messageService, MessageWithSender } from '../../services/messageService';
+import { conversationService } from '../../services/conversationService';
 import { profileService, StudentProfile } from '../../services/profileService';
+import type { Conversation } from '../../types';
 import { documentService } from '../../services/documentService';
 import type { UploadedDocument } from '../../types';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
@@ -42,7 +43,7 @@ interface ConsultationWithTeacher extends ConsultationRequest {
 interface DashboardData {
   upcomingConsultations: ConsultationWithTeacher[];
   pendingRequests: ConsultationWithTeacher[];
-  unreadMessages: MessageWithSender[];
+  conversations: Conversation[];
   profile: StudentProfile | null;
 }
 
@@ -58,7 +59,7 @@ export default function StudentDashboard({ navigation, route }: any) {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     upcomingConsultations: [],
     pendingRequests: [],
-    unreadMessages: [],
+    conversations: [],
     profile: null,
   });
 
@@ -108,9 +109,9 @@ export default function StudentDashboard({ navigation, route }: any) {
   const loadDashboardData = useCallback(async () => {
     if (!userId) return;
     try {
-      const [consultationsResult, messagesResult, profileResult] = await Promise.all([
+      const [consultationsResult, conversationsResult, profileResult] = await Promise.all([
         consultationService.getStudentRequests(userId, 1, 100),
-        messageService.getUnreadMessages(userId, MESSAGE_LIMIT),
+        conversationService.getConversations(userId),
         profileService.getStudentProfile(userId),
       ]);
 
@@ -174,7 +175,7 @@ export default function StudentDashboard({ navigation, route }: any) {
       setDashboardData({
         upcomingConsultations: sortedConsultations,
         pendingRequests: pendingWithTeachers,
-        unreadMessages: messagesResult.data || [],
+        conversations: (conversationsResult.data || []).slice(0, MESSAGE_LIMIT),
         profile: profileResult.data || null,
       });
     } catch (error) {
@@ -526,40 +527,52 @@ export default function StudentDashboard({ navigation, route }: any) {
 
 
 
-        {/* MESSAGES */}
+        {/* INBOX */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Unread Messages</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Inbox')}><Text style={styles.viewAllText}>View All</Text></TouchableOpacity>
+            <Text style={styles.sectionTitle}>Inbox</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Inbox')} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.viewAllText}>View All</Text>
+              <Ionicons name="arrow-forward" size={13} color={C.ink2} />
+            </TouchableOpacity>
           </View>
-          {dashboardData.unreadMessages.length === 0 ? (
+          {dashboardData.conversations.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="chatbubble-outline" size={40} color={C.ink4} style={{ marginBottom: S.md }} />
-              <Text style={styles.emptyText}>No unread messages</Text>
+              <Text style={styles.emptyText}>No messages yet</Text>
             </View>
           ) : (
-            dashboardData.unreadMessages.slice(0, MESSAGE_LIMIT).map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                style={styles.messageCard}
-                onPress={() => navigation.navigate('Inbox')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.messageAvatar}>
-                  {m.sender?.profile_photo_url ? (
-                    <Image source={{ uri: m.sender.profile_photo_url }} style={styles.messageAvatarImg} />
-                  ) : (
-                    <Text style={styles.messageAvatarText}>{(m.sender?.first_name || 'U').charAt(0)}</Text>
-                  )}
-                </View>
-                <View style={styles.messageContent}>
-                  <Text style={styles.messageSender}>{m.sender?.first_name} {m.sender?.last_name}</Text>
-                  <Text style={styles.messagePreview} numberOfLines={2}>{m.content}</Text>
-                  <Text style={styles.messageTime}>{formatTimeAgo(m.created_at)}</Text>
-                </View>
-                <View style={styles.unreadDot} />
-              </TouchableOpacity>
-            ))
+            dashboardData.conversations.map((conv) => {
+              const name = conv.other_user
+                ? `${conv.other_user.first_name || ''} ${conv.other_user.last_name || ''}`.trim()
+                : conv.title || 'Chat';
+              const initials = name.charAt(0).toUpperCase() || '?';
+              const timeStr = conv.last_message_at ? formatTimeAgo(conv.last_message_at) : '';
+              const hasUnread = (conv.my_unread_count || 0) > 0;
+              return (
+                <TouchableOpacity
+                  key={conv.id}
+                  style={[styles.messageCard, !hasUnread && { opacity: 0.4 }]}
+                  onPress={() => navigation.navigate('Chat', { conversationId: conv.id, title: name, type: conv.type })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.messageAvatar}>
+                    {conv.other_user?.profile_photo_url ? (
+                      <Image source={{ uri: conv.other_user.profile_photo_url as string }} style={styles.messageAvatarImg} />
+                    ) : (
+                      <Text style={styles.messageAvatarText}>{initials}</Text>
+                    )}
+                  </View>
+                  <View style={styles.messageContent}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.messageSender, hasUnread && { fontWeight: '700' as const }]} numberOfLines={1}>{name}</Text>
+                      {timeStr ? <Text style={styles.messageTime}>{timeStr}</Text> : null}
+                    </View>
+                    <Text style={styles.messagePreview} numberOfLines={1}>{conv.last_message_preview || 'No messages yet'}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
         <View style={styles.bottomSpacing} />
@@ -980,22 +993,22 @@ const styles = StyleSheet.create({
   messageCard: {
     backgroundColor: C.surface,
     borderRadius: R.xl,
-    padding: S.lg,
-    marginBottom: S.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: C.borderLight,
     ...shadow.soft,
   },
-  messageAvatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
-  messageAvatarText: { color: C.ink2, fontSize: 16, fontWeight: '600' as const },
-  messageAvatarImg:  { width: 44, height: 44, borderRadius: 22 },
+  messageAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  messageAvatarText: { color: C.ink2, fontSize: 15, fontWeight: '600' as const },
+  messageAvatarImg:  { width: 38, height: 38, borderRadius: 19 },
   messageContent:    { flex: 1 },
-  messageSender:     { ...T.label, color: C.ink1, fontSize: 14 },
-  messagePreview:    { ...T.small, color: C.ink3, marginTop: 4, lineHeight: 19 },
-  messageTime:       { ...T.tiny, marginTop: 6 },
-  unreadDot:         { width: 10, height: 10, borderRadius: 5, backgroundColor: C.ink2, marginTop: 6 },
+  messageSender:     { ...T.label, color: C.ink1, fontSize: 13, flex: 1, marginRight: 6 },
+  messagePreview:    { ...T.small, color: C.ink3, marginTop: 2, lineHeight: 17 },
+  messageTime:       { ...T.tiny, color: C.ink4, flexShrink: 0 },
 
   bottomSpacing: { height: 40 },
 

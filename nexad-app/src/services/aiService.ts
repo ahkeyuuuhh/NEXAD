@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { cloudmersiveService } from './cloudmersiveService';
 import type { ApiResponse } from '../types';
 
 interface SmartBriefData {
@@ -627,6 +628,39 @@ export const aiService = {
   /**
    * On-device content analysis — keyword analysis of extracted file text.
    */
+  /**
+   * Clean and filter extracted text to remove corrupted/garbled characters
+   * Only keeps readable ASCII and common Unicode characters
+   */
+  /**
+   * Check if text looks like readable English vs garbled PDF glyph data.
+   */
+  isTextReadable(text: string): boolean {
+    if (!text || text.trim().length < 30) return false;
+    const words = text.trim().split(/\s+/);
+    if (words.length < 5) return false;
+    const realWords = words.filter(w => w.length >= 3 && (w.match(/[a-zA-Z]/g) || []).length >= 2);
+    return (realWords.length / words.length) > 0.45;
+  },
+
+  cleanExtractedText(text: string): string {
+    if (!text) return '';
+    
+    // Split into words and keep only real words (3+ chars, mostly letters)
+    const words = text.split(/\s+/).filter(w => {
+      if (w.length < 2) return false; // reject single chars
+      const letterCount = (w.match(/[a-zA-Z]/g) || []).length;
+      // Must have at least 2 letters and be at least 50% letters
+      return letterCount >= 2 && (letterCount / w.length) >= 0.5;
+    });
+    
+    const cleanedText = words.join(' ').replace(/\s+/g, ' ').trim();
+    
+    console.log('[AIService] Text cleaning: original length', text.length, 'cleaned length', cleanedText.length, 'words:', words.length);
+    
+    return cleanedText;
+  },
+
   localContentAnalysis(text: string, fileName: string, studentDescription: string = '', subjectLine: string = ''): {
     summary: string;
     key_topics: string[];
@@ -634,8 +668,12 @@ export const aiService = {
     flags: string[];
   }  {
     const baseName = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const hasText = text.trim().length > 20;
+    
+    // Clean the extracted text first, then check if it's actually readable
+    const cleanedText = this.cleanExtractedText(text);
+    const hasText = cleanedText.trim().length > 30 && this.isTextReadable(cleanedText);
     const meta = (baseName + ' ' + studentDescription + ' ' + subjectLine).toLowerCase();
+    
     const T: Record<string, string> = {
       'climate change': 'Climate Change', 'global warming': 'Global Warming',
       'artificial intelligence': 'AI/Machine Learning', 'machine learning': 'Machine Learning',
@@ -647,10 +685,11 @@ export const aiService = {
       'security': 'Cybersecurity', 'programming': 'Programming', 'software': 'Software',
       'math': 'Mathematics', 'physic': 'Physics', 'biolog': 'Biology',
     };
+    
     if (!hasText) {
       const tops = Object.entries(T).filter(function(e) { return meta.includes(e[0]); }).map(function(e) { return e[1]; }).filter(function(x, i, a) { return a.indexOf(x) === i; }).slice(0, 4);
       return {
-        summary: 'File "' + baseName + '" was uploaded but its text could not be extracted. It may be a scanned or image-based document. Analysis is based on the filename and student description only.',
+        summary: 'File "' + baseName + '" was uploaded but no readable text could be extracted. It may be a scanned, image-based, or encrypted document. Analysis is based on the filename and student description only.',
         key_topics: tops.length ? tops : ['See filename/description'],
         word_count: 0,
         flags: [
@@ -659,9 +698,11 @@ export const aiService = {
         ],
       };
     }
-    const words = text.split(/\s+/).filter(Boolean);
+    
+    const words = cleanedText.split(/\s+/).filter(Boolean);
     const wordCount = words.length;
-    const lowerText = text.toLowerCase();
+    const lowerText = cleanedText.toLowerCase();
+    
     const aiPhrases = [
       'in order to', 'plays a crucial role', 'it is important to note',
       'this essay explores', "in today's world", 'furthermore', 'moreover',
@@ -669,18 +710,42 @@ export const aiService = {
     ];
     const aiFound = aiPhrases.filter(function(p) { return lowerText.includes(p); });
     const topics = Object.entries(T).filter(function(e) { return lowerText.includes(e[0]); }).map(function(e) { return e[1]; }).filter(function(x, i, a) { return a.indexOf(x) === i; }).slice(0, 4);
+    
     const flags: string[] = [];
     if (aiFound.length >= 2) flags.push('AI writing style phrases detected: ' + aiFound.slice(0, 3).join(', '));
     if (!/\breferences?\b|\bbibliograph/.test(lowerText) && wordCount > 100) flags.push('No citations or references detected in the document');
-    if (wordCount < 50) flags.push('Very little text extracted — document may be partially image-based');
-    const ex = text.substring(0, 250).replace(/\s+/g, ' ').trim();
-    const summary = ex.length > 30 ? 'Document begins: "' + ex + '..."' : 'Text extracted from "' + baseName + '".';
+    if (wordCount < 50 && wordCount > 0) flags.push('Document has limited text — may be image-based or sparse content');
+    
+    // Build a proper summary from first 2-3 sentences
+    const sentences = cleanedText.match(/[^.!?]+[.!?]+/g) || [];
+    let summary = '';
+    
+    if (sentences.length > 0) {
+      // Use first 1-2 sentences as summary
+      summary = sentences.slice(0, Math.min(2, sentences.length))
+        .join(' ')
+        .substring(0, 300)
+        .trim();
+      
+      // Ensure it ends properly
+      if (!['.',  '!', '?'].includes(summary[summary.length - 1])) {
+        summary += '...';
+      }
+      summary = 'Document summary: ' + summary;
+    } else {
+      // If no clear sentences, show first meaningful phrase
+      const firstPhrase = words.slice(0, 15).join(' ');
+      summary = firstPhrase.length > 10 
+        ? 'Document begins: "' + firstPhrase + '..."'
+        : 'Text extracted from "' + baseName + '".';
+    }
+    
     return { summary, key_topics: topics, word_count: wordCount, flags };
   },
 
   /**
-   * On-device fallback scoring — used when HF API is unavailable.
-   * Separately detects AI-Generated content vs Uncited/Plagiarised content.
+   * On-device fallback scoring — now unified to use cloudmersiveService
+   * Ensures student-side and teacher-side show consistent originality scores
    */
   localFallbackBrief(params: {
     fileName: string;
@@ -690,121 +755,50 @@ export const aiService = {
     fileContent?: string;
   }) {
     const { fileName, studentDescription, subjectLine, topic } = params;
-    const descLower = studentDescription.trim().toLowerCase();
-    const allText = `${fileName} ${studentDescription} ${subjectLine} ${topic}`.toLowerCase();
     const baseName = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const descWordCount = descLower.split(/\s+/).filter(Boolean).length;
-    const seed = this.hashString(`${fileName}|${studentDescription}|${topic}`);
-    const variance = seed % 4; // small ±variance only
 
-    // ── AI-Generated signals ──────────────────────────────────────────────
-    let aiScore = 0;
-
-    // Explicit AI tool mentions in filename or description
-    if (/chatgpt|gpt-|gpt4|gpt 4|openai|bard|gemini|claude|copilot|ai.generated|written by ai|generated by ai|llm|large language model/i.test(allText)) {
-      aiScore += 60;
-    }
-    // Title looks like a polished AI essay title pattern: "The [Adj] [Noun] of [Noun]"
-    if (/^the\s+\w+\s+(influence|impact|role|effect|power|nature|concept|importance|significance|value|essence)\s+of\s+/i.test(baseName.trim())) {
-      aiScore += 20;
-    }
-    // AI essay writing style phrases in the student description
-    const aiPhrases = [
-      'in order to', 'it is important to note', 'plays a crucial role', 'significant impact',
-      'in conclusion', 'furthermore', 'moreover', 'in today\'s world', 'in recent years',
-      'it can be argued', 'it is worth noting', 'one can observe', 'this essay explores',
-      'this paper examines', 'this document discusses', 'in this essay', 'in this paper',
-      'in this document', 'has been shown to', 'a variety of', 'a wide range of',
-    ];
-    const aiPhraseMatches = aiPhrases.filter(p => descLower.includes(p)).length;
-    aiScore += aiPhraseMatches * 12;
-
-    // Description is very formal with NO personal voice at all — common in AI-written text
-    const hasPersonalVoice = /\b(i |my |me |we |our |i'm|i've|i need|i want|i don|i can|i have|i am)\b/i.test(studentDescription);
-    const isLongDesc = descWordCount > 15;
-    if (!hasPersonalVoice && isLongDesc) aiScore += 18; // long but impersonal = AI signal
-
-    // ── Plagiarism / Uncited signals ───────────────────────────────────────
-    let plagiarismScore = 0;
-
-    const isCategoryLabel = descWordCount <= 3 ||
-      /^(academic support|essay|assignment|help|support|review|feedback|homework|project|draft|submission|document|report|paper)$/i.test(descLower);
-    if (isCategoryLabel) plagiarismScore += 25;
-    if (descWordCount < 5) plagiarismScore += 20;
-    else if (descWordCount < 11) plagiarismScore += 8;
-    if (!hasPersonalVoice && !isLongDesc) plagiarismScore += 12; // short + no personal = generic copy
-
-    // ── Boost scores from actual extracted file content ─────────────────
-    const fileContent = params.fileContent || '';
-    if (fileContent.trim().length > 50) {
-      const fcLower = fileContent.toLowerCase();
-      const fcWords = fileContent.split(/\s+/).filter(Boolean);
-      const fcLen = fcWords.length;
-
-      // AI phrase density in actual content (stronger signal than description)
-      const fcAIPhraseMatches = aiPhrases.filter(p => fcLower.includes(p)).length;
-      aiScore += fcAIPhraseMatches * 15;
-
-      // Copy-paste / encyclopedic signals in content
-      // Definition-style openers: "X is a", "X refers to", "X is defined as"
-      const definitionStyle = /(\bis a\b|\bis an\b|\brefers to\b|\bis defined as\b|\bwas founded\b|\binvolves\b|\bconsists of\b)/.test(fcLower);
-      const hasPersonalVoiceInContent = /\b(i |my |me |we |our |i'm|i've|i need|i want)\/b/i.test(fileContent);
-      const hasCitationInContent = /\breferences?\b|\bbibliograph|et al\.?|\[\d+\]|\(\d{4}\)/.test(fcLower);
-
-      if (definitionStyle && !hasPersonalVoiceInContent) plagiarismScore += 20;
-      if (!hasCitationInContent && fcLen > 150) plagiarismScore += 15;
-      if (!hasPersonalVoiceInContent && fcLen > 100) plagiarismScore += 10;
-
-      // Content with lots of formal structure words
-      const formalWords = ['therefore', 'however', 'furthermore', 'consequently', 'regarding', 'additionally', 'notably', 'specifically', 'typically', 'generally'];
-      const formalCount = formalWords.filter(w => fcLower.includes(w)).length;
-      if (formalCount >= 3) plagiarismScore += 10;
-    }
-
-    // ── Combined risk ─────────────────────────────────────────────────────
-    aiScore = Math.min(100, aiScore);
-    plagiarismScore = Math.min(100, plagiarismScore);
-
-    const isAIDetected = aiScore >= 30;
-    const matchPct = Math.min(100, Math.max(0, Math.max(aiScore, plagiarismScore) + variance));
+    // Use unified plagiarism check from cloudmersiveService for consistency
+    // This ensures student-side and teacher-side show the same scores
+    const fullText = `${fileName} ${studentDescription} ${subjectLine} ${topic} ${params.fileContent || ''}`;
+    const plagiarismCheckResult = cloudmersiveService.fallbackPlagiarismCheck(fullText);
+    
+    const originalityScore = plagiarismCheckResult.data?.originalityScore ?? 50;
+    const matchPct = Math.max(0, Math.min(100, 100 - originalityScore)); // Convert originality to match percentage
 
     let integrityStatus: 'Clean' | 'Low Risk' | 'Warning' | 'High Risk';
     let sourceType: string;
     let integrityAnalysis: string;
 
-    if (isAIDetected && aiScore >= 50) {
-      integrityStatus = 'High Risk';
-      sourceType = 'AI-Generated';
-      integrityAnalysis = `"${baseName}" shows strong indicators of AI-generated content — the title structure and/or description style are characteristic of AI writing tools. Teacher should ask the student to explain the work in their own words.`;
-    } else if (isAIDetected) {
-      integrityStatus = 'Warning';
-      sourceType = 'AI-Generated';
-      integrityAnalysis = `"${baseName}" shows possible AI-generated content. Description lacks personal voice and uses formal structured language. Recommend asking the student to walk through their thought process.`;
-    } else if (matchPct > 55) {
-      integrityStatus = 'High Risk';
-      sourceType = 'Uncited Website';
-      integrityAnalysis = `"${baseName}" covers a well-documented subject and the student provided very limited context. High likelihood of uncited or copied content.`;
-    } else if (matchPct > 35) {
-      integrityStatus = 'Warning';
-      sourceType = 'Mixed';
-      integrityAnalysis = `"${baseName}" is a widely-available topic. Student provided minimal description — possible uncited content. Recommend asking student to cite sources.`;
-    } else if (matchPct > 15) {
-      integrityStatus = 'Low Risk';
-      sourceType = 'Mixed';
-      integrityAnalysis = `Low risk detected for "${baseName}". Some content may overlap with online sources.`;
-    } else {
+    // Map originality score to risk status for teacher display
+    if (originalityScore >= 85) {
       integrityStatus = 'Clean';
       sourceType = 'Clean';
-      integrityAnalysis = `No significant integrity concerns detected for "${baseName}". Student provided a clear personal description.`;
+      integrityAnalysis = `"${baseName}" shows excellent originality and proper academic formatting. Student provided clear personal explanation and proper citation practices.`;
+    } else if (originalityScore >= 70) {
+      integrityStatus = 'Low Risk';
+      sourceType = 'Clean';
+      integrityAnalysis = `Low risk detected for "${baseName}". Content shows good originality with few concerns. Student provided adequate context and some academic references.`;
+    } else if (originalityScore >= 50) {
+      integrityStatus = 'Warning';
+      sourceType = 'Mixed';
+      integrityAnalysis = `"${baseName}" shows moderate risk. Some content patterns suggest possible uncited material or formal text lacking personal voice. Recommend asking student to explain their approach and cite sources.`;
+    } else if (originalityScore >= 30) {
+      integrityStatus = 'Warning';
+      sourceType = 'Uncited Website';
+      integrityAnalysis = `"${baseName}" shows higher risk patterns. Content has low vocabulary diversity, limited citations, or formal structure without personal voice. Recommend asking student to explain key sections.`;
+    } else {
+      integrityStatus = 'High Risk';
+      sourceType = 'Uncited Website';
+      integrityAnalysis = `"${baseName}" shows strong risk indicators — very low vocabulary diversity, no citations, or consistent AI writing patterns detected. Ask student to explain their work verbally without referring to notes.`;
     }
 
     const concerns: string[] = [];
-    if (isAIDetected) {
-      concerns.push(`Possible AI-generated content — ask student to explain "${baseName}" verbally without notes`);
-      concerns.push('Ask student to describe their writing process and any tools they used');
-    } else if (matchPct > 35) {
+    if (originalityScore < 50) {
       concerns.push(`Ask student to explain "${baseName}" section by section in their own words`);
-      if (isCategoryLabel || descWordCount < 5) concerns.push('Student provided limited context — ask them to describe their approach');
+      concerns.push('Verify the student can articulate their understanding without the document');
+    }
+    if (originalityScore < 40) {
+      concerns.push(`Check for uncited online sources — ask student to provide bibliography/references`);
     }
     if (concerns.length < 2) {
       concerns.push(`Review key arguments in "${baseName}" for accuracy and depth`);
@@ -821,11 +815,9 @@ export const aiService = {
         subjectLine
       ),
       primary_concerns: concerns.slice(0, 3),
-      consultation_focus: isAIDetected
-        ? `Verify the student's genuine understanding of "${baseName}" — ask them to explain key sections verbally without referring to their document.`
-        : matchPct > 35
-          ? `Focus the consultation on verifying the student's understanding of "${baseName}" — ask them to explain the content without referring to notes.`
-          : `Focus the consultation on identifying the student's specific gap in "${baseName}" and providing targeted feedback.`,
+      consultation_focus: originalityScore < 50
+        ? `Focus the consultation on verifying the student's understanding of "${baseName}" — ask them to explain the content without referring to notes.`
+        : `Focus the consultation on identifying the student's specific gap in "${baseName}" and providing targeted feedback.`,
     };
   },
 
@@ -859,6 +851,10 @@ export const aiService = {
   }> {
     const HF_KEY = process.env.EXPO_PUBLIC_HF_API_KEY;
     const { fileName, studentDescription, subjectLine, topic, fileContent } = params;
+
+    console.log('[AI Service] Generating consultation brief for:', fileName);
+    console.log('[AI Service] File content length:', fileContent?.length || 0, 'chars');
+    console.log('[AI Service] File content preview:', fileContent?.substring(0, 100) || '(no content)');
 
     if (HF_KEY && HF_KEY !== 'your-hf-api-key-here') {
       try {

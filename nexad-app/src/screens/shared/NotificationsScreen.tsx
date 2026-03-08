@@ -146,14 +146,15 @@ export default function NotificationsScreen({ navigation }: any) {
               ? { label: 'View Submission →', screen: 'AttachmentBinSubmission', params: { binId: rid } }
               : { label: 'Go to Classrooms →', screen: 'StudentClassrooms', params: {} };
           case 'request_accepted':
-            // Go to the active consultations screen pre-filtered to Approved
-            // so the student immediately sees the scheduled date/time/room.
             return { label: 'View Approved Consultation →', screen: 'StudentConsultations', params: { initialFilter: 'approved' } };
           case 'request_declined':
             return { label: 'View History →', screen: 'ConsultationHistory', params: { initialFilter: 'declined' } };
           case 'consultation_completed':
-            // Navigate directly to the Completed tab so they see the finished session
             return { label: 'View Completed →', screen: 'ConsultationHistory', params: { initialFilter: 'completed' } };
+          case 'new_message':
+            return rid
+              ? { label: 'Open Chat →', screen: 'Chat', params: { conversationId: rid, title: 'Chat', type: 'INQUIRY' } }
+              : { label: 'Open Inbox →', screen: 'Inbox', params: {} };
           default:
             return null;
         }
@@ -168,6 +169,10 @@ export default function NotificationsScreen({ navigation }: any) {
           return rid
             ? { label: 'Review Submission →', screen: 'TeacherBinReview', params: { binId: rid } }
             : null;
+        case 'new_message':
+          return rid
+            ? { label: 'Open Chat →', screen: 'Chat', params: { conversationId: rid, title: 'Chat', type: 'INQUIRY' } }
+            : { label: 'Open Inbox →', screen: 'Inbox', params: {} };
         default:
           return null;
       }
