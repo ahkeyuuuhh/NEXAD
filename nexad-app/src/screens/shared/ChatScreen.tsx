@@ -174,12 +174,19 @@ export default function ChatScreen({ navigation, route }: any) {
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
 
-  // ── Android keyboard avoidance (snaps back perfectly on dismiss) ───────────
+  // ── Android keyboard avoidance ────────────────────────────────────────────
+  // keyboardWillShow fires at animation START (RN 0.73+ on Android) so the
+  // input bar moves in sync with the keyboard instead of after it.
+  // keyboardDidShow/Hide kept as reliable fallbacks.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    const show = Keyboard.addListener('keyboardDidShow', e => setKbOffset(e.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKbOffset(0));
-    return () => { show.remove(); hide.remove(); };
+    const onShow = (e: any) => setKbOffset(e.endCoordinates.height);
+    const onHide = () => setKbOffset(0);
+    const s1 = Keyboard.addListener('keyboardWillShow', onShow);
+    const s2 = Keyboard.addListener('keyboardDidShow', onShow);   // fallback
+    const h1 = Keyboard.addListener('keyboardWillHide', onHide);
+    const h2 = Keyboard.addListener('keyboardDidHide', onHide);   // fallback
+    return () => { s1.remove(); s2.remove(); h1.remove(); h2.remove(); };
   }, []);
 
   // ── Load OTHER participant name for header title ──────────────────────────
