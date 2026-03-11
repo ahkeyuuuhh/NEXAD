@@ -486,7 +486,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
       />
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <StatusBar barStyle="dark-content" />
         {/* Header */}

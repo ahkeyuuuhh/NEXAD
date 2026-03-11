@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   FlatList,
   TextInput,
   KeyboardAvoidingView,
-  Keyboard,
   Platform,
   ActivityIndicator,
   Alert,
@@ -16,10 +15,14 @@ import {
   ScrollView,
   Linking,
   Image,
+  InteractionManager,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
+import * as LegacyFS from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { conversationService } from '../../services/conversationService';
@@ -98,8 +101,8 @@ function getMessageFileName(msg: ConversationMessage): string {
 
 function isImageAttachment(msg: ConversationMessage): boolean {
   if (msg.file_type?.includes('image')) return true;
-  const probe = `${msg.file_name || ''} ${msg.file_url || ''}`.toLowerCase();
-  return /\.(jpg|jpeg|png|gif|webp|heic|heif)(\?|$)/.test(probe);
+  const probe = `${msg.file_name || ''} ${msg.file_url || ''} ${msg.content || ''}`.toLowerCase();
+  return /\.(jpg|jpeg|png|gif|webp|heic|heif)(\?|$)/.test(probe) || /🖼️/.test(msg.content || '');
 }
 
 export default function ChatScreen({ navigation, route }: any) {
@@ -130,6 +133,15 @@ export default function ChatScreen({ navigation, route }: any) {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
+  // Message actions (long-press)
+  const [selectedMessage, setSelectedMessage] = useState<ConversationMessage | null>(null);
+  const [showMessageActions, setShowMessageActions] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<ConversationMessage | null>(null);
+
+  // Image viewer
+  const [viewingImageUrl, setViewingImageUrl] = useState<string | null>(null);
+  const [viewingImageName, setViewingImageName] = useState<string>('');
+
   // Smart Brief modal
   const [showBrief, setShowBrief] = useState(false);
   const [brief, setBrief] = useState<any>(null);
@@ -137,17 +149,21 @@ export default function ChatScreen({ navigation, route }: any) {
 
   // Files in conversation modal
   const [showFiles, setShowFiles] = useState(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
   const realtimeRef = useRef<any>(null);
+
+  // ── Inverted data for chat (newest first in array → bottom of screen) ──────
+  const invertedData = useMemo(
+    () => [...withDateSeparators(messages)].reverse(),
+    [messages]
+  );
 
   // ── Load initial messages ──────────────────────────────────────────────────
   const loadMessages = useCallback(async () => {
     const result = await conversationService.getMessages(conversationId);
     if (result.data) setMessages(result.data);
     setLoading(false);
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 80);
     // Mark as read
     conversationService.markAsRead(conversationId, userId).catch(() => {});
   }, [conversationId, userId]);
@@ -212,11 +228,36 @@ export default function ChatScreen({ navigation, route }: any) {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             return [...prev, newMsg];
           });
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
           // Mark as read if it came from someone else
           if (newMsg.sender_id !== userId) {
             conversationService.markAsRead(conversationId, userId).catch(() => {});
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: any) => {
+          const updated = payload.new as ConversationMessage;
+          setMessages((prev) => prev.map((m) => m.id === updated.id ? { ...m, content: updated.content } : m));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'conversation_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: any) => {
+          const deleted = payload.old as any;
+          if (deleted?.id) setMessages((prev) => prev.filter((m) => m.id !== deleted.id));
         }
       )
       .subscribe();
@@ -226,20 +267,33 @@ export default function ChatScreen({ navigation, route }: any) {
     };
   }, [conversationId, userId]);
 
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
-  // ── Send text message ──────────────────────────────────────────────────────
+
+  // ── Send text message (also handles editing) ──────────────────────────────
   const handleSend = async () => {
     const trimmed = text.trim();
     if (!trimmed || !userId) return;
     setSending(true);
+
+    if (editingMessage) {
+      try {
+        const { error } = await supabase
+          .from('conversation_messages')
+          .update({ content: trimmed, is_edited: true, edited_at: new Date().toISOString() })
+          .eq('id', editingMessage.id);
+        if (error) throw error;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === editingMessage.id ? { ...m, content: trimmed, is_edited: true, edited_at: new Date().toISOString() } : m))
+        );
+      } catch {
+        Alert.alert('Error', 'Could not edit message. Ask admin to enable message editing.');
+      }
+      setEditingMessage(null);
+      setText('');
+      setSending(false);
+      return;
+    }
+
     setText('');
     const result = await conversationService.sendMessage(conversationId, userId, trimmed);
     if (result.error) Alert.alert('Error', result.error);
@@ -249,66 +303,70 @@ export default function ChatScreen({ navigation, route }: any) {
   // ── Select document (show preview, don't auto-send) ───────────────────────
   const handleSelectDocument = async () => {
     setShowAttachMenu(false);
-    const picked = await DocumentPicker.getDocumentAsync({
-      type: [
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ],
-      copyToCacheDirectory: true,
-    });
+    // Wait for the attach menu modal to finish closing before launching the picker
+    await new Promise<void>((resolve) => setTimeout(resolve, 320));
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
+        copyToCacheDirectory: true,
+      });
 
-    if (picked.canceled || !picked.assets?.[0]) return;
-    const asset = picked.assets[0];
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
 
-    if (asset.size && asset.size > MAX_FILE_BYTES) {
-      Alert.alert('File Too Large', 'Please choose a file under 10 MB.');
-      return;
+      if (asset.size && asset.size > MAX_FILE_BYTES) {
+        Alert.alert('File Too Large', 'Please choose a file under 10 MB.');
+        return;
+      }
+
+      setSelectedFile({ ...asset, fileType: 'document' });
+      setShowFilePreview(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not open document picker.');
     }
-
-    setSelectedFile({ ...asset, fileType: 'document' });
-    setShowFilePreview(true);
   };
 
-  // ── Select image (show preview, don't auto-send) ──────────────────────────
+  // ── Select image (using DocumentPicker to bypass broken native ImagePicker) ─
   const handleSelectImage = async () => {
     setShowAttachMenu(false);
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to photos to send images.');
-      return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 320));
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+
+      const fileSize = asset.size || 500000;
+      if (fileSize > MAX_FILE_BYTES) {
+        Alert.alert('Image Too Large', 'Please choose an image under 10 MB.');
+        return;
+      }
+
+      const uriName = asset.uri.split('/').pop() || '';
+      const inferredExt = (uriName.split('.').pop() || 'jpg').toLowerCase();
+      const fileName = asset.name || `image_${Date.now()}.${inferredExt}`;
+      // Force correct image MIME — DocumentPicker sometimes returns application/octet-stream
+      const nameExt = (fileName.split('.').pop() || 'jpg').toLowerCase();
+      const extToMime: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif' };
+      const mimeType = extToMime[nameExt] || asset.mimeType || `image/${nameExt === 'jpg' ? 'jpeg' : nameExt}`;
+
+      setSelectedFile({
+        uri: asset.uri,
+        name: fileName,
+        mimeType,
+        size: fileSize,
+        fileType: 'image',
+      });
+      setShowFilePreview(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not open image picker.');
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets?.[0]) return;
-    const asset = result.assets[0];
-
-    // Get proper file size from asset or estimate from dimensions
-    const fileSize = (asset as any).fileSize || (asset.width && asset.height ? Math.floor((asset.width * asset.height * 4) / 3) : 500000);
-    if (fileSize > MAX_FILE_BYTES) {
-      Alert.alert('Image Too Large', 'Please choose an image under 10 MB.');
-      return;
-    }
-
-    const uriName = asset.uri.split('/').pop() || '';
-    const inferredExt = (uriName.split('.').pop() || 'jpg').toLowerCase();
-    const fileName = (asset as any).fileName || `image_${Date.now()}.${inferredExt}`;
-    const mimeType = (asset as any).mimeType || `image/${inferredExt === 'jpg' ? 'jpeg' : inferredExt}`;
-
-    setSelectedFile({
-      uri: asset.uri,
-      name: fileName,
-      mimeType,
-      size: fileSize,
-      fileType: 'image',
-      width: asset.width,
-      height: asset.height
-    });
-    setShowFilePreview(true);
   };
 
   // ── Upload and send the selected file ──────────────────────────────────────
@@ -385,31 +443,77 @@ export default function ChatScreen({ navigation, route }: any) {
   // ── Files in conversation ──────────────────────────────────────────────────
   const fileMessages = messages.filter((m) => m.file_url);
 
-  // ── Delete message ─────────────────────────────────────────────────────────
-  const handleDeleteMessage = (messageId: string) => {
-    Alert.alert(
-      'Delete Message',
-      'Are you sure you want to delete this message?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('conversation_messages')
-                .delete()
-                .eq('id', messageId);
-              if (error) throw error;
-              setMessages(prev => prev.filter(m => m.id !== messageId));
-            } catch (err: any) {
-              Alert.alert('Error', 'Could not delete message.');
-            }
-          },
-        },
-      ],
-    );
+  // ── Long-press handler ─────────────────────────────────────────────────────
+  const handleLongPress = (msg: ConversationMessage) => {
+    setSelectedMessage(msg);
+    setShowMessageActions(true);
+  };
+
+  // ── Delete for Everyone (own messages only) ────────────────────────────────
+  const handleDeleteForEveryone = async (msgId: string) => {
+    setShowMessageActions(false);
+    setSelectedMessage(null);
+    try {
+      const { error } = await supabase
+        .from('conversation_messages')
+        .delete()
+        .eq('id', msgId);
+      if (error) throw error;
+      setMessages((prev) => prev.filter((m) => m.id !== msgId));
+    } catch {
+      Alert.alert('Error', 'Could not delete message.');
+    }
+  };
+
+  // ── Delete for Me (local only) ─────────────────────────────────────────────
+  const handleDeleteForMe = (msgId: string) => {
+    setShowMessageActions(false);
+    setSelectedMessage(null);
+    setMessages((prev) => prev.filter((m) => m.id !== msgId));
+  };
+
+  // ── Start editing a message ────────────────────────────────────────────────
+  const handleStartEdit = (msg: ConversationMessage) => {
+    setShowMessageActions(false);
+    setSelectedMessage(null);
+    setEditingMessage(msg);
+    setText(msg.content);
+  };
+
+  // ── Cancel editing ─────────────────────────────────────────────────────────
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setText('');
+  };
+
+  // ── Download / save file ───────────────────────────────────────────────────
+  const handleDownload = async (url: string, fileName: string, isImage: boolean) => {
+    setShowMessageActions(false);
+    setSelectedMessage(null);
+    try {
+      const localUri = (LegacyFS.cacheDirectory || '') + fileName;
+      const { uri } = await LegacyFS.downloadAsync(url, localUri);
+      if (isImage) {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(uri);
+          Alert.alert('Saved', 'Image saved to gallery.');
+        } else {
+          await Sharing.shareAsync(uri);
+        }
+      } else {
+        await Sharing.shareAsync(uri);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not download file.');
+    }
+  };
+
+  // ── Archive conversation from chat ────────────────────────────────────────
+  const handleArchiveFromChat = async () => {
+    setShowHeaderMenu(false);
+    await conversationService.archiveConversation(conversationId, userId);
+    navigation.goBack();
   };
 
   // ── Delete entire conversation ─────────────────────────────────────────────
@@ -461,7 +565,7 @@ export default function ChatScreen({ navigation, route }: any) {
     return (
       <TouchableOpacity
         style={[styles.bubbleRow, isMe ? styles.bubbleRowMe : styles.bubbleRowThem]}
-        onLongPress={() => handleDeleteMessage(msg.id)}
+        onLongPress={() => handleLongPress(msg)}
         activeOpacity={0.8}
       >
         {!isMe && (
@@ -477,30 +581,28 @@ export default function ChatScreen({ navigation, route }: any) {
           {msg.file_url ? (
             isImageAttachment(msg) ? (
               <View>
-                <TouchableOpacity onPress={() => Linking.openURL(msg.file_url!)}>
+                <TouchableOpacity onPress={() => { setViewingImageUrl(msg.file_url!); setViewingImageName(getMessageFileName(msg)); }}>
                   <Image 
                     source={{ uri: msg.file_url }} 
                     style={styles.messageImage}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
-                {getMessageFileName(msg) && (
-                  <View style={styles.imageMetaWrap}>
+                <View style={styles.imageMetaWrap}>
+                  <Text
+                    style={[styles.imageFileName, isMe ? styles.imageFileNameMe : styles.imageFileNameThem]}
+                    numberOfLines={1}
+                  >
+                    {getMessageFileName(msg)}
+                  </Text>
+                  {msg.file_size_bytes ? (
                     <Text
-                      style={[styles.imageFileName, isMe ? styles.imageFileNameMe : styles.imageFileNameThem]}
-                      numberOfLines={1}
+                      style={[styles.imageSizeText, isMe ? styles.imageSizeTextMe : styles.imageSizeTextThem]}
                     >
-                      {getMessageFileName(msg)}
+                      {formatFileSize(msg.file_size_bytes)}
                     </Text>
-                    {msg.file_size_bytes && (
-                      <Text
-                        style={[styles.imageSizeText, isMe ? styles.imageSizeTextMe : styles.imageSizeTextThem]}
-                      >
-                        {formatFileSize(msg.file_size_bytes)}
-                      </Text>
-                    )}
-                  </View>
-                )}
+                  ) : null}
+                </View>
               </View>
             ) : (
               <TouchableOpacity
@@ -509,14 +611,14 @@ export default function ChatScreen({ navigation, route }: any) {
               >
                 <Ionicons
                   name={msg.file_type?.includes('pdf') ? 'document-outline' : 'document-text-outline'}
-                  size={18}
+                  size={22}
                   color={isMe ? 'rgba(255,255,255,0.8)' : C.ink2}
-                  style={{ marginRight: 8 }}
+                  style={{ marginRight: 10 }}
                 />
-                <View style={styles.fileMetaWrap}>
+                <View style={{ flex: 1 }}>
                   <Text
                     style={[styles.fileName, isMe ? styles.fileNameMe : styles.fileNameThem]}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {getMessageFileName(msg)}
                   </Text>
@@ -529,8 +631,8 @@ export default function ChatScreen({ navigation, route }: any) {
                   </Text>
                 </View>
                 <Ionicons
-                  name="open-outline"
-                  size={14}
+                  name="download-outline"
+                  size={16}
                   color={isMe ? 'rgba(255,255,255,0.6)' : C.ink4}
                   style={{ marginLeft: 8 }}
                 />
@@ -541,9 +643,14 @@ export default function ChatScreen({ navigation, route }: any) {
               {msg.content}
             </Text>
           )}
-          <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextThem]}>
-            {formatTime(msg.created_at)}
-          </Text>
+          <View style={styles.timeRow}>
+            {(msg as any).is_edited && (
+              <Text style={[styles.editedLabel, isMe ? styles.editedLabelMe : styles.editedLabelThem]}>edited</Text>
+            )}
+            <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextThem]}>
+              {formatTime(msg.created_at)}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -587,6 +694,10 @@ export default function ChatScreen({ navigation, route }: any) {
           onPress={() => setShowHeaderMenu(false)}
         >
           <View style={[styles.headerMenuSheet, { marginTop: insets.top + 54 }]}>
+            <TouchableOpacity style={styles.headerMenuItem} onPress={handleArchiveFromChat}>
+              <Ionicons name="archive-outline" size={18} color={C.ink2} style={styles.headerMenuIcon} />
+              <Text style={styles.headerMenuText}>Archive Conversation</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.headerMenuItem} onPress={handleDeleteConversation}>
               <Ionicons name="trash-outline" size={18} color={C.red} style={styles.headerMenuIcon} />
               <Text style={[styles.headerMenuText, { color: C.red }]}>Delete Conversation</Text>
@@ -617,9 +728,8 @@ export default function ChatScreen({ navigation, route }: any) {
       )}
 
       <KeyboardAvoidingView
-        key={Platform.OS === 'android' ? (isKeyboardVisible ? 'kb-open' : 'kb-closed') : 'kb-ios'}
         style={styles.chatArea}
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 12) : 0}
       >
         {/* Message list */}
@@ -630,19 +740,36 @@ export default function ChatScreen({ navigation, route }: any) {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={withDateSeparators(messages)}
+            data={invertedData}
+            inverted
+            style={{ flex: 1 }}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             ListEmptyComponent={
-              <View style={styles.emptyChat}>
+              <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
                 <Ionicons name="chatbubble-outline" size={40} color={C.ink5} />
                 <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
               </View>
             }
           />
+        )}
+
+        {/* Editing indicator */}
+        {editingMessage && (
+          <View style={styles.editBanner}>
+            <Ionicons name="pencil" size={14} color={C.accent || '#3B82F6'} style={{ marginRight: 6 }} />
+            <Text style={styles.editBannerText} numberOfLines={1}>
+              Editing message
+            </Text>
+            <TouchableOpacity onPress={handleCancelEdit} style={styles.editBannerClose}>
+              <Ionicons name="close" size={18} color={C.ink3} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Input bar */}
@@ -676,11 +803,80 @@ export default function ChatScreen({ navigation, route }: any) {
           >
             {sending
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="send" size={16} color="#fff" />
+              : <Ionicons name={editingMessage ? 'checkmark' : 'send'} size={16} color="#fff" />
             }
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Message Actions Modal ─────────────────────────────────────────── */}
+      <Modal
+        visible={showMessageActions}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowMessageActions(false); setSelectedMessage(null); }}
+      >
+        <TouchableOpacity
+          style={styles.messageActionOverlay}
+          activeOpacity={1}
+          onPress={() => { setShowMessageActions(false); setSelectedMessage(null); }}
+        >
+          <View style={styles.messageActionSheet}>
+            {/* Edit — only for own text messages (no file) */}
+            {selectedMessage && selectedMessage.sender_id === userId && !selectedMessage.file_url && (
+              <TouchableOpacity
+                style={styles.messageActionItem}
+                onPress={() => selectedMessage && handleStartEdit(selectedMessage)}
+              >
+                <Ionicons name="pencil-outline" size={20} color={C.ink2} style={styles.messageActionIcon} />
+                <Text style={styles.messageActionText}>Edit</Text>
+              </TouchableOpacity>
+            )}
+            {/* Download / Save — for file and image messages */}
+            {selectedMessage && selectedMessage.file_url && (
+              <TouchableOpacity
+                style={styles.messageActionItem}
+                onPress={() => selectedMessage && handleDownload(
+                  selectedMessage.file_url!,
+                  getMessageFileName(selectedMessage),
+                  isImageAttachment(selectedMessage)
+                )}
+              >
+                <Ionicons name="download-outline" size={20} color={C.ink2} style={styles.messageActionIcon} />
+                <Text style={styles.messageActionText}>
+                  {isImageAttachment(selectedMessage) ? 'Save to Gallery' : 'Download'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {/* Delete for Everyone — only own messages */}
+            {selectedMessage && selectedMessage.sender_id === userId && (
+              <TouchableOpacity
+                style={styles.messageActionItem}
+                onPress={() => selectedMessage && handleDeleteForEveryone(selectedMessage.id)}
+              >
+                <Ionicons name="trash-outline" size={20} color={C.red || '#EF4444'} style={styles.messageActionIcon} />
+                <Text style={[styles.messageActionText, { color: C.red || '#EF4444' }]}>Delete for Everyone</Text>
+              </TouchableOpacity>
+            )}
+            {/* Delete for Me — always available */}
+            <TouchableOpacity
+              style={styles.messageActionItem}
+              onPress={() => selectedMessage && handleDeleteForMe(selectedMessage.id)}
+            >
+              <Ionicons name="eye-off-outline" size={20} color={C.ink3} style={styles.messageActionIcon} />
+              <Text style={styles.messageActionText}>Delete for Me</Text>
+            </TouchableOpacity>
+            {/* Cancel */}
+            <View style={styles.messageActionDivider} />
+            <TouchableOpacity
+              style={styles.messageActionItem}
+              onPress={() => { setShowMessageActions(false); setSelectedMessage(null); }}
+            >
+              <Text style={[styles.messageActionText, { textAlign: 'center', color: C.ink4, flex: 1 }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ── Smart Brief Modal ─────────────────────────────────────────────── */}
       <Modal
@@ -907,9 +1103,56 @@ export default function ChatScreen({ navigation, route }: any) {
           </View>
         </View>
       </Modal>
+      {/* ── Image Viewer Modal ────────────────────────────────────────── */}
+      <Modal
+        visible={!!viewingImageUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewingImageUrl(null)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <View style={styles.imageViewerHeader}>
+            <TouchableOpacity
+              onPress={() => setViewingImageUrl(null)}
+              style={styles.imageViewerBtn}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.imageViewerTitle} numberOfLines={1}>{viewingImageName}</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                if (!viewingImageUrl) return;
+                try {
+                  const localUri = (LegacyFS.cacheDirectory || '') + (viewingImageName || 'image.jpg');
+                  const { uri } = await LegacyFS.downloadAsync(viewingImageUrl, localUri);
+                  const { status } = await MediaLibrary.requestPermissionsAsync();
+                  if (status === 'granted') {
+                    await MediaLibrary.saveToLibraryAsync(uri);
+                    Alert.alert('Saved', 'Image saved to gallery.');
+                  } else {
+                    await Sharing.shareAsync(uri);
+                  }
+                } catch {
+                  Alert.alert('Error', 'Could not save image.');
+                }
+              }}
+              style={styles.imageViewerBtn}
+            >
+              <Ionicons name="download-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <Image
+            source={{ uri: viewingImageUrl! }}
+            style={styles.imageViewerImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
@@ -1011,16 +1254,19 @@ const styles = StyleSheet.create({
   bubbleTextMe: { color: '#fff' },
   bubbleTextThem: { color: C.ink1 },
 
-  timeText: { fontSize: 10, marginTop: 3 },
-  timeTextMe: { color: 'rgba(255,255,255,0.55)', textAlign: 'right' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 3, gap: 4 },
+  timeText: { fontSize: 10 },
+  timeTextMe: { color: 'rgba(255,255,255,0.55)' },
   timeTextThem: { color: C.ink4 },
+  editedLabel: { fontSize: 9, fontStyle: 'italic' },
+  editedLabelMe: { color: 'rgba(255,255,255,0.45)' },
+  editedLabelThem: { color: C.ink5 },
 
-  fileRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: 230 },
-  fileMetaWrap: { flex: 1, minWidth: 0 },
-  fileName: { flex: 1, fontSize: 13, fontWeight: '500' },
+  fileRow: { flexDirection: 'row', alignItems: 'center', minWidth: 160, maxWidth: 240 },
+  fileName: { fontSize: 13, fontWeight: '500', flexShrink: 1 },
   fileNameMe: { color: 'rgba(255,255,255,0.9)' },
   fileNameThem: { color: C.ink1 },
-  fileTypeText: { fontSize: 11, marginTop: 1 },
+  fileTypeText: { fontSize: 11, marginTop: 2 },
   fileTypeTextMe: { color: 'rgba(255,255,255,0.7)' },
   fileTypeTextThem: { color: C.ink4 },
 
@@ -1268,5 +1514,93 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+
+  // Message actions modal
+  messageActionOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    padding: S.xl,
+  },
+  messageActionSheet: {
+    width: '100%',
+    maxWidth: 300,
+    backgroundColor: C.surface,
+    borderRadius: R.lg,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  messageActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: S.lg,
+    paddingVertical: 14,
+  },
+  messageActionIcon: { marginRight: S.md },
+  messageActionText: { fontSize: 15, fontWeight: '500', color: C.ink1 },
+  messageActionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.border,
+    marginHorizontal: S.md,
+  },
+
+  // Edit banner
+  editBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surfaceAlt,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+    paddingHorizontal: S.md,
+    paddingVertical: 8,
+  },
+  editBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: C.ink3,
+    fontWeight: '500',
+  },
+  editBannerClose: {
+    padding: 4,
+    marginLeft: S.sm,
+  },
+
+  // Image viewer
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  imageViewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 54 : StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 40,
+    paddingHorizontal: S.md,
+    paddingBottom: S.sm,
+  },
+  imageViewerBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#fff',
+    textAlign: 'center',
+    marginHorizontal: S.sm,
+  },
+  imageViewerImage: {
+    flex: 1,
+    width: SCREEN_W,
   },
 });
