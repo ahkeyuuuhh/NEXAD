@@ -1,0 +1,60 @@
+﻿node.exe : Γÿà eas-cli@18.3.0 is now available.
+At C:\Users\zitac\AppData\Roaming\npm\eas.ps1:24 char:5
++     & "node$exe"  "$basedir/node_modules/eas-cli/bin/run" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Γÿà eas-cli@18.3.0 is now availab 
+   le.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+- Fetching the buildΓÇª\ Fetching the buildΓÇª| Fetching the buildΓÇªΓ£ö Found 
+a matching build for the project @kaisxui/nexad
+{
+  "id": "f3081a76-ebf3-4175-8f14-d75ded6fae2c",
+  "status": "ERRORED",
+  "platform": "ANDROID",
+  "error": {
+    "errorCode": "UNKNOWN_ERROR",
+    "message": "Unknown error. See logs of the Prebuild build phase for more information."
+  },
+  "artifacts": {},
+  "initiatingActor": {
+    "id": "deaadfbe-a939-4f49-bf7d-737ccbc5f235",
+    "displayName": "kaisxui"
+  },
+  "logFiles": [
+    "https://job-logs.eascdn.net/production/f3081a76-ebf3-4175-8f14-d75ded6fae2c/1773164556452-6b14c4f3-a6bb-4b6b-b641-293661c4714c.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260311%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260311T055315Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=821fc21aca9ef9541284f184af6c547f81772471c44633a4af9ef886b8408a8a66bd52d672234341e940bad7afa2c03d95357ef739247f1db22f5daccce9ac80d7a9ae8fe70e85e2e57511895543de93c98378946547da3eee50ec7114bff9e4840b7b3b4c64450c67a55ea9bb8cc9697bc06a0d06d083d361fcb414f257d6217462aa3d9f676050fe5b1fca205ae300f6ae802aaa87b13360c9d0903b56e5d65fd0ac2c3cf03ab9aec5f9c0e7a6cba6ae367d926fd4ec6ea5af521a50ba3d4b5f158dbf2b73e923da4c1ad12c806aca59b8f388388cc3791c980dccf3e5c299524e884487f7c3dda56599490a0fda027b4b81a2651764f733c7daf169746468",
+    "https://job-logs.eascdn.net/production/f3081a76-ebf3-4175-8f14-d75ded6fae2c/1773172654633-537f7d71-07d2-4c81-b902-d9cde7e2dc3b.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260311%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260311T055315Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=40a580218a21fdb236ecf109f0e9a15a7a686891a71d110945e23be49f3ffafbd3235076c1634a01204c9770dbdc7674213e52919ebe6d8799ff876c582444d61ef34c18ab99c4d66f1318073644e99d5a3845a7ea98b42c45c5ebc7c50c98deb38bcec63507babf445e0573169244e9090ae8f119c1395c591d65139e64a4b5c6d8ac6ac4e2278e275ce25c1442329d04b0bafeb5672eb4100e0f4bcda4fb205b24268821e11f3a320aa2fd9a96c860dfd780e4821a18577efc06e47764ad3a05878ed06d4661296d1ffbe5ba49d305581949934518a8a26e77ec83a7dacc8a77eff29cbc6d1ed7fdea2887f835cfebed01bdf955fc5643b872c57f01a7d3b1",
+    "https://job-logs.eascdn.net/production/f3081a76-ebf3-4175-8f14-d75ded6fae2c/1773172654860-86713c60-5844-43b8-b9f2-b8759b78fb9a.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260311%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260311T055315Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=4e5b23bbd2773717edc78195538f69564e799a4f9643c0f10527aee52c33fe460cc62e67f66a4a9d36ca139840b10bde393fb144332e6541de3b98e3100ead0b231de55e8be5ddeb1eb1c55274b934d0b4cb006faa7d8da7073e9b9c688aa60ac2d16f7cf5a8e48634f8a91ea5824654c52bcc9045562474cb09f5015f3eec0488687adc23b421df53f7459479f53a0e84f954b2001aadf621f4c7963dc6782ecba30d7a04ecf29694505037048382a5dd9ce53d9085026aecad712e84faf51e51650a01693c6c9939e0481429d209506cb1a53e6e7c58970d74a008b796dee7646c11835b461f95b6747c0d89b5e37ee158660a7eb265671be9bdf2eb2ebb9f",
+    "https://job-logs.eascdn.net/production/f3081a76-ebf3-4175-8f14-d75ded6fae2c/1773172655052-072b19cf-acbc-461c-9603-2ba3c6e829a2.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260311%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260311T055315Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=864a7f0ce56dcc0340df48ac1b0db4ee89a78a30f048c96f73caf19aa48e508b3e5b369dfbf340656712462c78f2e228664d2d8d6d5e3b590cc435b13f62d9469d1baa617add28677fc192fb418a35060a163c8110b8988e5b14c2168d981d6ca6c64022b6ea3db8ecbb813d3857275859a95438e18ef81b44ce916fca6423579c051792db38b084533db5e0e23de2120931aa77bfbe326e1e3ebae7cbc6586f5ce8c3fdc2314bbc1daa4c7165d35baceaa9a2d7f43ce69450f4bf78b582cf2cde5b5fff44019b53f581c945148fb80299a5fb7de03255a106c146c0943b5eda3a36d27e8bb92dccb71e2335b34a2b3548fb1d4b9faa427927e313ba4c770029"
+  ],
+  "project": {
+    "id": "c58f8a0d-88ab-4e14-93b2-368c91253b52",
+    "name": "nexad",
+    "slug": "nexad",
+    "ownerAccount": {
+      "id": "0bf3fedc-996d-4f41-901c-a781827f4fac",
+      "name": "kaisxui"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "appVersion": "1.0.0",
+  "appBuildVersion": "1",
+  "gitCommitHash": "9d7a06df3b6af67a20f1f56090b0456a414584a7",
+  "gitCommitMessage": "Profile & Account Settings\n\nInitial Update",
+  "priority": "NORMAL",
+  "createdAt": "2026-03-10T17:42:36.159Z",
+  "updatedAt": "2026-03-10T19:59:14.373Z",
+  "completedAt": "2026-03-10T19:59:07.026Z",
+  "expirationDate": "2026-03-24T17:42:36.222Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 157,
+    "buildQueueTime": 8158108,
+    "buildDuration": 32292
+  }
+}

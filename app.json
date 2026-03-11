@@ -4,6 +4,9 @@
       "eas": {
         "projectId": "c58f8a0d-88ab-4e14-93b2-368c91253b52"
       }
+    },
+    "android": {
+      "package": "nexad.app"
     }
   }
 }

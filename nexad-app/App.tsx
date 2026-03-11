@@ -71,6 +71,7 @@ import TeacherSetupScreen from './src/screens/auth/TeacherSetupScreen';
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
 import InboxScreen from './src/screens/shared/InboxScreen';
 import ChatScreen from './src/screens/shared/ChatScreen';
+import ArchivedInboxScreen from './src/screens/shared/ArchivedInboxScreen';
 import NotificationToast from './src/components/NotificationToast';
 
 function HomeScreen() {
@@ -335,6 +336,11 @@ function AppStack() {
         component={ChatScreen} 
         options={{ headerShown: false }} 
       />
+      <Stack.Screen 
+        name="ArchivedInbox" 
+        component={ArchivedInboxScreen} 
+        options={{ headerShown: false }} 
+      />
     </Stack.Navigator>
   );
 }
@@ -516,21 +522,15 @@ export default function App() {
     // Check for OTA updates on app start
     async function checkForUpdates() {
       try {
-        if (!__DEV__) {
-          console.log('Checking for updates...');
-          const update = await Updates.checkForUpdateAsync();
-          
-          if (update.isAvailable) {
-            console.log('Update available, downloading...');
-            await Updates.fetchUpdateAsync();
-            console.log('Update downloaded, reloading app...');
-            await Updates.reloadAsync();
-          } else {
-            console.log('No updates available');
-          }
+        if (__DEV__ || !Updates.isEnabled) return;
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
         }
-      } catch (error) {
-        console.error('Error checking for updates:', error);
+      } catch (error: any) {
+        // Silently ignore — updates are best-effort
+        console.warn('OTA update check failed:', error?.message);
       }
     }
     

@@ -33,33 +33,27 @@ function formatRelativeTime(dateString: string): string {
 }
 
 const TYPE_ICON: Record<string, any> = {
-  CONSULTATION:       'calendar-outline',
-  ANNOUNCEMENT_THREAD:'megaphone-outline',
-  INQUIRY:            'chatbubble-outline',
+  CONSULTATION:        'calendar-outline',
+  ANNOUNCEMENT_THREAD: 'megaphone-outline',
+  INQUIRY:             'chatbubble-outline',
 };
 const TYPE_LABEL: Record<string, string> = {
-  CONSULTATION:       'Consultation',
-  ANNOUNCEMENT_THREAD:'Announcement',
-  INQUIRY:            'Inquiry',
+  CONSULTATION:        'Consultation',
+  ANNOUNCEMENT_THREAD: 'Announcement',
+  INQUIRY:             'Inquiry',
 };
 
-export default function InboxScreen({ navigation }: any) {
+export default function ArchivedInboxScreen({ navigation }: any) {
   const { user } = useAuth();
   const userId = user?.user_id;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
-    setError(null);
-    const result = await conversationService.getConversations(userId);
-    if (result.data) {
-      setConversations(result.data);
-    } else if (result.error) {
-      setError(result.error);
-    }
+    const result = await conversationService.getArchivedConversations(userId);
+    if (result.data) setConversations(result.data);
     setLoading(false);
     setRefreshing(false);
   }, [userId]);
@@ -68,49 +62,36 @@ export default function InboxScreen({ navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  const handleArchiveConversation = async (conversationId: string) => {
+  const handleUnarchive = async (conversationId: string) => {
     if (!userId) return;
-    await conversationService.archiveConversation(conversationId, userId);
+    await conversationService.unarchiveConversation(conversationId, userId);
     setConversations((prev) => prev.filter((c) => c.id !== conversationId));
   };
 
-  const handleDeleteConversation = async (conversationId: string, name: string) => {
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversationId);
-
-    if (error) {
-      Alert.alert('Error', 'Could not delete conversation.');
-      return;
-    }
-
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+  const handleDelete = async (conversationId: string) => {
+    Alert.alert(
+      'Delete Conversation',
+      'Permanently delete this conversation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('conversations')
+              .delete()
+              .eq('id', conversationId);
+            if (error) {
+              Alert.alert('Error', 'Could not delete conversation.');
+              return;
+            }
+            setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+          },
+        },
+      ]
+    );
   };
-
-  const renderLeftActions = (conversationId: string) => (
-    <View style={styles.swipeActionsRowLeft}>
-      <TouchableOpacity
-        style={styles.swipeArchiveAction}
-        onPress={() => handleArchiveConversation(conversationId)}
-      >
-        <Ionicons name="archive-outline" size={22} color="#fff" />
-        <Text style={styles.swipeActionText}>Archive</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderRightActions = (conversationId: string, name: string) => (
-    <View style={styles.swipeActionsRow}>
-      <TouchableOpacity
-        style={styles.swipeDeleteAction}
-        onPress={() => handleDeleteConversation(conversationId, name)}
-      >
-        <Ionicons name="trash-outline" size={22} color="#fff" />
-        <Text style={styles.swipeActionText}>Delete</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   const openChat = (conv: Conversation) => {
     const other = conv.other_user as any;
@@ -125,6 +106,30 @@ export default function InboxScreen({ navigation }: any) {
     });
   };
 
+  const renderLeftActions = (conversationId: string) => (
+    <View style={styles.swipeActionsRowLeft}>
+      <TouchableOpacity
+        style={styles.swipeUnarchiveAction}
+        onPress={() => handleUnarchive(conversationId)}
+      >
+        <Ionicons name="arrow-undo-outline" size={22} color="#fff" />
+        <Text style={styles.swipeActionText}>Unarchive</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderRightActions = (conversationId: string) => (
+    <View style={styles.swipeActionsRow}>
+      <TouchableOpacity
+        style={styles.swipeDeleteAction}
+        onPress={() => handleDelete(conversationId)}
+      >
+        <Ionicons name="trash-outline" size={22} color="#fff" />
+        <Text style={styles.swipeActionText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   const renderItem = ({ item }: { item: Conversation }) => {
     const other = item.other_user as any;
     const name =
@@ -134,12 +139,11 @@ export default function InboxScreen({ navigation }: any) {
       ? ((other.first_name?.[0] || '') + (other.last_name?.[0] || '')).toUpperCase()
       : '?';
     const profilePhotoUrl = other?.profile_photo_url;
-    const unread = item.my_unread_count || 0;
 
     return (
       <Swipeable
         renderLeftActions={() => renderLeftActions(item.id)}
-        renderRightActions={() => renderRightActions(item.id, name)}
+        renderRightActions={() => renderRightActions(item.id)}
         overshootLeft={false}
         overshootRight={false}
         friction={2}
@@ -151,7 +155,6 @@ export default function InboxScreen({ navigation }: any) {
           onPress={() => openChat(item)}
           activeOpacity={0.75}
         >
-          {/* Avatar */}
           <View style={styles.avatar}>
             {profilePhotoUrl ? (
               <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
@@ -160,15 +163,9 @@ export default function InboxScreen({ navigation }: any) {
             )}
           </View>
 
-          {/* Content */}
           <View style={styles.cardContent}>
             <View style={styles.topRow}>
-              <Text
-                style={[styles.name, unread > 0 && styles.nameUnread]}
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
+              <Text style={styles.name} numberOfLines={1}>{name}</Text>
               <Text style={styles.time}>{formatRelativeTime(item.last_message_at)}</Text>
             </View>
 
@@ -182,17 +179,9 @@ export default function InboxScreen({ navigation }: any) {
                 />
                 <Text style={styles.typeLabel}>{TYPE_LABEL[item.type] || item.type}</Text>
               </View>
-              <Text
-                style={[styles.preview, unread > 0 && styles.previewUnread]}
-                numberOfLines={1}
-              >
+              <Text style={styles.preview} numberOfLines={1}>
                 {item.last_message_preview || 'No messages yet'}
               </Text>
-              {unread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
-                </View>
-              )}
             </View>
           </View>
         </TouchableOpacity>
@@ -213,14 +202,8 @@ export default function InboxScreen({ navigation }: any) {
         >
           <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inbox</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ArchivedInbox')}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="archive-outline" size={20} color={C.ink3} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Archived</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
@@ -238,10 +221,10 @@ export default function InboxScreen({ navigation }: any) {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="chatbubbles-outline" size={56} color={C.ink5} />
-              <Text style={styles.emptyTitle}>{error ? 'Error loading inbox' : 'No conversations yet'}</Text>
+              <Ionicons name="archive-outline" size={56} color={C.ink5} />
+              <Text style={styles.emptyTitle}>No archived conversations</Text>
               <Text style={styles.emptySub}>
-                {error || 'Accepted consultations, announcement replies, and direct messages will appear here.'}
+                Swipe left on a conversation in your Inbox to archive it.
               </Text>
             </View>
           }
@@ -311,7 +294,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   name: { fontSize: 14, color: C.ink2, fontWeight: '500', flex: 1, marginRight: S.sm },
-  nameUnread: { color: C.ink1, fontWeight: '700' },
   time: { fontSize: 11, color: C.ink4, flexShrink: 0 },
 
   bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -334,19 +316,6 @@ const styles = StyleSheet.create({
   },
 
   preview: { fontSize: 12, color: C.ink4, flex: 1 },
-  previewUnread: { color: C.ink2, fontWeight: '500' },
-
-  badge: {
-    backgroundColor: C.ink1,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    flexShrink: 0,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 
   swipeActionsRowLeft: {
     flexDirection: 'row',
@@ -360,10 +329,10 @@ const styles = StyleSheet.create({
     marginRight: S.md,
     gap: 6,
   },
-  swipeArchiveAction: {
-    width: 76,
+  swipeUnarchiveAction: {
+    width: 84,
     borderRadius: R.lg,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#16A34A',
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'column',
@@ -378,7 +347,7 @@ const styles = StyleSheet.create({
   },
   swipeActionText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     marginTop: 2,
   },

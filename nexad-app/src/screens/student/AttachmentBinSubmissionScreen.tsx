@@ -267,17 +267,25 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   };
 
   const handleViewSubmission = async () => {
-    if (!submission?.storage_path) return;
+    if (!submission?.storage_path) {
+      Alert.alert('Error', 'No file attached to this submission.');
+      return;
+    }
     try {
       const result = await documentService.getDocumentUrl(submission.storage_path);
-      if (result.error || !result.data) { Alert.alert('Error', result.error || 'Failed to get file link'); return; }
+      if (result.error || !result.data) {
+        Alert.alert('Error', result.error || 'Failed to get file link');
+        return;
+      }
       setFileViewer({
         visible: true,
         url: result.data,
         name: submission.file_name || 'File',
         isImage: isImageFileHelper(submission.file_name, submission.file_type),
       });
-    } catch { Alert.alert('Error', 'Failed to open file'); }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to open file');
+    }
   };
 
   const openComments = () => {

@@ -278,6 +278,8 @@ export interface ConversationMessage {
   file_name?: string;
   file_type?: string;
   file_size_bytes?: number;
+  is_edited?: boolean;
+  edited_at?: string;
   created_at: string;
   sender?: Partial<User>;
 }

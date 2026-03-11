@@ -31,14 +31,16 @@ async function fetchProfileMap(userIds: string[]): Promise<Record<string, any>> 
 export const conversationService = {
   /**
    * Get all conversations for the current user (inbox), sorted by latest message.
+   * Excludes archived conversations.
    */
   async getConversations(userId: string): Promise<ApiResponse<Conversation[]>> {
     try {
-      // Step 1: Get my participant rows
+      // Step 1: Get my participant rows (non-archived only)
       const { data: myParts, error: e1 } = await supabase
         .from('conversation_participants')
         .select('conversation_id, unread_count')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('is_archived', false);
       if (e1) throw e1;
       if (!myParts || myParts.length === 0) return { data: [] };
 
@@ -89,6 +91,100 @@ export const conversationService = {
     } catch (error: any) {
       console.error('[Conv] getConversations:', error.message);
       return { error: error.message || 'Failed to load conversations' };
+    }
+  },
+
+  /**
+   * Get archived conversations for the current user.
+   */
+  async getArchivedConversations(userId: string): Promise<ApiResponse<Conversation[]>> {
+    try {
+      const { data: myParts, error: e1 } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, unread_count')
+        .eq('user_id', userId)
+        .eq('is_archived', true);
+      if (e1) throw e1;
+      if (!myParts || myParts.length === 0) return { data: [] };
+
+      const convIds = myParts.map((p: any) => p.conversation_id);
+      const unreadMap: Record<string, number> = {};
+      myParts.forEach((p: any) => { unreadMap[p.conversation_id] = p.unread_count || 0; });
+
+      const { data: convs, error: e2 } = await supabase
+        .from('conversations')
+        .select('id, type, title, consultation_request_id, announcement_id, last_message_at, last_message_preview, created_at')
+        .in('id', convIds)
+        .order('last_message_at', { ascending: false });
+      if (e2) throw e2;
+
+      const { data: otherParts } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id, user_id')
+        .in('conversation_id', convIds)
+        .neq('user_id', userId);
+
+      const otherIds = [...new Set((otherParts || []).map((p: any) => p.user_id))];
+      const profileMap = await fetchProfileMap(otherIds);
+
+      const otherUserMap: Record<string, any> = {};
+      (otherParts || []).forEach((p: any) => {
+        if (!otherUserMap[p.conversation_id]) {
+          otherUserMap[p.conversation_id] = profileMap[p.user_id];
+        }
+      });
+
+      const conversations: Conversation[] = (convs || []).map((conv: any) => ({
+        id: conv.id,
+        type: conv.type,
+        title: conv.title,
+        consultation_request_id: conv.consultation_request_id,
+        announcement_id: conv.announcement_id,
+        last_message_at: conv.last_message_at,
+        last_message_preview: conv.last_message_preview,
+        created_at: conv.created_at,
+        my_unread_count: unreadMap[conv.id] || 0,
+        other_user: otherUserMap[conv.id] || undefined,
+      }));
+
+      return { data: conversations };
+    } catch (error: any) {
+      console.error('[Conv] getArchivedConversations:', error.message);
+      return { error: error.message || 'Failed to load archived conversations' };
+    }
+  },
+
+  /**
+   * Archive a conversation for the current user.
+   */
+  async archiveConversation(conversationId: string, userId: string): Promise<ApiResponse<void>> {
+    try {
+      const { error } = await supabase
+        .from('conversation_participants')
+        .update({ is_archived: true })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return {};
+    } catch (error: any) {
+      return { error: error.message };
+    }
+  },
+
+  /**
+   * Unarchive a conversation for the current user.
+   */
+  async unarchiveConversation(conversationId: string, userId: string): Promise<ApiResponse<void>> {
+    try {
+      const { error } = await supabase
+        .from('conversation_participants')
+        .update({ is_archived: false })
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId);
+      if (error) throw error;
+      return {};
+    } catch (error: any) {
+      return { error: error.message };
     }
   },
 
