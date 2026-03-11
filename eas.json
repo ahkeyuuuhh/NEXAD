@@ -5,32 +5,14 @@
   },
   "build": {
     "development": {
-      "projectRootDirectory": "nexad-app",
       "developmentClient": true,
-      "distribution": "internal",
-      "channel": "development",
-      "android": {
-        "buildType": "apk"
-      },
-      "ios": {
-        "simulator": true
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "projectRootDirectory": "nexad-app",
-      "distribution": "internal",
-      "channel": "preview",
-      "android": {
-        "buildType": "apk"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "projectRootDirectory": "nexad-app",
-      "autoIncrement": true,
-      "channel": "production",
-      "android": {
-        "buildType": "apk"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
