@@ -7,6 +7,7 @@ import {
   FlatList,
   TextInput,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
   Alert,
@@ -150,6 +151,9 @@ export default function ChatScreen({ navigation, route }: any) {
   // Files in conversation modal
   const [showFiles, setShowFiles] = useState(false);
 
+  // Android keyboard offset (used instead of KAV behavior on Android)
+  const [kbOffset, setKbOffset] = useState(0);
+
   const flatListRef = useRef<FlatList>(null);
   const realtimeRef = useRef<any>(null);
 
@@ -169,6 +173,14 @@ export default function ChatScreen({ navigation, route }: any) {
   }, [conversationId, userId]);
 
   useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // ── Android keyboard avoidance (snaps back perfectly on dismiss) ───────────
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', e => setKbOffset(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbOffset(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // ── Load OTHER participant name for header title ──────────────────────────
   useEffect(() => {
@@ -728,8 +740,8 @@ export default function ChatScreen({ navigation, route }: any) {
       )}
 
       <KeyboardAvoidingView
-        style={styles.chatArea}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.chatArea, Platform.OS === 'android' && { marginBottom: kbOffset }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? (insets.top + 12) : 0}
       >
         {/* Message list */}
@@ -773,7 +785,7 @@ export default function ChatScreen({ navigation, route }: any) {
         )}
 
         {/* Input bar */}
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, S.sm) }]}>
+        <View style={[styles.inputBar, { paddingBottom: kbOffset > 0 ? S.sm : Math.max(insets.bottom, S.sm) }]}>
           <TouchableOpacity
             style={styles.attachBtn}
             onPress={() => setShowAttachMenu(true)}
