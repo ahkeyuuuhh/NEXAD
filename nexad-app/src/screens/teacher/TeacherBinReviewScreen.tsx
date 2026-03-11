@@ -87,7 +87,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 
   const handleSetStatus = async (
     documentId: string,
-    status: 'approved' | 'revised' | 'for_consultation'
+    status: 'approved' | 'revised'
   ) => {
     setUpdatingId(documentId);
     const result = await classroomService.updateSubmissionStatus(documentId, status);
@@ -103,7 +103,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 
   const confirmStatus = (
     submission: any,
-    status: 'approved' | 'revised' | 'for_consultation',
+    status: 'approved' | 'revised',
     label: string
   ) => {
     Alert.alert(
@@ -136,14 +136,18 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
     });
   };
 
+  // Keep only the newest submission per student (submissions are already sorted desc by uploaded_at)
   const subMap: Record<string, any> = {};
-  submissions.forEach(s => { subMap[s.uploaded_by] = s; });
+  submissions.forEach(s => {
+    if (!subMap[s.uploaded_by]) subMap[s.uploaded_by] = s;
+  });
 
   const submittedMembers = members.filter(m => subMap[m.id]);
   const missingMembers   = members.filter(m => !subMap[m.id]);
 
-  const statPending  = submissions.filter(s => s.review_status === 'pending_review').length;
-  const statApproved = submissions.filter(s => s.review_status === 'approved').length;
+  const latestSubs = Object.values(subMap);
+  const statPending  = latestSubs.filter(s => s.review_status === 'pending_review').length;
+  const statApproved = latestSubs.filter(s => s.review_status === 'approved').length;
 
   if (loading) {
     return (
@@ -245,11 +249,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
                     <Ionicons name="pencil-outline" size={15} color={C.ink2} />
                     <Text style={styles.actionBtnText}>Revise</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
-                    onPress={() => confirmStatus(sub, 'for_consultation', 'For Consultation')}>
-                    <Ionicons name="chatbubbles-outline" size={15} color={C.ink2} />
-                    <Text style={styles.actionBtnText}>Consult</Text>
-                  </TouchableOpacity>
+
                 </View>
               ) : (() => {
                 const cfg = STATUS_CONFIG[sub.review_status] || STATUS_CONFIG.pending_review;
