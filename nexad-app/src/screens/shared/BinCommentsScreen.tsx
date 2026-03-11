@@ -136,26 +136,32 @@ export default function BinCommentsScreen({ navigation, route }: any) {
     const profilePhotoUrl = senderProfile?.profile_photo_url;
 
     return (
-      <View style={[styles.bubbleRow, isMe ? styles.bubbleRowMe : styles.bubbleRowThem]}>
-        {!isMe && (
-          <View style={styles.bubbleAvatar}>
-            {profilePhotoUrl ? (
-              <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.bubbleAvatarText}>{initials}</Text>
-            )}
-          </View>
-        )}
-        <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-          {!isMe && (
-            <Text style={styles.senderLabel}>{senderName}</Text>
+      <View style={styles.commentItem}>
+        <View style={styles.commentAvatar}>
+          {profilePhotoUrl ? (
+            <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.commentAvatarText}>{initials}</Text>
           )}
-          <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
-            {item.message}
-          </Text>
-          <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>
-            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+        </View>
+        <View style={styles.commentContent}>
+          <View style={styles.commentHeader}>
+            <Text style={styles.commentName}>{senderName}</Text>
+            {isTeacher && (
+              <View style={styles.teacherBadge}>
+                <Text style={styles.teacherBadgeText}>Teacher</Text>
+              </View>
+            )}
+            {isMe && !isTeacher && (
+              <View style={styles.youBadge}>
+                <Text style={styles.youBadgeText}>You</Text>
+              </View>
+            )}
+            <Text style={styles.commentTime}>
+              {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
+          <Text style={styles.commentText}>{item.message}</Text>
         </View>
       </View>
     );
@@ -179,7 +185,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle} numberOfLines={1}>{binTitle}</Text>
           <Text style={styles.headerSub} numberOfLines={1}>
-            {role === 'teacher' ? `Thread with ${studentName}` : 'Private comments with teacher'}
+            {role === 'teacher' ? studentName : 'Comments'}
           </Text>
         </View>
       </View>
@@ -264,54 +270,64 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1 },
   headerTitle: { fontSize: 16, fontWeight: '600' as const, color: C.ink1 },
   headerSub: { fontSize: 12, fontWeight: '400' as const, color: C.ink3, marginTop: 2 },
-  listContent: { padding: S.lg, paddingBottom: S.sm, flexGrow: 1 },
+  listContent: { paddingVertical: S.sm, flexGrow: 1 },
   emptyText: { fontSize: 14, fontWeight: '400' as const, color: C.ink4, textAlign: 'center', marginTop: S.md },
 
-  bubbleRow: { flexDirection: 'row', marginVertical: 3, alignItems: 'flex-end' },
-  bubbleRowMe: { justifyContent: 'flex-end' },
-  bubbleRowThem: { justifyContent: 'flex-start' },
-
-  bubbleAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  // ── Comment thread styles (Google Classroom / Facebook style) ─────────────
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: S.sm,
+    paddingHorizontal: S.lg,
+    gap: S.sm,
+  },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: C.surfaceAlt,
     borderWidth: 1,
     borderColor: C.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
-    marginBottom: 2,
     flexShrink: 0,
     overflow: 'hidden',
   },
-  avatarImage: { width: 28, height: 28, borderRadius: 14 },
-  bubbleAvatarText: { fontSize: 10, fontWeight: '700' as const, color: C.ink2 },
-
-  bubble: {
-    maxWidth: '78%',
-    padding: S.md,
-    borderRadius: R.lg,
-    marginBottom: S.sm,
-    alignSelf: 'flex-start',
-    backgroundColor: C.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.borderLight,
-    ...shadow.soft,
+  avatarImage: { width: 34, height: 34, borderRadius: 17 },
+  commentAvatarText: { fontSize: 12, fontWeight: '700' as const, color: C.ink2 },
+  commentContent: { flex: 1 },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 3,
+    flexWrap: 'wrap' as const,
   },
-  bubbleMe: {
-    alignSelf: 'flex-end',
-    backgroundColor: C.action,
-    borderColor: C.action,
+  commentName: { fontSize: 13, fontWeight: '600' as const, color: C.ink1 },
+  teacherBadge: {
+    backgroundColor: C.ink1,
+    borderRadius: R.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
   },
-  bubbleThem: {
-    alignSelf: 'flex-start',
+  teacherBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: '#fff',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
   },
-  senderLabel: { fontSize: 11, fontWeight: '600' as const, color: C.ink4, marginBottom: S.xs },
-  bubbleText: { fontSize: 14, fontWeight: '400' as const, color: C.ink1, lineHeight: 20 },
-  bubbleTextMe: { color: C.actionText },
-  bubbleTime: { fontSize: 10, fontWeight: '400' as const, color: C.ink4, marginTop: S.xs, textAlign: 'right' },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.7)' },
+  youBadge: {
+    backgroundColor: C.surfaceAlt,
+    borderRadius: R.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  youBadgeText: { fontSize: 9, fontWeight: '600' as const, color: C.ink3 },
+  commentTime: { fontSize: 11, color: C.ink4, marginLeft: 'auto' as any },
+  commentText: { fontSize: 14, color: C.ink1, lineHeight: 20 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

@@ -372,57 +372,20 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
           )}
           {reviewStatus === 'for_consultation' && (
             <>
-              {consultationRequest ? (
-                // Already booked — show same booked/approved UI as consultation_requested
-                consultationRequest.status === 'accepted' ? (
-                  <View style={styles.approvedConsultBox}>
-                    <View style={styles.approvedConsultHeader}>
-                      <Ionicons name="checkmark-circle" size={20} color={C.ink2} />
-                      <Text style={styles.approvedConsultTitle}>Consultation Approved!</Text>
-                    </View>
-                    {consultationRequest.scheduled_start_time ? (
-                      <>
-                        <View style={styles.consultDetailRow}>
-                          <Ionicons name="calendar" size={16} color={C.ink3} />
-                          <Text style={styles.consultDetailText}>
-                            {new Date(consultationRequest.scheduled_start_time).toLocaleDateString(
-                              undefined,
-                              { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-                            )}
-                          </Text>
-                        </View>
-                        <View style={styles.consultDetailRow}>
-                          <Ionicons name="time-outline" size={16} color={C.ink3} />
-                          <Text style={styles.consultDetailText}>
-                            {new Date(consultationRequest.scheduled_start_time).toLocaleTimeString(
-                              undefined,
-                              { hour: '2-digit', minute: '2-digit' }
-                            )}
-                          </Text>
-                        </View>
-                        {consultationRequest.classroom_number ? (
-                          <View style={styles.consultDetailRow}>
-                            <Ionicons name="location-outline" size={16} color={C.ink3} />
-                            <Text style={styles.consultDetailText}>
-                              Room {consultationRequest.classroom_number}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </>
-                    ) : (
-                      <Text style={styles.statusHint}>Schedule details will be provided soon.</Text>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.bookedBox}>
-                    <Ionicons name="checkmark-done-circle-outline" size={20} color={C.ink2} />
-                    <Text style={styles.bookedText}>
-                      Consultation already booked. Awaiting teacher's response.
-                    </Text>
-                  </View>
-                )
+              {/* Only show "Awaiting response" if student has an ACTIVE pending request.
+                  Never show "Consultation Approved!" here — the student hasn't booked yet
+                  for this bin. A pre-existing accepted consultation for another request
+                  must not be surfaced as approval for this submission. */}
+              {consultationRequest &&
+               ['pending', 'ai_processing', 'awaiting_teacher'].includes(consultationRequest.status) ? (
+                <View style={styles.bookedBox}>
+                  <Ionicons name="checkmark-done-circle-outline" size={20} color={C.ink2} />
+                  <Text style={styles.bookedText}>
+                    Consultation already booked. Awaiting teacher's response.
+                  </Text>
+                </View>
               ) : (
-                // No consultation booked yet — show request button
+                // No pending consultation — show the request button
                 <>
                   <Text style={styles.statusHint}>
                     Your teacher recommends a consultation. Request one below.

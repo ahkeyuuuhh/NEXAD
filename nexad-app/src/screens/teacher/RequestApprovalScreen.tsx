@@ -13,6 +13,7 @@ import {
   LayoutAnimation,
   UIManager,
   Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -542,7 +543,11 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
         {/* ─── Student card ─── */}
         <View style={styles.heroSection}>
             <Text style={styles.gradientSectionLabel}>PENDING REQUEST</Text>
@@ -1086,7 +1091,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             <TextInput
               style={styles.textInput}
               placeholder="e.g., 101, A-205, Room 3"
-              placeholderTextColor="#000000"
+              placeholderTextColor={C.ink4}
               value={classroomNumber}
               onChangeText={setClassroomNumber}
               autoCapitalize="characters"
@@ -1119,6 +1124,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
