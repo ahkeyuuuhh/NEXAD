@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { classroomService } from '../../services/classroomService';
 import { notificationService } from '../../services/notificationService';
+import { supabase } from '../../config/supabase';
 import { conversationService } from '../../services/conversationService';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../config/theme';
@@ -38,6 +39,22 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   useEffect(() => {
     loadClassroomData();
   }, []);
+
+  // Real-time sync: reload when announcements or bins change in this classroom
+  useEffect(() => {
+    const ch = supabase
+      .channel(`student-classroom-detail-rt:${classroomId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'announcements',
+        filter: `classroom_id=eq.${classroomId}`,
+      }, () => loadClassroomData())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'attachment_bins',
+        filter: `classroom_id=eq.${classroomId}`,
+      }, () => loadClassroomData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [classroomId]);
 
   const loadClassroomData = async () => {
     try {

@@ -29,6 +29,7 @@ import { cloudmersiveService } from '../../services/cloudmersiveService';
 import type { ConsultationRequest } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { C, T, S, R, F, shadow } from '../../config/theme';
+import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -70,6 +71,9 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
   const [analysisUnavailableReason, setAnalysisUnavailableReason] = useState('No document submitted - AI analysis is not available for this request.');
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
+  const [fileViewer, setFileViewer] = useState<{ visible: boolean; url: string; name: string; isImage: boolean }>({
+    visible: false, url: '', name: '', isImage: false,
+  });
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({
     fileOverview: true,
     contentAnalysis: false,
@@ -812,12 +816,12 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                   try {
                     const urlResult = await documentService.getDocumentUrl(doc.storage_path);
                     if (urlResult.data) {
-                      const supported = await Linking.canOpenURL(urlResult.data);
-                      if (supported) {
-                        await Linking.openURL(urlResult.data);
-                      } else {
-                        Alert.alert('Error', 'Cannot open this file type on your device.');
-                      }
+                      setFileViewer({
+                        visible: true,
+                        url: urlResult.data,
+                        name: doc.file_name || 'Document',
+                        isImage: isImageFile(doc.file_name, doc.file_type),
+                      });
                     } else {
                       Alert.alert('Error', urlResult.error || 'Failed to get document link');
                     }
@@ -1125,6 +1129,14 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      <FileViewerModal
+        visible={fileViewer.visible}
+        url={fileViewer.url}
+        fileName={fileViewer.name}
+        isImage={fileViewer.isImage}
+        onClose={() => setFileViewer(v => ({ ...v, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

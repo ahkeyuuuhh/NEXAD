@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { classroomService } from "../../services/classroomService";
+import { supabase } from "../../config/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { C, shadow } from "../../config/theme";
 
@@ -37,6 +38,26 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       loadClassroomData();
     }, [classroomId])
   );
+
+  // Real-time sync: reload when announcements or bins change in this classroom
+  useEffect(() => {
+    const ch = supabase
+      .channel(`classroom-detail-rt:${classroomId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'announcements',
+        filter: `classroom_id=eq.${classroomId}`,
+      }, () => loadClassroomData())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'attachment_bins',
+        filter: `classroom_id=eq.${classroomId}`,
+      }, () => loadClassroomData())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'classroom_memberships',
+        filter: `classroom_id=eq.${classroomId}`,
+      }, () => loadClassroomData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [classroomId]);
 
   const loadClassroomData = async () => {
     try {

@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Linking,
   Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,6 +15,7 @@ import { classroomService } from '../../services/classroomService';
 import { documentService } from '../../services/documentService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
+import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: string; bg: string; fg: string }> = {
   pending_review:         { label: 'Pending Review',    icon: 'time-outline',        bg: C.surfaceAlt, fg: C.ink3 },
@@ -53,6 +53,9 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
   const [updatingId,  setUpdatingId]  = useState<string | null>(null);
   const [activeTab,   setActiveTab]   = useState<'details' | 'students'>('details');
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
+  const [fileViewer,  setFileViewer]  = useState<{ visible: boolean; url: string; name: string; isImage: boolean }>({
+    visible: false, url: '', name: '', isImage: false,
+  });
 
   useFocusEffect(
     useCallback(() => { loadData(); }, [binId])
@@ -120,9 +123,12 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
     try {
       const result = await documentService.getDocumentUrl(submission.storage_path);
       if (result.error || !result.data) { Alert.alert('Error', result.error || 'Failed to get file link'); return; }
-      const supported = await Linking.canOpenURL(result.data);
-      if (supported) await Linking.openURL(result.data);
-      else Alert.alert('Error', 'Cannot open this file type on your device.');
+      setFileViewer({
+        visible: true,
+        url: result.data,
+        name: submission.file_name || 'File',
+        isImage: isImageFile(submission.file_name, submission.file_type),
+      });
     } catch { Alert.alert('Error', 'Failed to open file'); }
   };
 
@@ -360,6 +366,14 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
       </View>
 
       {activeTab === 'details' ? renderDetailsTab() : renderStudentsTab()}
+
+      <FileViewerModal
+        visible={fileViewer.visible}
+        url={fileViewer.url}
+        fileName={fileViewer.name}
+        isImage={fileViewer.isImage}
+        onClose={() => setFileViewer(v => ({ ...v, visible: false }))}
+      />
     </View>
   );
 }

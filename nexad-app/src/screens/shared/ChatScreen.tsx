@@ -14,7 +14,6 @@ import {
   StatusBar,
   Modal,
   ScrollView,
-  Linking,
   Image,
   InteractionManager,
   Dimensions,
@@ -31,6 +30,7 @@ import { aiService } from '../../services/aiService';
 import { supabase } from '../../config/supabase';
 import { C, S, R } from '../../config/theme';
 import type { ConversationMessage, ConversationType } from '../../types';
+import * as WebBrowser from 'expo-web-browser';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -625,7 +625,7 @@ export default function ChatScreen({ navigation, route }: any) {
               </View>
             ) : (
               <TouchableOpacity
-                onPress={() => Linking.openURL(msg.file_url!)}
+                onPress={() => WebBrowser.openBrowserAsync(msg.file_url!, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN, showTitle: true })}
                 style={styles.fileRow}
               >
                 <Ionicons
@@ -1006,7 +1006,7 @@ export default function ChatScreen({ navigation, route }: any) {
                   <TouchableOpacity
                     key={m.id}
                     style={styles.fileListRow}
-                    onPress={() => m.file_url && Linking.openURL(m.file_url)}
+                    onPress={() => m.file_url && WebBrowser.openBrowserAsync(m.file_url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN, showTitle: true })}
                   >
                     <Ionicons
                       name={m.file_type?.includes('pdf') ? 'document-outline' : 'document-text-outline'}

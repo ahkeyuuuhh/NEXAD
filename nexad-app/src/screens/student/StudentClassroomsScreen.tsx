@@ -20,6 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { classroomService } from '../../services/classroomService';
 import { notificationService } from '../../services/notificationService';
+import { supabase } from '../../config/supabase';
 import { profileService } from '../../services/profileService';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,6 +128,19 @@ export default function StudentClassroomsScreen({ navigation }: any) {
     loadClassrooms();
     refreshNotifCount();
   }, [user?.user_id, refreshNotifCount]));
+
+  // Real-time sync: reload when student joins/leaves a classroom (memberships change)
+  useEffect(() => {
+    if (!user?.user_id) return;
+    const ch = supabase
+      .channel(`student-classrooms-rt:${user.user_id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'classroom_memberships',
+        filter: `student_id=eq.${user.user_id}`,
+      }, () => loadClassrooms())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.user_id]);
 
   const loadClassrooms = async () => {
     if (!user?.user_id) return;

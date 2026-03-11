@@ -92,6 +92,19 @@ export default function ClassroomHubScreen({ navigation }: any) {
     refreshNotifCount();
   }, [user?.user_id, refreshNotifCount]));
 
+  // Real-time sync: reload whenever any classroom owned by this teacher changes
+  useEffect(() => {
+    if (!user?.user_id) return;
+    const ch = supabase
+      .channel(`classroom-hub-rt:${user.user_id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'classrooms',
+        filter: `created_by=eq.${user.user_id}`,
+      }, () => loadClassrooms())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.user_id]);
+
   const loadClassrooms = async () => {
     if (!user?.user_id) return;
     try {

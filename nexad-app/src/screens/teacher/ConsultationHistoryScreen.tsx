@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Linking,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import { documentService } from '../../services/documentService';
 import type { ConsultationRequest } from '../../types';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 import { Ionicons } from '@expo/vector-icons';
+import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -33,6 +33,9 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedDocuments, setExpandedDocuments] = useState<any[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [fileViewer, setFileViewer] = useState<{ visible: boolean; url: string; name: string; isImage: boolean }>({
+    visible: false, url: '', name: '', isImage: false,
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   
@@ -166,7 +169,12 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
     try {
       const urlResult = await documentService.getDocumentUrl(doc.storage_path);
       if (urlResult.data) {
-        await Linking.openURL(urlResult.data);
+        setFileViewer({
+          visible: true,
+          url: urlResult.data,
+          name: doc.file_name || 'Document',
+          isImage: isImageFile(doc.file_name, doc.file_type),
+        });
       } else {
         Alert.alert('Error', 'Could not get file URL');
       }
@@ -488,6 +496,13 @@ export default function ConsultationHistoryScreen({ navigation }: any) {
         </View>
       )}
 
+      <FileViewerModal
+        visible={fileViewer.visible}
+        url={fileViewer.url}
+        fileName={fileViewer.name}
+        isImage={fileViewer.isImage}
+        onClose={() => setFileViewer(v => ({ ...v, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
