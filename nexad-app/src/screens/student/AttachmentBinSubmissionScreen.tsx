@@ -18,6 +18,7 @@ import { notificationService } from '../../services/notificationService';
 import { cloudmersiveService } from '../../services/cloudmersiveService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shadow } from '../../config/theme';
+import FileViewerModal, { isImageFile as isImageFileHelper } from '../../components/FileViewerModal';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   pending_review:          { label: 'Pending Review',         color: C.ink3,  bg: C.surfaceAlt, icon: 'time-outline' },
@@ -49,6 +50,9 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
     error?: string;
   }>>([]);
   const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+  const [fileViewer, setFileViewer] = useState<{ visible: boolean; url: string; name: string; isImage: boolean }>({
+    visible: false, url: '', name: '', isImage: false,
+  });
 
   const isImageFile = (name?: string, mimeType?: string) => {
     const lowerName = (name || '').toLowerCase();
@@ -262,6 +266,20 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
     }
   };
 
+  const handleViewSubmission = async () => {
+    if (!submission?.storage_path) return;
+    try {
+      const result = await documentService.getDocumentUrl(submission.storage_path);
+      if (result.error || !result.data) { Alert.alert('Error', result.error || 'Failed to get file link'); return; }
+      setFileViewer({
+        visible: true,
+        url: result.data,
+        name: submission.file_name || 'File',
+        isImage: isImageFileHelper(submission.file_name, submission.file_type),
+      });
+    } catch { Alert.alert('Error', 'Failed to open file'); }
+  };
+
   const openComments = () => {
     navigation.navigate('BinComments', {
       binId,
@@ -359,6 +377,14 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
           <View style={styles.documentInfo}>
             <Ionicons name="document-text" size={18} color={C.ink3} />
             <Text style={styles.documentName} numberOfLines={1}>{submission.file_name}</Text>
+            <TouchableOpacity
+              onPress={handleViewSubmission}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ marginLeft: 8, flexDirection: 'row', alignItems: 'center', gap: 3 }}
+            >
+              <Ionicons name="eye-outline" size={16} color={C.ink2} />
+              <Text style={{ fontSize: 12, color: C.ink2, fontWeight: '500' }}>View</Text>
+            </TouchableOpacity>
           </View>
           <Text style={styles.submissionDate}>
             Submitted {new Date(submission.uploaded_at).toLocaleDateString()}
@@ -695,6 +721,14 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
           )}
         </ScrollView>
       </Modal>
+
+      <FileViewerModal
+        visible={fileViewer.visible}
+        url={fileViewer.url}
+        fileName={fileViewer.name}
+        isImage={fileViewer.isImage}
+        onClose={() => setFileViewer(v => ({ ...v, visible: false }))}
+      />
     </ScrollView>
   );
 }

@@ -28,6 +28,19 @@ export function isImageFile(fileName?: string | null, fileType?: string | null):
 }
 
 /**
+ * Wraps a document URL with Google Docs Viewer so PDF/DOCX files render in the browser
+ * instead of triggering a download.
+ */
+function getViewerUrl(url: string, fileName?: string): string {
+  const name = (fileName || '').toLowerCase();
+  const needsViewer = /\.(pdf|doc|docx|ppt|pptx|xls|xlsx)$/.test(name) || name === '';
+  if (needsViewer) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+  return url;
+}
+
+/**
  * Unified in-app file viewer.
  * - Images → full-screen modal with <Image>
  * - Documents → opens in-app browser (Chrome Custom Tabs / SFSafari) via expo-web-browser
@@ -36,7 +49,8 @@ export default function FileViewerModal({ visible, url, fileName, isImage, onClo
   // For non-image files, open the in-app browser immediately on mount.
   useEffect(() => {
     if (visible && !isImage && url) {
-      WebBrowser.openBrowserAsync(url, {
+      const viewerUrl = getViewerUrl(url, fileName);
+      WebBrowser.openBrowserAsync(viewerUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
         showTitle: true,
       })
