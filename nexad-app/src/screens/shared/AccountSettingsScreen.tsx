@@ -746,9 +746,128 @@ const toggleStyle = StyleSheet.create({
   label: { ...T.body, color: C.ink1 },
 });
 
+// ── Horizontal Select Row (flat row style for form groups) ──────────────────
+function HSelectRow({
+  label, value, onChange, options, placeholder, last,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  options: string[]; placeholder?: string; last?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [showOther, setShowOther] = useState(false);
+  const [otherText, setOtherText] = useState('');
+  const close = () => { setOpen(false); setShowOther(false); };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={[hsStyles.row, last && hsStyles.lastRow]}
+        onPress={() => { setOpen(true); setShowOther(false); setOtherText(''); }}
+      >
+        <Text style={hsStyles.label}>{label}</Text>
+        <View style={hsStyles.valueWrap}>
+          <Text style={[hsStyles.value, !value && hsStyles.placeholder]} numberOfLines={1}>
+            {value || placeholder || 'Select…'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={C.ink4} />
+        </View>
+      </TouchableOpacity>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} activeOpacity={1} onPress={close} />
+          <View style={hsStyles.sheet}>
+            <View style={hsStyles.handle} />
+            <View style={hsStyles.sheetHeader}>
+              <Text style={hsStyles.sheetTitle}>{label}</Text>
+              <TouchableOpacity onPress={close}><Ionicons name="close" size={20} color={C.ink2} /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 340 }} keyboardShouldPersistTaps="handled">
+              {options.map((opt, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[hsStyles.option, value === opt && hsStyles.optionActive]}
+                  onPress={() => {
+                    if (opt === 'Other') { setShowOther(true); setOtherText(''); }
+                    else { onChange(opt); close(); }
+                  }}
+                >
+                  <Text style={[hsStyles.optionText, value === opt && hsStyles.optionTextActive]}>{opt}</Text>
+                  {value === opt && <Ionicons name="checkmark" size={16} color={C.ink1} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {showOther && (
+              <View style={hsStyles.otherWrap}>
+                <TextInput
+                  style={hsStyles.otherInput}
+                  value={otherText}
+                  onChangeText={setOtherText}
+                  placeholder={`Type custom ${label.toLowerCase()}…`}
+                  placeholderTextColor={C.ink5}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={() => { if (otherText.trim()) { onChange(otherText.trim()); close(); } }}
+                />
+                <TouchableOpacity
+                  style={[hsStyles.otherConfirm, !otherText.trim() && { opacity: 0.4 }]}
+                  onPress={() => { if (otherText.trim()) { onChange(otherText.trim()); close(); } }}
+                >
+                  <Text style={hsStyles.otherConfirmText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const hsStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: S.lg, minHeight: 54,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+  },
+  lastRow: { borderBottomWidth: 0 },
+  label: { fontSize: 14, color: C.ink3, fontWeight: '500' as const },
+  valueWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'flex-end' },
+  value: { fontSize: 14, color: C.ink1, textAlign: 'right' as const },
+  placeholder: { color: C.ink5 },
+  sheet: {
+    backgroundColor: C.surface, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl,
+    maxHeight: '65%', ...shadow.float,
+  },
+  handle: { width: 36, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: 'center' as const, marginTop: S.sm, marginBottom: S.xs },
+  sheetHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: S.lg, paddingVertical: S.md,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+  },
+  sheetTitle: { ...T.h3, color: C.ink1 },
+  option: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: S.lg, paddingVertical: S.md + 2,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+  },
+  optionActive: { backgroundColor: C.accentSoft },
+  optionText: { fontSize: 14, color: C.ink2 },
+  optionTextActive: { color: C.ink1, fontWeight: '600' as const },
+  otherWrap: { flexDirection: 'row', gap: S.sm, padding: S.lg, borderTopWidth: 1, borderTopColor: C.borderLight },
+  otherInput: {
+    flex: 1, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border,
+    borderRadius: R.md, paddingHorizontal: S.md, paddingVertical: S.sm, fontSize: 14, color: C.ink1,
+  },
+  otherConfirm: {
+    paddingHorizontal: S.lg, paddingVertical: S.sm, backgroundColor: C.ink1,
+    borderRadius: R.md, justifyContent: 'center', alignItems: 'center',
+  },
+  otherConfirmText: { color: '#fff', fontWeight: '700' as const, fontSize: 13 },
+});
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function AccountSettingsScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const role = user?.role;
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -892,24 +1011,22 @@ export default function AccountSettingsScreen({ navigation }: any) {
     );
   }
 
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => signOut() },
+    ]);
+  };
+
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeHeader}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-            <Ionicons name="chevron-back" size={22} color={C.ink1} />
+            <Ionicons name="arrow-back" size={22} color={C.ink1} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Settings</Text>
-          <TouchableOpacity
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.saveBtnText}>Save</Text>
-            }
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={{ width: 36 }} />
         </View>
       </SafeAreaView>
 
@@ -924,112 +1041,171 @@ export default function AccountSettingsScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Personal */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <View style={styles.card}>
-              <Field label="First Name" value={firstName} onChangeText={setFirstName} placeholder="First name" />
-              <Field label="Last Name" value={lastName} onChangeText={setLastName} placeholder="Last name" />
-              <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="Phone number" keyboardType="phone-pad" />
-              <Field label="Email" value={email} disabled />
+          {/* ── Profile overview card ── */}
+          <View style={styles.profileCard}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitialsText}>
+                {([firstName[0], lastName[0]].filter(Boolean).join('') || '?').toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.profileCardName}>
+              {[firstName, lastName].filter(Boolean).join(' ') || 'Your Name'}
+            </Text>
+            <Text style={styles.profileCardSub}>{email}</Text>
+          </View>
+
+          {/* ── Personal Information ── */}
+          <Text style={styles.groupLabel}>PERSONAL INFORMATION</Text>
+          <View style={styles.formGroup}>
+            <View style={styles.formRow}>
+              <Text style={styles.rowLabel}>First name</Text>
+              <TextInput
+                style={styles.rowInput}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="First name"
+                placeholderTextColor={C.ink5}
+              />
+            </View>
+            <View style={styles.formRow}>
+              <Text style={styles.rowLabel}>Last name</Text>
+              <TextInput
+                style={styles.rowInput}
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Last name"
+                placeholderTextColor={C.ink5}
+              />
+            </View>
+            <View style={styles.formRow}>
+              <Text style={styles.rowLabel}>Phone number</Text>
+              <TextInput
+                style={styles.rowInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Phone number"
+                placeholderTextColor={C.ink5}
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={[styles.formRow, styles.lastRow]}>
+              <Text style={styles.rowLabel}>Email</Text>
+              <Text style={styles.rowValueDisabled} numberOfLines={1}>{email}</Text>
             </View>
           </View>
 
-          {/* Student-specific */}
+          {/* ── Student Academic ── */}
           {role === 'student' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Academic Information</Text>
-              <View style={styles.card}>
-                <Field label="Student ID" value={studentId} onChangeText={setStudentId} placeholder="e.g. 2021-00001" />
-                <SelectField label="Department" value={department} onChange={setDepartment} options={DEPARTMENTS} placeholder="Select department…" />
-                <SelectField label="Course / Program" value={course} onChange={setCourse} options={STUDENT_COURSES} placeholder="Select course…" />
-                <SelectField label="Year Level" value={yearLevel} onChange={setYearLevel} options={YEAR_LEVELS} placeholder="Select year…" />
-              </View>
-            </View>
-          )}
-
-          {/* Teacher-specific */}
-          {role === 'teacher' && (
             <>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Professional Information</Text>
-                <View style={styles.card}>
-                  <Field label="Employee ID" value={employeeId} onChangeText={setEmployeeId} placeholder="e.g. EMP-00001" />
-                  <SelectField label="Department" value={tDepartment} onChange={setTDepartment} options={DEPARTMENTS} placeholder="Select department…" />
-                  <SelectField label="Position / Title" value={position} onChange={setPosition} options={POSITIONS} placeholder="Select position…" />
-                  <Field label="Office Location" value={officeLocation} onChangeText={setOfficeLocation} placeholder="e.g. Room 301, Engineering Bldg" />
-                  <Field
-                    label="Bio"
-                    value={bio}
-                    onChangeText={setBio}
-                    placeholder="Brief description about yourself..."
-                    multiline
-                    numberOfLines={4}
+              <Text style={styles.groupLabel}>ACADEMIC INFORMATION</Text>
+              <View style={styles.formGroup}>
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Student ID</Text>
+                  <TextInput
+                    style={styles.rowInput}
+                    value={studentId}
+                    onChangeText={setStudentId}
+                    placeholder="e.g. 2021-00001"
+                    placeholderTextColor={C.ink5}
                   />
                 </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Specialties</Text>
-                <View style={styles.card}>
-                  <TagInput tags={expertiseTags} onChange={setExpertiseTags} />
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Consultation Settings</Text>
-                <View style={styles.card}>
-                  <Field
-                    label="Max Consultations per Day"
-                    value={maxConsultations}
-                    onChangeText={setMaxConsultations}
-                    keyboardType="number-pad"
-                    placeholder="8"
-                  />
-                  <Field
-                    label="Session Duration (minutes)"
-                    value={consultationDuration}
-                    onChangeText={setConsultationDuration}
-                    keyboardType="number-pad"
-                    placeholder="30"
-                  />
-                  <Field
-                    label="Average Response Time (hours)"
-                    value={responseTime}
-                    onChangeText={setResponseTime}
-                    keyboardType="number-pad"
-                    placeholder="24"
-                  />
-                  <View style={{ paddingTop: S.md }}>
-                    <ToggleRow
-                      label="Accepting Consultations"
-                      value={isAccepting}
-                      onChange={setIsAccepting}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Office Hours</Text>
-                <View style={styles.card}>
-                  <OfficeHoursEditor hours={officeHours} onChange={setOfficeHours} />
-                </View>
+                <HSelectRow label="Department" value={department} onChange={setDepartment} options={DEPARTMENTS} placeholder="Select…" />
+                <HSelectRow label="Course" value={course} onChange={setCourse} options={STUDENT_COURSES} placeholder="Select…" />
+                <HSelectRow label="Year Level" value={yearLevel} onChange={setYearLevel} options={YEAR_LEVELS} placeholder="Select…" last />
               </View>
             </>
           )}
 
-          {/* Notifications */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
-            <View style={styles.card}>
-              <ToggleRow label="Email Notifications" value={notifEmail} onChange={setNotifEmail} />
-              <ToggleRow label="Push Notifications" value={notifPush} onChange={setNotifPush} />
+          {/* ── Teacher Professional ── */}
+          {role === 'teacher' && (
+            <>
+              <Text style={styles.groupLabel}>PROFESSIONAL INFORMATION</Text>
+              <View style={styles.formGroup}>
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Employee ID</Text>
+                  <TextInput
+                    style={styles.rowInput}
+                    value={employeeId}
+                    onChangeText={setEmployeeId}
+                    placeholder="e.g. EMP-00001"
+                    placeholderTextColor={C.ink5}
+                  />
+                </View>
+                <HSelectRow label="Department" value={tDepartment} onChange={setTDepartment} options={DEPARTMENTS} placeholder="Select…" />
+                <HSelectRow label="Position" value={position} onChange={setPosition} options={POSITIONS} placeholder="Select…" />
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Office</Text>
+                  <TextInput
+                    style={styles.rowInput}
+                    value={officeLocation}
+                    onChangeText={setOfficeLocation}
+                    placeholder="Room / Building"
+                    placeholderTextColor={C.ink5}
+                  />
+                </View>
+                <View style={[styles.formRow, styles.lastRow, { minHeight: 80, alignItems: 'flex-start', paddingTop: S.md }]}>
+                  <Text style={[styles.rowLabel, { marginTop: 2 }]}>Bio</Text>
+                  <TextInput
+                    style={[styles.rowInput, { textAlign: 'left', minHeight: 60, paddingTop: 0 }]}
+                    value={bio}
+                    onChangeText={setBio}
+                    placeholder="About yourself…"
+                    placeholderTextColor={C.ink5}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.groupLabel}>SPECIALTIES</Text>
+              <View style={[styles.formGroup, styles.paddedGroup]}>
+                <TagInput tags={expertiseTags} onChange={setExpertiseTags} />
+              </View>
+
+              <Text style={styles.groupLabel}>CONSULTATION SETTINGS</Text>
+              <View style={styles.formGroup}>
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Max / day</Text>
+                  <TextInput style={styles.rowInput} value={maxConsultations} onChangeText={setMaxConsultations} keyboardType="number-pad" placeholder="8" placeholderTextColor={C.ink5} />
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Duration (min)</Text>
+                  <TextInput style={styles.rowInput} value={consultationDuration} onChangeText={setConsultationDuration} keyboardType="number-pad" placeholder="30" placeholderTextColor={C.ink5} />
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={styles.rowLabel}>Response time (h)</Text>
+                  <TextInput style={styles.rowInput} value={responseTime} onChangeText={setResponseTime} keyboardType="number-pad" placeholder="24" placeholderTextColor={C.ink5} />
+                </View>
+                <View style={[styles.menuRow, styles.lastRow]}>
+                  <Text style={[styles.menuLabel, { flex: 1 }]}>Accepting Consultations</Text>
+                  <Switch value={isAccepting} onValueChange={setIsAccepting} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
+                </View>
+              </View>
+
+              <Text style={styles.groupLabel}>OFFICE HOURS</Text>
+              <View style={[styles.formGroup, styles.paddedGroup]}>
+                <OfficeHoursEditor hours={officeHours} onChange={setOfficeHours} />
+              </View>
+            </>
+          )}
+
+          {/* ── Notifications ── */}
+          <Text style={styles.groupLabel}>NOTIFICATIONS</Text>
+          <View style={styles.formGroup}>
+            <View style={styles.menuRow}>
+              <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={[styles.menuLabel, { flex: 1 }]}>Push Notifications</Text>
+              <Switch value={notifPush} onValueChange={setNotifPush} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
+            </View>
+            <View style={[styles.menuRow, styles.lastRow]}>
+              <Ionicons name="mail-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={[styles.menuLabel, { flex: 1 }]}>Email Notifications</Text>
+              <Switch value={notifEmail} onValueChange={setNotifEmail} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
             </View>
           </View>
 
-          {/* Save button at bottom */}
-          <View style={styles.section}>
+          {/* ── Action Buttons ── */}
+          <View style={styles.actionsSection}>
             <TouchableOpacity
               style={[styles.ctaBtn, saving && { opacity: 0.7 }]}
               onPress={handleSave}
@@ -1040,9 +1216,19 @@ export default function AccountSettingsScreen({ navigation }: any) {
                 : <Text style={styles.ctaBtnText}>Save Changes</Text>
               }
             </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={18} color={C.red} style={{ marginRight: S.sm }} />
+              <Text style={styles.logoutText}>Log Out</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteAccountBtn}
+              onPress={() => Alert.alert('Delete Account', 'To delete your account, please contact support.')}
+            >
+              <Text style={styles.deleteAccountText}>Delete Account</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={{ height: S.xxl }} />
+          <View style={{ height: 48 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -1055,52 +1241,80 @@ const styles = StyleSheet.create({
 
   safeHeader: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.borderLight },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: S.lg,
-    paddingVertical: S.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: S.lg, paddingVertical: S.md,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: R.full,
-    backgroundColor: C.accentSoft,
+    width: 36, height: 36, justifyContent: 'center', alignItems: 'center',
+    borderRadius: R.full, backgroundColor: C.accentSoft,
   },
   headerTitle: { ...T.h3, color: C.ink1 },
-  saveBtn: {
-    paddingHorizontal: S.lg,
-    paddingVertical: S.sm,
-    backgroundColor: C.ink1,
-    borderRadius: R.full,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  saveBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: S.lg },
+  scrollContent: { paddingTop: S.xl },
 
-  section: { paddingHorizontal: S.lg, marginBottom: S.lg },
-  sectionTitle: { ...T.cap, marginBottom: S.sm },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: R.lg,
-    padding: S.lg,
-    ...shadow.soft,
-    borderWidth: 1,
-    borderColor: C.borderLight,
+  // Profile overview card
+  profileCard: {
+    alignItems: 'center', paddingVertical: S.xl,
+    marginHorizontal: S.lg, marginBottom: S.xl,
+    backgroundColor: C.surface, borderRadius: R.xl,
+    borderWidth: 1, borderColor: C.borderLight, ...shadow.soft,
   },
+  avatarCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: C.ink1, justifyContent: 'center', alignItems: 'center',
+    marginBottom: S.md,
+  },
+  avatarInitialsText: { fontSize: 26, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+  profileCardName: { fontSize: 18, fontWeight: '700', color: C.ink1, marginBottom: 3 },
+  profileCardSub: { fontSize: 13, color: C.ink3 },
 
+  // Section group labels
+  groupLabel: { ...T.cap, marginHorizontal: S.lg + 4, marginBottom: S.sm, marginTop: 2 },
+
+  // Form group container (card with flat rows)
+  formGroup: {
+    marginHorizontal: S.lg, marginBottom: S.xl,
+    backgroundColor: C.surface, borderRadius: R.lg,
+    borderWidth: 1, borderColor: C.borderLight,
+    overflow: 'hidden', ...shadow.soft,
+  },
+  paddedGroup: { padding: S.lg },
+
+  // Horizontal form rows (label left, input right)
+  formRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: S.lg, minHeight: 54,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+  },
+  lastRow: { borderBottomWidth: 0 },
+  rowLabel: { fontSize: 14, color: C.ink3, fontWeight: '500' as const, flexShrink: 0, marginRight: S.sm },
+  rowInput: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md },
+  rowValueDisabled: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink3 },
+
+  // Menu rows (icon + label + switch)
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: S.lg, minHeight: 54,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+  },
+  menuIcon: { marginRight: S.md },
+  menuLabel: { ...T.body, color: C.ink1 },
+
+  // Bottom action area
+  actionsSection: { marginHorizontal: S.lg, marginTop: S.sm, gap: S.md },
   ctaBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.ink1,
-    borderRadius: R.xl,
-    paddingVertical: S.lg,
-    ...shadow.card,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.ink1, borderRadius: R.xl,
+    paddingVertical: S.lg, ...shadow.card,
   },
   ctaBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: R.xl, paddingVertical: S.lg,
+    borderWidth: 1.5, borderColor: C.red, backgroundColor: C.surface,
+  },
+  logoutText: { fontSize: 15, fontWeight: '600', color: C.red },
+  deleteAccountBtn: { alignItems: 'center', paddingVertical: S.md },
+  deleteAccountText: { fontSize: 13, color: C.ink4, textDecorationLine: 'underline' as const },
 });

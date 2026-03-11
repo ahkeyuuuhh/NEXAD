@@ -214,12 +214,12 @@ export default function TeacherProfileScreen({ navigation, route }: any) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contact</Text>
             <View style={styles.card}>
-              <View style={styles.infoRow}>
-                <Ionicons name="call-outline" size={16} color={C.ink3} style={styles.infoIcon} />
+              <View style={[styles.infoRow, { justifyContent: 'space-between' }]}>
+                <Text style={styles.infoItemLabel}>Phone</Text>
                 <Text style={styles.infoText}>{profile.phone}</Text>
               </View>
-              <View style={[styles.infoRow, { marginTop: S.sm }]}>
-                <Ionicons name="mail-outline" size={16} color={C.ink3} style={styles.infoIcon} />
+              <View style={[styles.infoRow, { justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.borderLight, marginTop: 0 }]}>
+                <Text style={styles.infoItemLabel}>Email</Text>
                 <Text style={styles.infoText}>{profile.email}</Text>
               </View>
             </View>
@@ -304,23 +304,23 @@ const styles = StyleSheet.create({
 
   avatarSection: { alignItems: 'center', paddingBottom: S.lg },
   avatarRing: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
     overflow: 'hidden',
     marginBottom: S.md,
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarFallback: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarInitials: { fontSize: 28, fontWeight: '700', color: '#fff', letterSpacing: 1 },
-  profileName: { fontSize: 20, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
+  avatarInitials: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  profileName: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   profilePosition: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   profileDept: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
   acceptBadge: {
@@ -376,9 +376,10 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: 12, fontWeight: '600', color: C.ink2 },
 
-  infoRow: { flexDirection: 'row', alignItems: 'center' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: S.sm },
   infoIcon: { marginRight: S.sm },
-  infoText: { ...T.body, flex: 1 },
+  infoItemLabel: { ...T.small, color: C.ink3, minWidth: 56 },
+  infoText: { ...T.body, flex: 1, textAlign: 'right' as const },
   subLabel: { ...T.label, color: C.ink3, marginBottom: S.sm },
   officeHourRow: {
     flexDirection: 'row',

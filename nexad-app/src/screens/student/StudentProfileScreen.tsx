@@ -110,38 +110,26 @@ export default function StudentProfileScreen({ navigation }: any) {
           <View style={styles.card}>
             {!!profile.student_id && (
               <View style={styles.infoRow}>
-                <Ionicons name="card-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-                <View>
-                  <Text style={styles.infoLabel}>Student ID</Text>
-                  <Text style={styles.infoValue}>{profile.student_id}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Student ID</Text>
+                <Text style={styles.infoValue}>{profile.student_id}</Text>
               </View>
             )}
             {!!profile.course && (
               <View style={[styles.infoRow, styles.infoRowBorder]}>
-                <Ionicons name="school-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-                <View>
-                  <Text style={styles.infoLabel}>Course</Text>
-                  <Text style={styles.infoValue}>{profile.course}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Course</Text>
+                <Text style={styles.infoValue}>{profile.course}</Text>
               </View>
             )}
             {!!profile.year_level && (
               <View style={[styles.infoRow, styles.infoRowBorder]}>
-                <Ionicons name="bar-chart-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-                <View>
-                  <Text style={styles.infoLabel}>Year Level</Text>
-                  <Text style={styles.infoValue}>Year {profile.year_level}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Year Level</Text>
+                <Text style={styles.infoValue}>Year {profile.year_level}</Text>
               </View>
             )}
             {!!profile.section && (
               <View style={[styles.infoRow, styles.infoRowBorder]}>
-                <Ionicons name="people-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-                <View>
-                  <Text style={styles.infoLabel}>Section</Text>
-                  <Text style={styles.infoValue}>{profile.section}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Section</Text>
+                <Text style={styles.infoValue}>{profile.section}</Text>
               </View>
             )}
             {!profile.student_id && !profile.course && !profile.year_level && !profile.section && (
@@ -155,19 +143,13 @@ export default function StudentProfileScreen({ navigation }: any) {
           <Text style={styles.sectionTitle}>Contact</Text>
           <View style={styles.card}>
             <View style={styles.infoRow}>
-              <Ionicons name="mail-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-              <View>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{profile.email}</Text>
-              </View>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{profile.email}</Text>
             </View>
             {!!profile.phone && (
               <View style={[styles.infoRow, styles.infoRowBorder]}>
-                <Ionicons name="call-outline" size={16} color={C.ink3} style={styles.infoIcon} />
-                <View>
-                  <Text style={styles.infoLabel}>Phone</Text>
-                  <Text style={styles.infoValue}>{profile.phone}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Phone</Text>
+                <Text style={styles.infoValue}>{profile.phone}</Text>
               </View>
             )}
           </View>
@@ -223,25 +205,25 @@ const styles = StyleSheet.create({
 
   avatarSection: { alignItems: 'center', paddingBottom: S.xl },
   avatarRing: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.4)',
     overflow: 'hidden',
     marginBottom: S.md,
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarFallback: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarInitials: { fontSize: 28, fontWeight: '700', color: '#fff', letterSpacing: 1 },
-  profileName: { fontSize: 20, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
-  profileRole: { fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-  profileDept: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  avatarInitials: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  profileName: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  profileRole: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  profileDept: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
 
   scroll: { flex: 1 },
   scrollContent: { paddingTop: S.lg },
@@ -251,17 +233,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: C.surface,
     borderRadius: R.lg,
-    padding: S.lg,
+    overflow: 'hidden',
     ...shadow.soft,
     borderWidth: 1,
     borderColor: C.borderLight,
   },
 
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: S.sm },
+  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: S.md, paddingHorizontal: S.lg },
   infoRowBorder: { borderTopWidth: 1, borderTopColor: C.borderLight },
   infoIcon: { marginRight: S.md, marginTop: 2 },
-  infoLabel: { ...T.small, color: C.ink4, marginBottom: 1 },
-  infoValue: { ...T.body, fontWeight: '500' as const, color: C.ink1 },
+  infoLabel: { ...T.small, color: C.ink3 },
+  infoValue: { ...T.body, fontWeight: '500' as const, color: C.ink1, textAlign: 'right' as const, flex: 1, marginLeft: S.sm },
   emptyHint: { ...T.body, color: C.ink4, textAlign: 'center', paddingVertical: S.sm },
 
   editBtn: {
