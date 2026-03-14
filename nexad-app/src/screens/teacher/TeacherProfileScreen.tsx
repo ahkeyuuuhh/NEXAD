@@ -258,7 +258,7 @@ export default function TeacherProfileScreen({ navigation, route }: any) {
               style={styles.editBtn}
               onPress={() => navigation.navigate('AccountSettings')}
             >
-              <Ionicons name="settings-outline" size={18} color={C.ink1} style={{ marginRight: S.sm }} />
+              <Ionicons name="settings-outline" size={18} color="#FFFFFF" style={{ marginRight: S.sm }} />
               <Text style={styles.editBtnText}>Edit Profile & Settings</Text>
             </TouchableOpacity>
           </View>
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: S.lg,
-    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Lighter translucent white like account settings
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Lighter translucent white like account settings
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
@@ -410,11 +410,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: '#000000', // Black background
     borderRadius: R.xl,
     paddingVertical: S.lg,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: '#000000',
   },
-  editBtnText: { fontSize: 15, fontWeight: '600', color: C.ink1 },
+  editBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' }, // White text
 });

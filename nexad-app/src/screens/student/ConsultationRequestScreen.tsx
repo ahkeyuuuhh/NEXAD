@@ -752,23 +752,33 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
               )}
 
               {showStartDatePicker && (
-                <DateTimePicker
-                  value={preferredStartDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  minimumDate={new Date()}
-                  onChange={handleStartDateChange}
-                />
+                <View style={styles.calendarWrapper}>
+                  <DateTimePicker
+                    value={preferredStartDate || new Date()}
+                    mode="date"
+                    display="default"
+                    minimumDate={new Date()}
+                    onChange={handleStartDateChange}
+                    accentColor="#000000"
+                    textColor="#000000"
+                    themeVariant="light"
+                  />
+                </View>
               )}
 
               {showEndDatePicker && (
-                <DateTimePicker
-                  value={preferredEndDate || preferredStartDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  minimumDate={preferredStartDate || new Date()}
-                  onChange={handleEndDateChange}
-                />
+                <View style={styles.calendarWrapper}>
+                  <DateTimePicker
+                    value={preferredEndDate || preferredStartDate || new Date()}
+                    mode="date"
+                    display="default"
+                    minimumDate={preferredStartDate || new Date()}
+                    onChange={handleEndDateChange}
+                    accentColor="#000000"
+                    textColor="#000000"
+                    themeVariant="light"
+                  />
+                </View>
               )}
             </View>
 
@@ -1258,6 +1268,11 @@ const styles = StyleSheet.create({
     color: C.actionText,
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  calendarWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginVertical: S.sm,
   },
   // AI Modal Styles
   modalContainer: {

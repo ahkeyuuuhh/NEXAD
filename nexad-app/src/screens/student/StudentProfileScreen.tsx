@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Lighter translucent white like account settings
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Add top border radius
     borderTopRightRadius: R.xl, // Add top border radius
@@ -280,11 +280,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#202124', // Black background
+    backgroundColor: '#000000', // Black background
     borderRadius: R.xl,
     paddingVertical: S.lg,
     borderWidth: 1.5,
-    borderColor: '#202124',
+    borderColor: '#000000',
   },
   editBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' }, // White text
 });

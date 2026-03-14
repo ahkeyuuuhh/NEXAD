@@ -270,8 +270,11 @@ export default function StudentDashboard({ navigation, route }: any) {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0A0A0A" />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </SafeAreaView>
     );
   }
@@ -889,6 +892,7 @@ function getStatusStyle(s: string): object {
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  loadingGif:       { width: 200, height: 200 },
   loadingText:      { marginTop: S.md, ...T.body, color: C.ink4 },
 
   // ─── Top Bar ──────────────────────────────────────────

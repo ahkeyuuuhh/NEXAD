@@ -1,16 +1,20 @@
-UI MODIFICATIONS NEEDED: 
-    General
-        [✓] the Mark as Done modal must be an IOS style modal with black accent color. and not a blue and red one. 
-        [✓] The "Mark all" modal must be an IOS style modal
-        
+FINAL COMPLETE UPDATE - ALL DONE ✅
 
-    Messages Screen: 
-        [✓] The background of the textbox area must be the same as the background of the dashboard instead of color grey so it would be seamless
-        [✓] There should be a delete confirmation modal when deleting a message. Also, user can select multiple inbox or select it all to delete it. Color of it must compliment the overall UI instead of a red and blue. 
-        [✓] There must be an archive confirmation modal and unarchive confirmation modal on the archive screen for integrity. It also must be an IOS style modal. Color of it must compliment the overall UI instead of a red and blue.
-        
-    Cards:
-        [✓] Card backgrounds updated to lighter translucent white rgba(255, 255, 255, 0.25)
-        [✓] Applied to all classroom cards (detail screens, hub, and list views)
+LATEST CHANGES:
+    [✓] Profile stats card - lighter background (rgba(255, 255, 255, 0.25))
+    [✓] Calendar styling - black accent, border-radius wrapper
+    [✓] Page transitions - SMOOTH & SIMPLE (no overlapping!)
+    [✓] OTA update published to preview branch
 
-ALL TASKS COMPLETE - READY FOR OTA UPDATE
+TRANSITION IMPROVEMENTS:
+    ✓ Reduced durations (250ms open, 200ms close)
+    ✓ Simplified easing (Easing.ease instead of complex bezier)
+    ✓ Removed overlay opacity (was causing overlapping)
+    ✓ Reduced translate distance (3% instead of 5%)
+    ✓ Result: Fast, smooth, no o- Delete account modANGES!
+
+TRANSITIONS ARE NOW:
+    - Faster (250ms vs 300ms)
+    - Smoother (simple easing)
+    - No overlapping (removed overlay opacity)
+    - Consistent across all screens

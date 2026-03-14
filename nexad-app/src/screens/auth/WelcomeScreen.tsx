@@ -7,6 +7,7 @@ import {
   Animated,
   PanResponder,
   StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { C, F, S, R, shadow } from '../../config/theme';
@@ -130,7 +131,11 @@ export default function WelcomeScreen({ navigation }: WelcomeScreenProps) {
 
           {/* Central circle with pulsing scale */}
           <Animated.View style={[styles.heroCircle, { transform: [{ scale: pulseScale }] }]}>
-            <Text style={styles.heroLetter}>N</Text>
+            <Image 
+              source={require('../../../assets/Light-logo-NoText-noBg.png')} 
+              style={styles.heroLogo}
+              resizeMode="contain"
+            />
           </Animated.View>
 
           {/* Static decorative rings */}
@@ -229,6 +234,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 2,
   },
+  heroLogo: {
+    width: CIRCLE_SIZE * 0.75,
+    height: CIRCLE_SIZE * 0.75,
+  },
   // Static concentric rings
   ringMid: {
     position: 'absolute',
@@ -284,7 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: S.sm,
   },
   brandName: {
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
     fontSize: 52,
     color: C.ink1,
     letterSpacing: 4,

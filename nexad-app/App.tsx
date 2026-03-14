@@ -4,7 +4,7 @@
  */
 import 'react-native-gesture-handler'; // MUST be at the very top
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Easing, Platform, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useFonts } from 'expo-font';
@@ -99,8 +99,8 @@ const Stack = createStackNavigator();
 const slideTransition = {
   cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 300, easing: Easing.out(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
-    close: { animation: 'timing' as const, config: { duration: 250, easing: Easing.in(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
+    open:  { animation: 'timing' as const, config: { duration: 250, easing: Easing.out(Easing.ease) } },
+    close: { animation: 'timing' as const, config: { duration: 200, easing: Easing.in(Easing.ease) } },
   },
   gestureEnabled: true,
   gestureDirection: 'horizontal' as const,
@@ -108,26 +108,22 @@ const slideTransition = {
 
 // Fade + slide transition for special screens
 const fadeSlideTransition = {
-  cardStyleInterpolator: ({ current, next, layouts }: any) => {
+  cardStyleInterpolator: ({ current, layouts }: any) => {
     const translateX = current.progress.interpolate({
       inputRange: [0, 1],
-      outputRange: [layouts.screen.width * 0.05, 0],
+      outputRange: [layouts.screen.width * 0.03, 0],
     });
     const opacity = current.progress.interpolate({
-      inputRange: [0, 0.5, 1],
-      outputRange: [0, 0.5, 1],
+      inputRange: [0, 1],
+      outputRange: [0, 1],
     });
-    const overlayOpacity = next
-      ? next.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.05] })
-      : 0;
     return {
       cardStyle: { transform: [{ translateX }], opacity },
-      overlayStyle: { opacity: overlayOpacity },
     };
   },
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 300, easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)) } },
-    close: { animation: 'timing' as const, config: { duration: 250, easing: Easing.in(Easing.bezier(0.16, 1, 0.3, 1)) } },
+    open:  { animation: 'timing' as const, config: { duration: 250, easing: Easing.out(Easing.ease) } },
+    close: { animation: 'timing' as const, config: { duration: 200, easing: Easing.in(Easing.ease) } },
   },
   gestureEnabled: true,
   gestureDirection: 'horizontal' as const,
@@ -137,8 +133,8 @@ const fadeSlideTransition = {
 const modalTransition = {
   cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 320, easing: Easing.out(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
-    close: { animation: 'timing' as const, config: { duration: 260, easing: Easing.in(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
+    open:  { animation: 'timing' as const, config: { duration: 280, easing: Easing.out(Easing.ease) } },
+    close: { animation: 'timing' as const, config: { duration: 220, easing: Easing.in(Easing.ease) } },
   },
   gestureEnabled: true,
   gestureDirection: 'vertical' as const,
@@ -516,16 +512,11 @@ function Navigation() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading...</Text>
-        <TouchableOpacity 
-          onPress={() => {
-            console.log('🟡 User tapped to skip loading');
-          }}
-          style={{ marginTop: 24, padding: 12 }}
-        >
-          <Text style={{ color: '#9ca3af', fontSize: 12 }}>If stuck, restart the app</Text>
-        </TouchableOpacity>
+        <Image 
+          source={require('./assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -593,7 +584,11 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0A0A0A" />
+        <Image 
+          source={require('./assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -642,7 +637,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingGif: {
+    width: 200,
+    height: 200,
   },
   loadingText: {
     marginTop: 16,

@@ -454,8 +454,11 @@ export default function TeacherDashboard({ navigation, route }: any) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.ink1} />
-        <Text style={styles.loadingText}>Loading Dashboard...</Text>
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -1077,6 +1080,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  loadingGif:       { width: 200, height: 200 },
   loadingText:      { marginTop: S.md, ...T.body, color: C.ink4 },
 
   // ─── Header ───────────────────────────────────────────
