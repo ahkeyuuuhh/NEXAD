@@ -548,6 +548,37 @@ export default function App() {
         showBadge: true,
       }).catch(() => {});
     }
+
+    // Check for OTA updates on app start
+    async function checkForUpdates() {
+      try {
+        if (__DEV__) {
+          console.log('🟡 DEV mode - skipping update check');
+          return;
+        }
+        
+        if (!Updates.isEnabled) {
+          console.log('🟡 Updates not enabled');
+          return;
+        }
+
+        console.log('🔵 Checking for updates...');
+        const update = await Updates.checkForUpdateAsync();
+        
+        if (update.isAvailable) {
+          console.log('🟢 Update available! Fetching...');
+          await Updates.fetchUpdateAsync();
+          console.log('🟢 Update fetched! Reloading...');
+          await Updates.reloadAsync();
+        } else {
+          console.log('🟡 No updates available');
+        }
+      } catch (error: any) {
+        console.error('🔴 Update check failed:', error?.message);
+      }
+    }
+
+    checkForUpdates();
   }, []);
 
   if (!fontsLoaded) {
