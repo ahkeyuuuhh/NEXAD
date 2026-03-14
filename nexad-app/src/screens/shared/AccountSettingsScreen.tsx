@@ -1340,7 +1340,7 @@ const styles = StyleSheet.create({
   // Form group container (card with flat rows)
   formGroup: {
     marginHorizontal: S.lg, marginBottom: S.xl,
-    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
+    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
     borderRadius: R.lg,
     borderWidth: 1, borderColor: C.borderLight,
     overflow: 'hidden', ...shadow.soft,
