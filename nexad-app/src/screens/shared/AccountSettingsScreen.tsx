@@ -1237,7 +1237,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
               }
             </TouchableOpacity>
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={18} color={C.red} style={{ marginRight: S.sm }} />
+              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" style={{ marginRight: S.sm }} />
               <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1354,9 +1354,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: C.borderLight,
   },
   lastRow: { borderBottomWidth: 0 },
-  rowLabel: { fontSize: 14, color: C.ink3, fontWeight: '500' as const, flexShrink: 0, marginRight: S.sm },
-  rowInput: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md },
-  rowValueDisabled: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink3 },
+  rowLabel: { fontSize: 14, color: C.ink2, fontWeight: '600' as const, flexShrink: 0, marginRight: S.sm }, // Darker and bolder
+  rowInput: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md, backgroundColor: 'transparent' }, // Transparent background
+  rowValueDisabled: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink3, backgroundColor: 'transparent' }, // Transparent background
 
   // Menu rows (icon + label + switch)
   menuRow: {
