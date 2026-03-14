@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
+    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Add top border radius
     borderTopRightRadius: R.xl, // Add top border radius
