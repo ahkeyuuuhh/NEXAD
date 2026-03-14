@@ -1,0 +1,380 @@
+  return (
+    <View style={styles.mainContainer}>
+      {/* Top App Bar */}
+      <View style={styles.topNav}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.navButton}>
+          <Ionicons name="arrow-back" size={24} color={C.ink1} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton}>
+          <Ionicons name="ellipsis-vertical" size={24} color={C.ink1} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner}>
+        {/* Top Info */}
+        <Text style={styles.dueDateText}>
+          {bin.deadline ? `${isDeadlinePassed ? 'Work cannot be handed in after the due date' : `Due ${new Date(bin.deadline).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`}` : 'No due date'}
+        </Text>
+        {isDeadlinePassed && bin.deadline && (
+           <Text style={styles.deadlineWarning}>Work cannot be handed in after the due date</Text>
+        )}
+
+        {/* Title */}
+        <Text style={styles.assignmentTitle}>{bin.title}</Text>
+        <Text style={styles.pointsText}>100 points</Text>
+
+        <View style={styles.divider} />
+
+        {/* Add class comment */}
+        <TouchableOpacity style={styles.commentRow} onPress={openComments}>
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#0b57d0" />
+          <Text style={styles.commentText}>Add class comment</Text>
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
+        {/* Description / Instructions */}
+        {bin.description ? (
+          <Text style={styles.descriptionText}>{bin.description}</Text>
+        ) : null}
+
+        {/* Teacher Feedback Alert (placed inline before the bottom sheet) */}
+        {submission && reviewStatus && (
+          <View style={[styles.teacherFeedbackBox, reviewStatus === 'approved' ? styles.feedbackApproved : reviewStatus === 'revised' ? styles.feedbackRevised : {}]}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
+              <Ionicons name={statusCfg?.icon as any} size={18} color={statusCfg?.color || C.ink1} />
+              <Text style={[styles.feedbackTitle, {color: statusCfg?.color || C.ink1}]}>{statusCfg?.label}</Text>
+            </View>
+            
+            {reviewStatus === 'for_consultation' || reviewStatus === 'consultation_requested' ? (
+              <View>
+                {consultationRequest && ['pending', 'ai_processing', 'awaiting_teacher'].includes(consultationRequest.status) ? (
+                   <Text style={styles.feedbackHint}>Consultation booked. Awaiting teacher's response.</Text>
+                ) : consultationRequest?.status === 'accepted' ? (
+                   <Text style={styles.feedbackHint}>
+                     Consultation Approved for {consultationRequest.scheduled_start_time ? new Date(consultationRequest.scheduled_start_time).toLocaleString() : 'TBD'}.
+                   </Text>
+                ) : (
+                   <TouchableOpacity style={styles.requestConsultBtn} onPress={requestConsultation}>
+                      <Text style={styles.requestConsultText}>Request Consultation</Text>
+                   </TouchableOpacity>
+                )}
+              </View>
+            ) : reviewStatus === 'revised' ? (
+               <Text style={styles.feedbackHint}>Please make the necessary revisions and resubmit.</Text>
+            ) : null}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Attach Menu Popover Background Scrim */}
+      {showAttachMenu && (
+        <TouchableOpacity style={styles.scrim} activeOpacity={1} onPress={() => setShowAttachMenu(false)} />
+      )}
+
+      {/* Your Work Bottom Sheet Area */}
+      <View style={styles.bottomWorkContainer}>
+        
+        {/* Floating Attach Menu (visible when adding work) */}
+        {showAttachMenu && (
+           <View style={styles.attachMenuPopover}>
+             <TouchableOpacity style={styles.attachMenuItem} onPress={pickDocumentAttachment}>
+                <Ionicons name="document-text-outline" size={20} color={C.ink2} />
+                <Text style={styles.attachMenuItemText}>File (PDF or DOCX)</Text>
+             </TouchableOpacity>
+             <TouchableOpacity style={styles.attachMenuItem} onPress={pickImageAttachment}>
+                <Ionicons name="image-outline" size={20} color={C.ink2} />
+                <Text style={styles.attachMenuItemText}>Images</Text>
+             </TouchableOpacity>
+           </View>
+        )}
+
+        {showAnalyzePrompt && selectedFile && !isImageFile(selectedFile.name, selectedFile.mimeType) && (
+          <View style={styles.analyzePromptCard}>
+            <Text style={styles.analyzePromptTitle}>Academic Integrity Check</Text>
+            <Text style={styles.analyzePromptText} numberOfLines={1}>{selectedFile.name}</Text>
+            <View style={styles.analyzePromptActions}>
+              <TouchableOpacity style={styles.analyzePromptLaterBtn} onPress={() => setShowAnalyzePrompt(false)}>
+                <Text style={styles.analyzePromptLaterText}>Later</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.analyzePromptNowBtn}
+                onPress={() => {
+                  setShowAnalyzePrompt(false);
+                  performPlagiarismCheck(selectedFile);
+                }}
+              >
+                <Text style={styles.analyzePromptNowText}>Analyze Now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.dragIndicator} />
+        
+        <View style={styles.workHeader}>
+          <Text style={styles.workTitle}>Your work</Text>
+          <Text style={[styles.workStatus, submission ? styles.statusTurnedIn : (isDeadlinePassed ? styles.statusMissing : styles.statusAssigned)]}>
+            {submission ? 'Turned in' : (isDeadlinePassed ? 'Missing' : 'Assigned')}
+          </Text>
+        </View>
+
+        {/* Selected or Submitted File Card */}
+        {submission ? (
+           <TouchableOpacity style={styles.fileCard} onPress={handleViewSubmission}>
+             <View style={styles.fileIconBox}><Ionicons name="document-text" size={20} color="#D93025" /></View>
+             <View style={styles.fileDetailsBox}>
+               <Text style={styles.fileNameText} numberOfLines={1}>{submission.file_name}</Text>
+             </View>
+           </TouchableOpacity>
+        ) : selectedFile ? (
+           <View style={styles.fileCard}>
+             <View style={styles.fileIconBox}><Ionicons name="document-text" size={20} color="#0B57D0" /></View>
+             <View style={styles.fileDetailsBox}>
+               <Text style={styles.fileNameText} numberOfLines={1}>{selectedFile.name}</Text>
+             </View>
+             <TouchableOpacity style={{padding: 12}} onPress={() => setSelectedFile(null)}>
+               <Ionicons name="close" size={20} color="#5F6368" />
+             </TouchableOpacity>
+           </View>
+        ) : null}
+
+        {/* Buttons */}
+        {canSubmit && !selectedFile && !submission ? (
+           <TouchableOpacity style={styles.addWorkBtn} onPress={() => setShowAttachMenu(true)}>
+              <Ionicons name="add" size={20} color="#FFF" />
+              <Text style={styles.addWorkText}>Add work</Text>
+           </TouchableOpacity>
+        ) : null}
+
+        {canSubmit && selectedFile ? (
+           <TouchableOpacity style={styles.turnInBtn} onPress={handleSubmit} disabled={uploading}>
+              {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.turnInText}>Turn in</Text>}
+           </TouchableOpacity>
+        ) : null}
+
+        {/* Private Comment pseudo-input */}
+        {submission && (
+           <TouchableOpacity style={styles.privateCommentRow} onPress={openComments}>
+              <Ionicons name="person-circle-outline" size={32} color="#5F6368" />
+              <View style={styles.privateCommentBox}>
+                 <Text style={styles.privateCommentPlaceholder}>Add private comment</Text>
+              </View>
+           </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Plagiarism Check Modal */}
+      <Modal visible={showPlagiarismModal} animationType="slide" transparent={false} onRequestClose={() => setShowPlagiarismModal(false)}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setShowPlagiarismModal(false)} style={styles.navButton}>
+            <Ionicons name="close" size={24} color={C.ink1} />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Academic Integrity Check</Text>
+        </View>
+        <ScrollView style={styles.plagiarismContainer}>
+          {checkingPlagiarism ? (
+            <View style={styles.checkingContainer}>
+              <ActivityIndicator size="large" color="#0B57D0" />
+              <Text style={styles.checkingText}>Analyzing document...</Text>
+              <Text style={styles.checkingSubtext}>This may take a moment</Text>
+            </View>
+          ) : (
+            <>
+              {plagiarismResults.map((result, index) => (
+                <View key={index} style={styles.plagiarismCard}>
+                  <View style={styles.plagiarismHeaderRow}>
+                    <Ionicons name="shield-checkmark" size={20} color="#0B57D0" />
+                    <Text style={styles.plagiarismFileName}>{result.fileName}</Text>
+                  </View>
+                  {result.error ? (
+                    <View style={styles.plagiarismErrorContainer}>
+                      <Ionicons name="alert-circle" size={20} color="#D93025" />
+                      <Text style={styles.plagiarismErrorText}>{result.error}</Text>
+                    </View>
+                  ) : result.originalityScore !== null ? (
+                    <>
+                      <View style={styles.scoreContainer}>
+                        <Text style={styles.scoreLabel}>Originality Score</Text>
+                        <View style={[styles.scoreCircle, result.originalityScore >= 70 ? styles.scoreCircleGood : styles.scoreCircleRisk]}>
+                          <Text style={[styles.scoreValue, result.originalityScore >= 70 ? styles.scoreGood : styles.scoreRisk]}>
+                            {result.originalityScore}%
+                          </Text>
+                        </View>
+                      </View>
+                      {result.isHighRisk ? (
+                        <View style={styles.warningBox}>
+                          <Ionicons name="warning" size={18} color="#C5221F" />
+                          <Text style={styles.warningText}>
+                            Low originality score detected.
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.successBox}>
+                          <Ionicons name="checkmark-circle" size={18} color="#137333" />
+                          <Text style={styles.successText}>
+                            Acceptable originality.
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  ) : null}
+                </View>
+              ))}
+              <View style={styles.plagiarismActions}>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowPlagiarismModal(false)}>
+                  <Text style={styles.secondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.primaryButton} onPress={proceedWithSubmission} disabled={uploading}>
+                  {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Turn in anyway</Text>}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </Modal>
+
+      <FileViewerModal visible={fileViewer.visible} url={fileViewer.url} fileName={fileViewer.name} isImage={fileViewer.isImage} onClose={() => setFileViewer(v => ({ ...v, visible: false }))} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  mainContainer: { flex: 1, backgroundColor: '#FFFFFF' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+  errorText: { fontSize: 16, color: '#5F6368' },
+  
+  // Top Header
+  topNav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#FFFFFF',
+  },
+  navButton: { padding: 4 },
+
+  // Scroll Area
+  scrollContent: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollInner: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 120 },
+
+  dueDateText: { fontSize: 13, color: '#5F6368', fontWeight: '500' as const, marginBottom: 4 },
+  deadlineWarning: { fontSize: 13, color: '#D93025', marginBottom: 12 },
+  
+  assignmentTitle: { fontSize: 24, fontWeight: '400' as const, color: '#000000', lineHeight: 32, marginBottom: 8, marginTop: 4 },
+  pointsText: { fontSize: 13, color: '#5F6368', marginBottom: 16, fontWeight: '500' as const },
+  divider: { height: 1, backgroundColor: '#E8EAED', width: '100%', marginVertical: 4 },
+  
+  commentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  commentText: { fontSize: 14, color: '#0B57D0', fontWeight: '500' as const },
+
+  descriptionText: { fontSize: 15, color: '#3C4043', lineHeight: 24, marginTop: 12, marginBottom: 16 },
+
+  // Teacher feedback inline
+  teacherFeedbackBox: {
+    marginTop: 16, padding: 16, borderRadius: 8, backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#DADCE0'
+  },
+  feedbackApproved: { backgroundColor: '#E6F4EA', borderColor: '#CEEAD6' },
+  feedbackRevised: { backgroundColor: '#FCE8E6', borderColor: '#FAD2CF' },
+  feedbackTitle: { fontSize: 14, fontWeight: '600' as const },
+  feedbackHint: { fontSize: 13, color: '#5F6368', marginTop: 4 },
+  requestConsultBtn: { marginTop: 12, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#0B57D0', borderRadius: 4 },
+  requestConsultText: { color: '#FFF', fontSize: 13, fontWeight: '600' as const },
+
+  // Bottom Sheet Work Area
+  bottomWorkContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 16,
+    position: 'absolute', bottom: 0, width: '100%',
+  },
+  dragIndicator: { width: 40, height: 4, backgroundColor: '#DADCE0', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  
+  workHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  workTitle: { fontSize: 18, fontWeight: '400' as const, color: '#000' },
+  workStatus: { fontSize: 14, fontWeight: '600' as const },
+  statusMissing: { color: '#D93025' },
+  statusTurnedIn: { color: '#5F6368' },
+  statusAssigned: { color: '#018786' },
+
+  // File Card
+  fileCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: '#DADCE0', borderRadius: 8, marginBottom: 16, overflow: 'hidden'
+  },
+  fileIconBox: {
+    padding: 16, borderRightWidth: 1, borderRightColor: '#DADCE0', alignItems: 'center', justifyContent: 'center'
+  },
+  fileDetailsBox: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  fileNameText: { fontSize: 14, color: '#3C4043', fontWeight: '500' as const, marginBottom: 2 },
+
+  // Button styles
+  addWorkBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#0B57D0', borderRadius: 24, paddingVertical: 12, marginBottom: 12,
+  },
+  addWorkText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' as const },
+  
+  turnInBtn: {
+    backgroundColor: '#0B57D0', borderRadius: 24, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  },
+  turnInText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' as const },
+
+  scrim: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.2)', elevation: 15, zIndex: 15 },
+  
+  attachMenuPopover: {
+    backgroundColor: '#FFFFFF', borderRadius: 8, padding: 8,
+    position: 'absolute', bottom: 180, left: 20, right: 20, zIndex: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 20,
+  },
+  attachMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  attachMenuItemText: { fontSize: 15, color: '#3C4043', fontWeight: '500' as const },
+
+  analyzePromptCard: {
+    backgroundColor: '#F8F9FA', borderRadius: 8, borderWidth: 1, borderColor: '#DADCE0', padding: 16, marginBottom: 16,
+  },
+  analyzePromptTitle: { fontSize: 14, fontWeight: '600' as const, color: '#202124', marginBottom: 4 },
+  analyzePromptText: { fontSize: 13, color: '#5F6368', marginBottom: 12 },
+  analyzePromptActions: { flexDirection: 'row', gap: 8 },
+  analyzePromptLaterBtn: { flex: 1, borderWidth: 1, borderColor: '#DADCE0', borderRadius: 16, paddingVertical: 8, alignItems: 'center' },
+  analyzePromptLaterText: { fontSize: 13, fontWeight: '600' as const, color: '#5F6368' },
+  analyzePromptNowBtn: { flex: 1, backgroundColor: '#0B57D0', borderRadius: 16, paddingVertical: 8, alignItems: 'center' },
+  analyzePromptNowText: { fontSize: 13, fontWeight: '600' as const, color: '#FFF' },
+
+  // Private Comment inside Your Work
+  privateCommentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  privateCommentBox: { flex: 1, borderWidth: 1, borderColor: '#DADCE0', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12 },
+  privateCommentPlaceholder: { color: '#5F6368', fontSize: 13 },
+
+  // Plagiarism Modal
+  modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E8EAED' },
+  modalTitle: { fontSize: 18, color: '#000', marginLeft: 16, fontWeight: '400' as const },
+  plagiarismContainer: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
+  checkingContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  checkingText: { fontSize: 16, color: '#000', marginTop: 16, fontWeight: '500' as const },
+  checkingSubtext: { fontSize: 14, color: '#5F6368', marginTop: 4 },
+  
+  plagiarismCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#DADCE0', marginBottom: 16 },
+  plagiarismHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  plagiarismFileName: { fontSize: 14, fontWeight: '500' as const, color: '#000', flex: 1 },
+  scoreContainer: { alignItems: 'center', marginVertical: 16 },
+  scoreLabel: { fontSize: 13, color: '#5F6368', marginBottom: 8 },
+  scoreCircle: { width: 100, height: 100, borderRadius: 50, borderWidth: 6, alignItems: 'center', justifyContent: 'center' },
+  scoreCircleGood: { borderColor: '#1E8E3E' },
+  scoreCircleRisk: { borderColor: '#D93025' },
+  scoreValue: { fontSize: 24, fontWeight: '600' as const },
+  scoreGood: { color: '#1E8E3E' },
+  scoreRisk: { color: '#D93025' },
+  warningBox: { flexDirection: 'row', backgroundColor: '#FCE8E6', padding: 12, borderRadius: 8, alignItems: 'center', gap: 12 },
+  warningText: { color: '#C5221F', fontSize: 13, flex: 1, lineHeight: 18 },
+  successBox: { flexDirection: 'row', backgroundColor: '#E6F4EA', padding: 12, borderRadius: 8, alignItems: 'center', gap: 12 },
+  successText: { color: '#137333', fontSize: 13, flex: 1, lineHeight: 18 },
+  
+  plagiarismErrorContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: '#FCE8E6', borderRadius: 8 },
+  plagiarismErrorText: { color: '#C5221F', fontSize: 13 },
+
+  plagiarismActions: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  primaryButton: { flex: 1, backgroundColor: '#0B57D0', paddingVertical: 12, borderRadius: 24, alignItems: 'center' },
+  primaryButtonText: { color: '#FFF', fontSize: 14, fontWeight: '500' as const },
+  secondaryButton: { flex: 1, borderWidth: 1, borderColor: '#DADCE0', paddingVertical: 12, borderRadius: 24, alignItems: 'center', backgroundColor: '#FFF' },
+  secondaryButtonText: { color: '#0B57D0', fontSize: 14, fontWeight: '500' as const },
+});

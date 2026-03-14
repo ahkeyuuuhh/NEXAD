@@ -1,0 +1,343 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../contexts/AuthContext';
+import { classroomService } from '../../services/classroomService';
+import { documentService } from '../../services/documentService';
+import { consultationService } from '../../services/consultationService';
+import { notificationService } from '../../services/notificationService';
+import { cloudmersiveService } from '../../services/cloudmersiveService';
+import { Ionicons } from '@expo/vector-icons';
+import { C, F, T, S, R, shadow } from '../../config/theme';
+import FileViewerModal, { isImageFile as isImageFileHelper } from '../../components/FileViewerModal';
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  pending_review:          { label: 'Pending Review',         color: C.ink3,  bg: C.surfaceAlt, icon: 'time-outline' },
+  approved:                { label: 'Approved',               color: C.actionText,  bg: C.ink2,      icon: 'checkmark-circle' },
+  revised:                 { label: 'Revision Required',      color: C.ink2,  bg: C.surfaceAlt, icon: 'pencil' },
+  for_consultation:        { label: 'Consultation Needed',    color: C.ink2,  bg: C.surfaceAlt, icon: 'chatbubbles' },
+  consultation_requested:  { label: 'Consultation Requested', color: C.ink1,  bg: C.surfaceAlt, icon: 'calendar-outline' },
+};
+
+export default function AttachmentBinSubmissionScreen({ navigation, route }: any) {
+  const { binId } = route.params as { binId: string };
+  const { user } = useAuth();
+
+  const [bin, setBin] = useState<any>(null);
+  const [submission, setSubmission] = useState<any>(null);
+  const [consultationRequest, setConsultationRequest] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
+  // Plagiarism check states
+  const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
+  const [plagiarismResults, setPlagiarismResults] = useState<Array<{
+    fileName: string;
+    originalityScore: number | null;
+    isHighRisk: boolean;
+    error?: string;
+  }>>([]);
+  const [checkingPlagiarism, setCheckingPlagiarism] = useState(false);
+  const [fileViewer, setFileViewer] = useState<{ visible: boolean; url: string; name: string; isImage: boolean }>({
+    visible: false, url: '', name: '', isImage: false,
+  });
+
+  const isImageFile = (name?: string, mimeType?: string) => {
+    const lowerName = (name || '').toLowerCase();
+    const lowerMime = (mimeType || '').toLowerCase();
+    return /\.(jpg|jpeg|png|gif|bmp|tiff|webp)$/i.test(lowerName) || lowerMime.includes('image');
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBinData();
+    }, [binId])
+  );
+
+  const loadBinData = async () => {
+    try {
+      const binResult = await classroomService.getAttachmentBin(binId);
+      if (binResult.data) setBin(binResult.data);
+
+      if (user?.user_id) {
+        const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
+        if (submissionResult.data) {
+          setSubmission(submissionResult.data);
+          // Load the linked consultation when one has been booked
+          const status = submissionResult.data?.review_status;
+          if (
+            (status === 'consultation_requested' || status === 'for_consultation') &&
+            binResult.data?.teacher_id
+          ) {
+            const consultResult = await consultationService.getStudentConsultationForTeacher(
+              user.user_id,
+              binResult.data.teacher_id
+            );
+            if (consultResult.data) setConsultationRequest(consultResult.data);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading bin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChooseFile = async () => {
+    setShowAttachMenu(prev => !prev);
+  };
+
+  const pickDocumentAttachment = async () => {
+    try {
+      setIsUploadingFile(true);
+      setShowAttachMenu(false);
+      const result = await documentService.pickDocument();
+      if (result.error) {
+        if (result.error !== 'Document selection cancelled') {
+          Alert.alert('Error', result.error);
+        }
+        return;
+      }
+
+      if (result.data && !result.data.canceled) {
+        const pickedFile = result.data.assets[0];
+        setSelectedFile(pickedFile);
+        setShowAnalyzePrompt(true);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick document');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const pickImageAttachment = async () => {
+    try {
+      setIsUploadingFile(true);
+      setShowAttachMenu(false);
+      const imageResult = await documentService.pickImage();
+      if (imageResult.error) {
+        if (imageResult.error !== 'Image selection cancelled') {
+          Alert.alert('Error', imageResult.error);
+        }
+        return;
+      }
+
+      if (imageResult.data) {
+        setSelectedFile(imageResult.data);
+        setShowAnalyzePrompt(false);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile || !user?.user_id) return;
+    await proceedWithSubmission();
+  };
+
+  const performPlagiarismCheck = async (fileToCheck?: any) => {
+    const activeFile = fileToCheck || selectedFile;
+    if (!activeFile) return;
+
+    setShowPlagiarismModal(true);
+    setCheckingPlagiarism(true);
+    setPlagiarismResults([]);
+
+    try {
+      if (isImageFile(activeFile.name, activeFile.mimeType)) {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: 'Images are not included in academic integrity analysis.',
+        }]);
+        setCheckingPlagiarism(false);
+        return;
+      }
+
+      // Extract text from the document
+      const extractResult = await cloudmersiveService.extractTextFromFile(
+        activeFile.uri,
+        activeFile.name,
+        activeFile.mimeType
+      );
+
+      if (extractResult.error) {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: extractResult.error,
+        }]);
+        setCheckingPlagiarism(false);
+        return;
+      }
+
+      // Check plagiarism on the extracted text
+      if (extractResult.data) {
+        const checkResult = await cloudmersiveService.checkPlagiarism(extractResult.data);
+
+        if (checkResult.error) {
+          setPlagiarismResults([{
+            fileName: activeFile.name,
+            originalityScore: null,
+            isHighRisk: false,
+            error: checkResult.error,
+          }]);
+          setCheckingPlagiarism(false);
+          return;
+        }
+
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: checkResult.data!.originalityScore,
+          isHighRisk: checkResult.data!.isHighRisk,
+        }]);
+      } else {
+        setPlagiarismResults([{
+          fileName: activeFile.name,
+          originalityScore: null,
+          isHighRisk: false,
+          error: 'No text could be extracted from this file.',
+        }]);
+      }
+    } catch (error) {
+      console.error('Plagiarism check error:', error);
+      setPlagiarismResults([{
+        fileName: activeFile.name,
+        originalityScore: null,
+        isHighRisk: false,
+        error: 'An unexpected error occurred during the check.',
+      }]);
+    } finally {
+      setCheckingPlagiarism(false);
+    }
+  };
+
+  const proceedWithSubmission = async () => {
+    if (!selectedFile || !user?.user_id) return;
+    setUploading(true);
+    try {
+      const uploadResult = await documentService.uploadDocument(
+        selectedFile,
+        undefined,
+        binId,
+        user.user_id
+      );
+      if (uploadResult.error) { Alert.alert('Error', uploadResult.error); return; }
+      if (!uploadResult.data) { Alert.alert('Error', 'Failed to upload document'); return; }
+
+      Alert.alert('Success', 'Document submitted successfully!', [
+        { text: 'OK', onPress: () => { setSelectedFile(null); loadBinData(); } },
+      ]);
+      // Notify the teacher about the new submission
+      if (bin?.teacher_id) {
+        notificationService.createNotification(
+          bin.teacher_id,
+          'New File Submission',
+          `${user.first_name} ${user.last_name} submitted a file to "${bin.title || 'Attachment Bin'}"`,
+          'classroom_announcement',
+          undefined,
+          binId
+        ).catch(() => {});
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to submit document');
+    } finally {
+      setUploading(false);
+      setShowPlagiarismModal(false);
+    }
+  };
+
+  const handleViewSubmission = async () => {
+    if (!submission?.storage_path) {
+      Alert.alert('Error', 'No file attached to this submission.');
+      return;
+    }
+    try {
+      const result = await documentService.getDocumentUrl(submission.storage_path);
+      if (result.error || !result.data) {
+        Alert.alert('Error', result.error || 'Failed to get file link');
+        return;
+      }
+      setFileViewer({
+        visible: true,
+        url: result.data,
+        name: submission.file_name || 'File',
+        isImage: isImageFileHelper(submission.file_name, submission.file_type),
+      });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to open file');
+    }
+  };
+
+  const openComments = () => {
+    navigation.navigate('BinComments', {
+      binId,
+      studentId: user?.user_id,
+      binTitle: bin?.title || 'Bin',
+      studentName: `${user?.first_name || ''} ${user?.last_name || ''}`.trim(),
+      role: 'student',
+      teacherId: bin?.teacher_id,
+    });
+  };
+
+  const requestConsultation = () => {
+    if (!bin?.teacher_id) {
+      Alert.alert('Error', 'Teacher info not available.');
+      return;
+    }
+    navigation.navigate('ConsultationRequest', {
+      teacher: {
+        user_id: bin.teacher_id,
+        first_name: bin.users?.first_name || 'Teacher',
+        last_name: bin.users?.last_name || '',
+      },
+      // Pass context so the screen can update the bin status after booking
+      sourceDocumentId: submission?.id || null,
+      sourceBinId: binId,
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={C.ink2} />
+      </View>
+    );
+  }
+
+  if (!bin) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Attachment bin not found</Text>
+      </View>
+    );
+  }
+
+  const isDeadlinePassed = bin.deadline && new Date(bin.deadline) < new Date();
+  const reviewStatus = submission?.review_status || null;
+  const statusCfg = reviewStatus ? STATUS_CONFIG[reviewStatus] : null;
+
+  // Student may re-submit only if: no prior submission, or status is 'revised'
+  const canSubmit =
+    !isDeadlinePassed &&
+    (reviewStatus === null || reviewStatus === 'revised');
+
