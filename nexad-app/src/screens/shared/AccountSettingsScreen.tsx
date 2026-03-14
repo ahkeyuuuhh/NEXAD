@@ -1259,7 +1259,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' }, // Same as dashboard
   loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
 
-  safeHeader: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.borderLight },
+  safeHeader: { backgroundColor: 'transparent', borderBottomWidth: 0 }, // Remove white background
   headerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.lg, paddingVertical: S.md,
@@ -1340,7 +1340,7 @@ const styles = StyleSheet.create({
   // Form group container (card with flat rows)
   formGroup: {
     marginHorizontal: S.lg, marginBottom: S.xl,
-    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent like shortcut buttons
+    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
     borderRadius: R.lg,
     borderWidth: 1, borderColor: C.borderLight,
     overflow: 'hidden', ...shadow.soft,
@@ -1378,9 +1378,9 @@ const styles = StyleSheet.create({
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: R.xl, paddingVertical: S.lg,
-    borderWidth: 1.5, borderColor: C.red, backgroundColor: C.surface,
+    borderWidth: 1.5, borderColor: '#808080', backgroundColor: '#808080', // Grey background
   },
-  logoutText: { fontSize: 15, fontWeight: '600', color: C.red },
+  logoutText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' }, // White text
   deleteAccountBtn: { alignItems: 'center', paddingVertical: S.md },
-  deleteAccountText: { fontSize: 13, color: C.ink4, textDecorationLine: 'underline' as const },
+  deleteAccountText: { fontSize: 15, fontWeight: '600', color: '#DC2626', textDecorationLine: 'none' as const }, // Red text, no underline
 });

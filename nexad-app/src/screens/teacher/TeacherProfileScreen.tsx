@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: S.lg,
-    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent background
+    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent background
+    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius

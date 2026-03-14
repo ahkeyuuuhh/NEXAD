@@ -1124,7 +1124,7 @@ const styles = StyleSheet.create({
   pendingBadge:        { backgroundColor: C.surfaceAlt, paddingHorizontal: S.sm + 2, paddingVertical: 4, borderRadius: R.full },
   pendingBadgeText:    { color: C.ink2, fontSize: 12, fontWeight: '600' as const },
   pendingCard: {
-    backgroundColor: C.surface,
+    backgroundColor: 'rgba(32, 33, 36, 0.06)', // Lighter translucent background
     padding: S.lg,
     borderRadius: R.xl,
     marginBottom: S.md,
