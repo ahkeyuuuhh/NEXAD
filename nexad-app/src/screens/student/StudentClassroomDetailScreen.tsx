@@ -10,6 +10,8 @@ import {
   StatusBar,
   Modal,
   Alert,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { classroomService } from '../../services/classroomService';
@@ -17,12 +19,17 @@ import { notificationService } from '../../services/notificationService';
 import { supabase } from '../../config/supabase';
 import { conversationService } from '../../services/conversationService';
 import { Ionicons } from '@expo/vector-icons';
-import { C } from '../../config/theme';
+import { C, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
-type Tab = 'All' | 'Announcements' | 'Bins';
-const TABS: Tab[] = ['All', 'Announcements', 'Bins'];
+type Tab = 'Classwork' | 'People';
+const TABS: Tab[] = ['Classwork', 'People'];
 type ListItem = { type: 'announcement'; data: any } | { type: 'bin'; data: any };
+
+const getBannerColor = (coverColor: string | null | undefined) => {
+  // Use the classroom's cover_color if set, otherwise default to black
+  return coverColor || '#202124';
+};
 
 export default function StudentClassroomDetailScreen({ navigation, route }: any) {
   const { classroomId } = route.params as { classroomId: string };
@@ -33,8 +40,9 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('All');
+  const [activeTab, setActiveTab] = useState<Tab>('Classwork');
   const [showMenu, setShowMenu] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
 
   useEffect(() => {
     loadClassroomData();
@@ -58,12 +66,16 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
 
   const loadClassroomData = async () => {
     try {
-      const [classroomResult, announcementsResult, binsResult] = await Promise.all([
+      const [classroomResult, membersResult, announcementsResult, binsResult] = await Promise.all([
         classroomService.getClassroom(classroomId),
+        classroomService.getClassroomMembers(classroomId),
         classroomService.getClassroomAnnouncements(classroomId),
         classroomService.getClassroomAttachmentBins(classroomId),
       ]);
       if (classroomResult.data) setClassroom(classroomResult.data);
+      if (membersResult.data) {
+        setMembers(membersResult.data);
+      }
       if (announcementsResult.data) setAnnouncements(announcementsResult.data);
       if (binsResult.data) setAttachmentBins(binsResult.data);
     } catch (error) {
@@ -80,15 +92,23 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   };
 
   const getListData = (): ListItem[] => {
-    if (activeTab === 'Announcements')
-      return announcements.map((d) => ({ type: 'announcement', data: d }));
-    if (activeTab === 'Bins')
-      return attachmentBins.map((d) => ({ type: 'bin', data: d }));
+    if (activeTab === 'People')
+      return [];
+    // Classwork shows both announcements and bins
     return [
       ...announcements.map((d) => ({ type: 'announcement' as const, data: d })),
       ...attachmentBins.map((d) => ({ type: 'bin' as const, data: d })),
     ];
   };
+
+  const upcomingDeadlines = attachmentBins
+    .filter(b => b.deadline && new Date(b.deadline) > new Date())
+    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+    .slice(0, 3);
+
+  // Get teacher info from members list
+  const teacherProfile = members.find(m => m.is_teacher === true);
+  const studentMembers = members.filter(m => m.is_teacher !== true);
 
   const handleUnenroll = () => {
     setShowMenu(false);
@@ -145,84 +165,81 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
     if (item.type === 'announcement') {
       const ann = item.data;
       return (
-        <View style={[styles.card, ann.is_pinned && styles.cardPinned]}>
-          {ann.is_pinned && (
-            <View style={styles.pinnedBadge}>
-              <Ionicons name="pin" size={12} color="#fff" />
-              <Text style={styles.pinnedText}>Pinned</Text>
-            </View>
-          )}
-          <View style={styles.cardTypeRow}>
-            <Ionicons name="megaphone-outline" size={14} color={C.ink4} />
-            <Text style={styles.cardTypeLabel}>Announcement</Text>
+        <View style={styles.activityCard}>
+          <View style={styles.activityIconWrap}>
+            <Ionicons name="megaphone" size={20} color="#202124" />
           </View>
-          <Text style={styles.cardTitle}>{ann.title}</Text>
-          <Text style={styles.cardBody}>{ann.content}</Text>
-          <Text style={styles.cardDate}>
-            {new Date(ann.created_at).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </Text>
-          <TouchableOpacity
-            style={styles.replyBtn}
-            onPress={async () => {
-              if (!user?.user_id || !classroom?.teacher_id) return;
-              const result = await conversationService.getOrCreateAnnouncementThread(
-                user.user_id,
-                classroom.teacher_id,
-                ann.id
-              );
-              if (result.data) {
-                navigation.navigate('Chat', {
-                  conversationId: result.data,
-                  title: `Re: ${ann.title}`,
-                  type: 'ANNOUNCEMENT_THREAD',
-                });
-              }
-            }}
-          >
-            <Ionicons name="chatbubble-outline" size={13} color={C.ink3} />
-            <Text style={styles.replyBtnText}>Reply to Teacher</Text>
-          </TouchableOpacity>
+          <View style={styles.activityContent}>
+            {ann.is_pinned && (
+              <View style={styles.pinnedBadge}>
+                <Ionicons name="pin" size={10} color="#fff" />
+                <Text style={styles.pinnedText}>PINNED</Text>
+              </View>
+            )}
+            <Text style={styles.activityTitle}>{ann.title}</Text>
+            <Text style={styles.activityBody} numberOfLines={3}>{ann.content}</Text>
+            <View style={styles.activityFooter}>
+              <Text style={styles.activityDate}>
+                {new Date(ann.created_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </Text>
+              <TouchableOpacity
+                style={styles.commentBtn}
+                onPress={async () => {
+                  if (!user?.user_id || !classroom?.teacher_id) return;
+                  const result = await conversationService.getOrCreateAnnouncementThread(
+                    user.user_id,
+                    classroom.teacher_id,
+                    ann.id
+                  );
+                  if (result.data) {
+                    navigation.navigate('Chat', {
+                      conversationId: result.data,
+                      title: `Re: ${ann.title}`,
+                      type: 'ANNOUNCEMENT_THREAD',
+                    });
+                  }
+                }}
+              >
+                <Ionicons name="chatbubble-outline" size={14} color="#5F6368" />
+                <Text style={styles.commentBtnText}>Add comment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       );
     }
 
     const bin = item.data;
+    const isOverdue = bin.deadline && new Date(bin.deadline) < new Date();
     return (
       <TouchableOpacity
-        style={[styles.card, styles.cardBin]}
+        style={styles.activityCard}
         activeOpacity={0.7}
         onPress={() => navigation.navigate('AttachmentBinSubmission', { binId: bin.id })}
       >
-        <View style={styles.binRow}>
-          <View style={styles.binIcon}>
-            <Ionicons name="folder" size={22} color={C.ink2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.cardTypeRow}>
-              <Ionicons name="folder-outline" size={14} color={C.ink4} />
-              <Text style={styles.cardTypeLabel}>Assignment Bin</Text>
-            </View>
-            <Text style={styles.cardTitle}>{bin.title}</Text>
-            {bin.description ? (
-              <Text style={styles.cardBody} numberOfLines={2}>{bin.description}</Text>
-            ) : null}
+        <View style={styles.activityIconWrap}>
+          <Ionicons name="clipboard" size={20} color="#202124" />
+        </View>
+        <View style={styles.activityContent}>
+          <Text style={styles.activityTitle}>{bin.title}</Text>
+          {bin.description ? (
+            <Text style={styles.activityBody} numberOfLines={2}>{bin.description}</Text>
+          ) : null}
+          <View style={styles.activityFooter}>
             {bin.deadline ? (
-              <View style={styles.binMeta}>
-                <View style={styles.binMetaItem}>
-                  <Ionicons name="time-outline" size={13} color="#D93025" />
-                  <Text style={styles.binDeadlineText}>
-                    Due {new Date(bin.deadline).toLocaleDateString()}
-                  </Text>
-                </View>
+              <View style={[styles.dueBadge, isOverdue && styles.dueBadgeOverdue]}>
+                <Ionicons name="time-outline" size={12} color={isOverdue ? '#D93025' : '#5F6368'} />
+                <Text style={[styles.dueText, isOverdue && styles.dueTextOverdue]}>
+                  Due {new Date(bin.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
               </View>
             ) : null}
           </View>
-          <Ionicons name="chevron-forward" size={18} color={C.ink5} />
         </View>
+        <Ionicons name="chevron-forward" size={18} color="#DADCE0" />
       </TouchableOpacity>
     );
   };
@@ -230,12 +247,13 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <Ionicons
-        name={activeTab === 'Bins' ? 'folder-outline' : 'reader-outline'}
-        size={48}
-        color={C.ink5}
+        name={activeTab === 'Classwork' ? 'clipboard-outline' : 'reader-outline'}
+        size={56}
+        color="#DADCE0"
       />
+      <Text style={styles.emptyTitle}>Nothing here yet</Text>
       <Text style={styles.emptyText}>
-        {activeTab === 'Bins' ? 'No bins yet' : 'No announcements yet'}
+        {activeTab === 'Classwork' ? 'No assignments posted' : 'No activity to show'}
       </Text>
     </View>
   );
@@ -256,45 +274,110 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+  const bannerColor = classroom ? getBannerColor(classroom.cover_color) : '#202124';
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={C.ink1} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{classroom.name}</Text>
-        <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.ellipsisBtn} hitSlop={8}>
-          <Ionicons name="ellipsis-vertical" size={20} color={C.ink2} />
-        </TouchableOpacity>
+  return (
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor={bannerColor} />
+
+      {/* Class Banner Header */}
+      <View style={[styles.banner, { backgroundColor: bannerColor }]}>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.bannerTop}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.bannerBackBtn}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.bannerMenuBtn}>
+              <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>{classroom?.name || 'Classroom'}</Text>
+            <View style={styles.inviteCodePill}>
+              <Ionicons name="key" size={12} color="#fff" />
+              <Text style={styles.inviteCodeText}>{classroom?.invite_code || '------'}</Text>
+            </View>
+          </View>
+        </SafeAreaView>
       </View>
 
       {/* Tab Bar */}
       <View style={styles.tabBar}>
         {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
+          <View key={tab} style={styles.tabWrapper}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            </TouchableOpacity>
+          </View>
         ))}
       </View>
 
-      {/* List */}
-      <FlatList
-        data={getListData()}
-        keyExtractor={(item, i) => `${item.type}-${item.data?.id ?? i}`}
-        renderItem={renderItem}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      />
+      {/* Content */}
+      {activeTab === 'People' ? (
+        <ScrollView
+          style={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.peopleSection}>
+            <Text style={styles.peopleSectionTitle}>Teacher</Text>
+            <View style={styles.personCard}>
+              {teacherProfile?.profile_photo_url ? (
+                <Image source={{ uri: teacherProfile.profile_photo_url }} style={styles.personAvatarImage} />
+              ) : (
+                <View style={styles.personAvatar}>
+                  <Text style={styles.personAvatarText}>
+                    {teacherProfile?.first_name?.charAt(0) || 'T'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.personName}>
+                {teacherProfile?.first_name && teacherProfile?.last_name
+                  ? `${teacherProfile.first_name} ${teacherProfile.last_name}`
+                  : teacherProfile?.email || 'Instructor'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.peopleSection}>
+            <Text style={styles.peopleSectionTitle}>Students ({studentMembers.length})</Text>
+            {studentMembers.map((member) => (
+              <View key={member.id} style={styles.personCard}>
+                {member.profile_photo_url ? (
+                  <Image source={{ uri: member.profile_photo_url }} style={styles.personAvatarImage} />
+                ) : (
+                  <View style={styles.personAvatar}>
+                    <Text style={styles.personAvatarText}>
+                      {member.first_name?.charAt(0) || member.email?.charAt(0) || 'S'}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.personName}>
+                  {member.first_name && member.last_name
+                    ? `${member.first_name} ${member.last_name}`
+                    : member.email || 'Student'}
+                </Text>
+              </View>
+            ))}
+            {studentMembers.length === 0 && (
+              <Text style={styles.upcomingEmpty}>No students yet</Text>
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        <FlatList
+          style={styles.feed}
+          data={getListData()}
+          keyExtractor={(item, i) => `${item.type}-${item.data?.id ?? i}`}
+          renderItem={renderItem}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={styles.feedContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        />
+      )}
 
-      {/* Options Menu */}
+      {/* Options Menu - Modal Style */}
       <Modal
         visible={showMenu}
         transparent
@@ -306,9 +389,7 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
           activeOpacity={1}
           onPress={() => setShowMenu(false)}
         >
-          <View style={styles.menuSheet}>
-            <View style={styles.menuHandle} />
-
+          <View style={styles.menuModal}>
             <TouchableOpacity style={styles.menuItem} onPress={handleInviteCode}>
               <Ionicons name="key-outline" size={20} color={C.ink2} style={styles.menuIcon} />
               <Text style={styles.menuItemText}>Invite Code</Text>
@@ -325,158 +406,127 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
               <Ionicons name="exit-outline" size={20} color="#D93025" style={styles.menuIcon} />
               <Text style={[styles.menuItemText, { color: '#D93025' }]}>Unenroll</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuCancel} onPress={() => setShowMenu(false)}>
-              <Text style={styles.menuCancelText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  screen: { flex: 1, backgroundColor: '#F8F9FA' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+  // Banner Header
+  banner: { paddingBottom: 24 },
+  bannerTop: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 8 },
+  bannerBackBtn: { padding: 8 },
+  bannerMenuBtn: { padding: 8 },
+  bannerContent: { paddingHorizontal: 24, paddingTop: 16 },
+  bannerTitle: { fontSize: 28, fontWeight: '400', color: '#fff', marginBottom: 16 },
+  inviteCodePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, alignSelf: 'flex-start',
   },
-  backBtn: { padding: 4, marginRight: 8 },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#202124', letterSpacing: -0.2 },
-  ellipsisBtn: { padding: 4, marginLeft: 8 },
+  inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tab Bar
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'transparent',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E8EAED',
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
+  // Tab Bar - Pill shaped
+  tabBar: { 
+    flexDirection: 'row', 
+    backgroundColor: C.bg, 
+    paddingHorizontal: 16, 
     paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    gap: 8,
   },
-  tabActive: { borderBottomColor: '#202124' },
-  tabText: { fontSize: 14, color: '#9AA0A6', fontWeight: '500' },
-  tabTextActive: { color: '#202124', fontWeight: '600' },
+  tabWrapper: { flex: 1 },
+  tab: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    borderRadius: 999,
+  },
+  tabActive: { backgroundColor: '#202124' },
+  tabText: { fontSize: 14, color: '#5F6368', fontWeight: '600' },
+  tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
 
-  // List
-  listContent: { padding: 16, flexGrow: 1 },
+  // Content Layout
+  scrollContent: { flex: 1, backgroundColor: '#F8F9FA' },
 
-  // Cards
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 8,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E8EAED',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 1,
+  // Feed
+  feed: { flex: 1, backgroundColor: '#F8F9FA' },
+  feedContent: { padding: 16, paddingBottom: 100 },
+
+  // Activity Cards
+  activityCard: {
+    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: '#DADCE0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
-  cardPinned: { borderColor: '#9AA0A6' },
-  cardBin: { paddingVertical: 14 },
-  cardTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
-  cardTypeLabel: {
-    fontSize: 11,
-    color: '#9AA0A6',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  activityIconWrap: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F3F4',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 4 },
-  cardBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8 },
-  cardDate: { fontSize: 12, color: '#9AA0A6' },
-  replyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 10, alignSelf: 'flex-start', paddingVertical: 5, paddingHorizontal: 10, backgroundColor: '#F1F3F4', borderRadius: 999 },
-  replyBtnText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
+  activityContent: { flex: 1 },
+  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6 },
+  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 10 },
+  activityFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  activityDate: { fontSize: 12, color: '#9AA0A6' },
+  commentBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#F8F9FA', borderRadius: 16,
+  },
+  commentBtnText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
 
   pinnedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: '#202124',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    backgroundColor: '#202124', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 8,
   },
-  pinnedText: { color: '#fff', fontSize: 10, fontWeight: '600' },
+  pinnedText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  // Bin
-  binRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  binIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F1F3F4',
-    justifyContent: 'center',
-    alignItems: 'center',
+  dueBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#F1F3F4', borderRadius: 12,
   },
-  binMeta: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  binMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  binDeadlineText: { fontSize: 12, color: '#D93025' },
+  dueBadgeOverdue: { backgroundColor: '#FCE8E6' },
+  dueText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
+  dueTextOverdue: { color: '#D93025' },
+
+  // People Section
+  peopleSection: { padding: 16 },
+  peopleSectionTitle: {
+    fontSize: 14, fontWeight: '600', color: '#5F6368', marginBottom: 12,
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  personCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 8,
+    borderWidth: 1, borderColor: '#DADCE0',
+  },
+  personAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  personAvatarText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  personAvatarImage: { width: 40, height: 40, borderRadius: 20 },
+  personName: { fontSize: 15, fontWeight: '500', color: '#202124' },
+  upcomingEmpty: { fontSize: 13, color: '#9AA0A6', textAlign: 'center', paddingVertical: 12 },
 
   // Empty state
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: 16, color: '#9AA0A6', marginTop: 12 },
+  emptyState: { alignItems: 'center', paddingVertical: 80 },
+  emptyTitle: { fontSize: 18, fontWeight: '500', color: '#5F6368', marginTop: 16 },
+  emptyText: { fontSize: 14, color: '#9AA0A6', marginTop: 6 },
 
-  // Modal / Menu Sheet
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+  // Modal Menu - Positioned near ellipses, smaller size
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 100, paddingRight: 20 },
+  menuModal: {
+    backgroundColor: '#fff', borderRadius: 12, width: 200,
+    paddingVertical: 6, elevation: 8, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
   },
-  menuSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 32,
-    paddingTop: 8,
-  },
-  menuHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E8EAED',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20 },
   menuIcon: { marginRight: 16 },
-  menuItemText: { fontSize: 16, color: '#202124', fontWeight: '400' },
-  menuDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E8EAED',
-    marginHorizontal: 24,
-  },
-  menuCancel: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingVertical: 14,
-    backgroundColor: '#F1F3F4',
-    borderRadius: 999,
-    alignItems: 'center',
-  },
-  menuCancelText: { fontSize: 16, fontWeight: '600', color: '#202124' },
+  menuItemText: { fontSize: 16, color: '#202124', fontWeight: '500' },
+  menuDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED', marginHorizontal: 20 },
 });

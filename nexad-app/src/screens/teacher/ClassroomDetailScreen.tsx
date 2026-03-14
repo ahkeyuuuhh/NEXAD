@@ -10,14 +10,22 @@ import {
   RefreshControl,
   Modal,
   StatusBar,
+  ScrollView,
+  Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { classroomService } from "../../services/classroomService";
 import { supabase } from "../../config/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { C, shadow } from "../../config/theme";
 
-type Tab = "Announcements" | "Bins" | "All";
+type Tab = "Classwork" | "People";
+
+const getBannerColor = (coverColor: string | null | undefined) => {
+  // Use the classroom's cover_color if set, otherwise default to black
+  return coverColor || '#202124';
+};
 
 export default function ClassroomDetailScreen({ navigation, route }: any) {
   const { classroomId } = route.params as { classroomId: string };
@@ -28,7 +36,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("All");
+  const [activeTab, setActiveTab] = useState<Tab>("Classwork");
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [showEllipsisMenu, setShowEllipsisMenu] = useState(false);
   const [itemMenuTarget, setItemMenuTarget] = useState<{ id: string; type: "announcement" | "bin"; item: any } | null>(null);
@@ -98,6 +106,28 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     ]);
   };
 
+  const handleUnenrollStudent = (student: any) => {
+    Alert.alert(
+      "Unenroll Student",
+      `Remove ${student.first_name} ${student.last_name} from this classroom?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unenroll",
+          style: "destructive",
+          onPress: async () => {
+            const result = await classroomService.removeStudentFromClassroom(classroomId, student.id);
+            if (result.error) {
+              Alert.alert("Error", result.error);
+            } else {
+              setMembers(prev => prev.filter(m => m.id !== student.id));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // ── Per-card item actions ────────────────────────────────────────────────
   const handleDeleteAnnouncement = (item: any) => {
     setItemMenuTarget(null);
@@ -142,61 +172,68 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   };
 
   // ── Tab content ──────────────────────────────────────────────────────────
-  const tabs: Tab[] = ["All", "Announcements", "Bins"];
+  const tabs: Tab[] = ["Classwork", "People"];
 
   const renderAnnouncement = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      {item.is_pinned && (
-        <View style={styles.pinnedBadge}>
-          <Ionicons name="pin" size={12} color="#fff" />
-          <Text style={styles.pinnedText}>Pinned</Text>
-        </View>
-      )}
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { flex: 1 }]}>{item.title}</Text>
-        <TouchableOpacity
-          style={styles.cardEllipsisBtn}
-          onPress={() => setItemMenuTarget({ id: item.id, type: "announcement", item })}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="ellipsis-vertical" size={16} color="#9AA0A6" />
-        </TouchableOpacity>
+    <View style={styles.activityCard}>
+      <View style={styles.activityIconWrap}>
+        <Ionicons name="megaphone" size={20} color="#202124" />
       </View>
-      <Text style={styles.cardBody} numberOfLines={3}>{item.content}</Text>
-      <Text style={styles.cardDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+      <View style={styles.activityContent}>
+        {item.is_pinned && (
+          <View style={styles.pinnedBadge}>
+            <Ionicons name="pin" size={10} color="#fff" />
+            <Text style={styles.pinnedText}>PINNED</Text>
+          </View>
+        )}
+        <Text style={styles.activityTitle}>{item.title}</Text>
+        <Text style={styles.activityBody} numberOfLines={3}>{item.content}</Text>
+        <Text style={styles.activityDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.cardEllipsisBtn}
+        onPress={() => setItemMenuTarget({ id: item.id, type: "announcement", item })}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="ellipsis-vertical" size={18} color="#5F6368" />
+      </TouchableOpacity>
     </View>
   );
 
   const renderBin = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={styles.activityCard}
       onPress={() => navigation.navigate("TeacherBinReview", { binId: item.id, classroomId })}
       activeOpacity={0.85}
     >
-      <View style={styles.binRow}>
-        <View style={styles.binIconWrap}>
-          <Ionicons name="folder" size={20} color={C.ink2} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {item.description ? (
-            <Text style={styles.cardBody} numberOfLines={2}>{item.description}</Text>
-          ) : null}
-          <View style={styles.binMeta}>
-            <Text style={styles.cardDate}>{item.submission_count || 0} submissions</Text>
-            {item.deadline && (
-              <Text style={styles.cardDate}>
-                Due {new Date(item.deadline).toLocaleDateString()}
-              </Text>
-            )}
+      <View style={styles.activityIconWrap}>
+        <Ionicons name="clipboard" size={20} color="#202124" />
+      </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTitle}>{item.title}</Text>
+        {item.description ? (
+          <Text style={styles.activityBody} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        <View style={styles.binMetaRow}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusBadgeText}>{item.submission_count || 0} turned in</Text>
           </View>
+          {item.deadline && (
+            <Text style={styles.activityDate}>
+              Due {new Date(item.deadline).toLocaleDateString()}
+            </Text>
+          )}
         </View>
+      </View>
+      <View style={styles.cardEllipsisBtn}>
         <TouchableOpacity
-          style={styles.cardEllipsisBtn}
-          onPress={() => setItemMenuTarget({ id: item.id, type: "bin", item })}
+          onPress={(e) => {
+            e.stopPropagation();
+            setItemMenuTarget({ id: item.id, type: "bin", item });
+          }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="ellipsis-vertical" size={16} color="#9AA0A6" />
+          <Ionicons name="ellipsis-vertical" size={18} color="#5F6368" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -207,8 +244,8 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     | { type: "bin"; data: any };
 
   const getListData = (): ListItem[] => {
-    if (activeTab === "Announcements") return announcements.map((d) => ({ type: "announcement", data: d }));
-    if (activeTab === "Bins") return attachmentBins.map((d) => ({ type: "bin", data: d }));
+    if (activeTab === "People") return [];
+    // Classwork shows both announcements and bins
     return [
       ...announcements.map((d): ListItem => ({ type: "announcement", data: d })),
       ...attachmentBins.map((d): ListItem => ({ type: "bin", data: d })),
@@ -216,6 +253,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   };
 
   const listData = getListData();
+  const bannerColor = classroom ? getBannerColor(classroom.cover_color) : '#202124';
 
   if (loading) {
     return (
@@ -235,67 +273,119 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" backgroundColor={bannerColor} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Ionicons name="chevron-back" size={22} color={C.ink2} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{classroom.name}</Text>
-        <TouchableOpacity onPress={() => setShowEllipsisMenu(true)} style={styles.iconBtn}>
-          <Ionicons name="ellipsis-vertical" size={22} color={C.ink2} />
-        </TouchableOpacity>
+      {/* Class Banner Header */}
+      <View style={[styles.banner, { backgroundColor: bannerColor }]}>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.bannerTop}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.bannerBackBtn}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEllipsisMenu(true)} style={styles.bannerMenuBtn}>
+              <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>{classroom.name}</Text>
+            <View style={styles.inviteCodePill}>
+              <Ionicons name="key" size={12} color="#fff" />
+              <Text style={styles.inviteCodeText}>{classroom.invite_code}</Text>
+            </View>
+          </View>
+        </SafeAreaView>
       </View>
 
       {/* Tabs */}
       <View style={styles.tabBar}>
         {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
+          <View key={tab} style={styles.tabWrapper}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            </TouchableOpacity>
+          </View>
         ))}
       </View>
 
-      {/* List */}
-      <FlatList
-        data={listData}
-        keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) =>
-          item.type === "announcement"
-            ? renderAnnouncement({ item: item.data })
-            : renderBin({ item: item.data })
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Ionicons
-              name={
-                activeTab === "Bins" ? "folder-outline" :
-                activeTab === "Announcements" ? "megaphone-outline" : "layers-outline"
-              }
-              size={60}
-              color="#BCC0C6"
-            />
-            <Text style={styles.emptyTitle}>Nothing here yet</Text>
-            <Text style={styles.emptyText}>
-              Tap + to add a{activeTab === "Bins" ? "n Attachment Bin" : "n Announcement"}
-            </Text>
-          </View>
-        }
-      />
+      {/* Content */}
+      {activeTab === 'People' ? (
+        <FlatList
+          data={members.filter(m => !m.is_teacher)}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListHeaderComponent={
+            <Text style={styles.peopleSectionTitle}>Students ({members.filter(m => !m.is_teacher).length})</Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.personCard}>
+              {item.profile_photo_url ? (
+                <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
+              ) : (
+                <View style={styles.personAvatar}>
+                  <Text style={styles.personAvatarText}>
+                    {item.first_name?.charAt(0) || item.email?.charAt(0) || 'S'}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.personName}>
+                {item.first_name && item.last_name 
+                  ? `${item.first_name} ${item.last_name}`
+                  : item.email || 'Student'}
+              </Text>
+              <TouchableOpacity
+                style={styles.unenrollBtn}
+                onPress={() => handleUnenrollStudent(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle-outline" size={22} color="#D93025" />
+              </TouchableOpacity>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Ionicons name="people-outline" size={60} color="#DADCE0" />
+              <Text style={styles.emptyTitle}>No students yet</Text>
+              <Text style={styles.emptyText}>Students will appear here when they join</Text>
+            </View>
+          }
+        />
+      ) : (
+        <FlatList
+          data={listData}
+          keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderItem={({ item }) =>
+            item.type === "announcement"
+              ? renderAnnouncement({ item: item.data })
+              : renderBin({ item: item.data })
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Ionicons
+                name="clipboard-outline"
+                size={60}
+                color="#DADCE0"
+              />
+              <Text style={styles.emptyTitle}>Nothing here yet</Text>
+              <Text style={styles.emptyText}>
+                Tap + to add content
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => setShowFabMenu(true)} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
 
-      {/* Ellipsis dropdown menu */}
+      {/* Ellipsis dropdown menu - Modal Style */}
       <Modal
         visible={showEllipsisMenu}
         transparent
@@ -303,26 +393,25 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         onRequestClose={() => setShowEllipsisMenu(false)}
       >
         <TouchableOpacity
-          style={styles.ellipsisOverlay}
+          style={styles.menuOverlay}
           activeOpacity={1}
           onPress={() => setShowEllipsisMenu(false)}
         >
-          <View style={styles.ellipsisMenu}>
+          <View style={styles.menuModal}>
             <TouchableOpacity
-              style={styles.ellipsisItem}
+              style={styles.menuItem}
               onPress={() => {
                 setShowEllipsisMenu(false);
                 navigation.navigate("CreateClassroom", { editMode: true, classroom });
               }}
             >
-              <Ionicons name="pencil-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
-              <Text style={styles.ellipsisItemText}>Edit Classroom</Text>
+              <Ionicons name="pencil-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Edit Classroom</Text>
             </TouchableOpacity>
-
-            <View style={styles.ellipsisDivider} />
+            <View style={styles.menuDivider} />
 
             <TouchableOpacity
-              style={styles.ellipsisItem}
+              style={styles.menuItem}
               onPress={() => {
                 setShowEllipsisMenu(false);
                 navigation.navigate("EnrolledStudents", {
@@ -331,14 +420,13 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
                 });
               }}
             >
-              <Ionicons name="people-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
-              <Text style={styles.ellipsisItemText}>Enrolled Students</Text>
+              <Ionicons name="people-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Enrolled Students</Text>
             </TouchableOpacity>
-
-            <View style={styles.ellipsisDivider} />
+            <View style={styles.menuDivider} />
 
             <TouchableOpacity
-              style={styles.ellipsisItem}
+              style={styles.menuItem}
               onPress={() => {
                 setShowEllipsisMenu(false);
                 navigation.navigate("InviteCode", {
@@ -347,15 +435,14 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
                 });
               }}
             >
-              <Ionicons name="key-outline" size={18} color="#202124" style={styles.ellipsisIcon} />
-              <Text style={styles.ellipsisItemText}>Invite Code</Text>
+              <Ionicons name="key-outline" size={20} color={C.ink2} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Invite Code</Text>
             </TouchableOpacity>
+            <View style={styles.menuDivider} />
 
-            <View style={styles.ellipsisDivider} />
-
-            <TouchableOpacity style={styles.ellipsisItem} onPress={handleDeleteClassroom}>
-              <Ionicons name="trash-outline" size={18} color="#D93025" style={styles.ellipsisIcon} />
-              <Text style={[styles.ellipsisItemText, { color: "#D93025" }]}>Delete Classroom</Text>
+            <TouchableOpacity style={styles.menuItem} onPress={handleDeleteClassroom}>
+              <Ionicons name="trash-outline" size={20} color="#D93025" style={styles.menuIcon} />
+              <Text style={[styles.menuItemText, { color: "#D93025" }]}>Delete Classroom</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -463,66 +550,98 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#F8F9FA' },
 
-  // Header
-  header: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: 'transparent', paddingHorizontal: 8, paddingVertical: 14,
-    paddingTop: 44,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(0,0,0,0.06)',
+  // Banner Header
+  banner: { paddingBottom: 24 },
+  bannerTop: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 8 },
+  bannerBackBtn: { padding: 8 },
+  bannerMenuBtn: { padding: 8 },
+  bannerContent: { paddingHorizontal: 24, paddingTop: 16 },
+  bannerTitle: { fontSize: 28, fontWeight: '400', color: '#fff', marginBottom: 16 },
+  inviteCodePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, alignSelf: 'flex-start',
   },
-  iconBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700" as const, color: "#202124", textAlign: "center" },
+  inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tabs
-  tabBar: {
-    flexDirection: "row", backgroundColor: 'transparent',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E0E0E0",
+  // Tabs - Pill shaped
+  tabBar: { 
+    flexDirection: "row", 
+    backgroundColor: C.bg, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    gap: 8,
   },
-  tab: {
-    flex: 1, paddingVertical: 14, alignItems: "center",
-    borderBottomWidth: 2, borderBottomColor: "transparent",
+  tabWrapper: { flex: 1 },
+  tab: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 16,
+    alignItems: "center",
+    backgroundColor: '#E8E8E8',
+    borderRadius: 999,
   },
-  tabActive: { borderBottomColor: "#202124" },
-  tabText: { fontSize: 14, fontWeight: "500" as const, color: "#5F6368" },
-  tabTextActive: { color: "#202124", fontWeight: "700" as const },
+  tabActive: { backgroundColor: '#202124' },
+  tabText: { fontSize: 14, fontWeight: "600" as const, color: "#5F6368" },
+  tabTextActive: { color: "#FFFFFF", fontWeight: "600" as const },
 
   // List content
-  listContent: { padding: 14, paddingBottom: 100 },
+  scrollContent: { flex: 1, backgroundColor: '#F8F9FA' },
+  listContent: { padding: 16, paddingBottom: 100 },
 
-  // Cards
-  card: {
-    backgroundColor: "#fff", borderRadius: 10, padding: 14,
-    marginBottom: 10, elevation: 1,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 3,
+  // Activity Cards
+  activityCard: {
+    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: '#DADCE0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
-  cardHeader: { flexDirection: "row" as const, alignItems: "flex-start" as const, marginBottom: 4 },
-  cardEllipsisBtn: { padding: 2, marginLeft: 4 },
-  cardTitle: { fontSize: 15, fontWeight: "600" as const, color: "#202124", marginBottom: 4 },
-  cardBody: { fontSize: 14, color: "#5F6368", lineHeight: 20, marginBottom: 6 },
-  cardDate: { fontSize: 12, color: "#9AA0A6" },
+  activityIconWrap: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F3F4',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  activityContent: { flex: 1 },
+  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6 },
+  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8 },
+  activityDate: { fontSize: 12, color: '#9AA0A6' },
+  cardEllipsisBtn: { padding: 4 },
 
   pinnedBadge: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "#202124", paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 6, alignSelf: "flex-start", marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    backgroundColor: '#202124', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 8,
   },
-  pinnedText: { color: "#fff", fontSize: 11, fontWeight: "600" as const },
+  pinnedText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  binRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  binIconWrap: {
-    width: 40, height: 40, borderRadius: 10,
-    backgroundColor: "#F1F3F4", justifyContent: "center", alignItems: "center",
+  binMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  statusBadge: {
+    paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#E8F0FE', borderRadius: 12,
   },
-  binMeta: { flexDirection: "row", gap: 14, marginTop: 4 },
+  statusBadgeText: { fontSize: 12, color: '#1967D2', fontWeight: '600' },
+
+  // People Section
+  peopleSectionTitle: {
+    fontSize: 14, fontWeight: '600', color: '#5F6368', marginBottom: 12,
+    textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16,
+  },
+  personCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 8,
+    borderWidth: 1, borderColor: '#DADCE0',
+  },
+  personAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: C.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  personAvatarText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  personAvatarImage: { width: 40, height: 40, borderRadius: 20 },
+  personName: { flex: 1, fontSize: 15, fontWeight: '500', color: '#202124' },
+  unenrollBtn: { padding: 4 },
 
   // Empty state
   emptyWrap: { alignItems: "center", paddingTop: 80 },
-  emptyTitle: { fontSize: 17, fontWeight: "600" as const, color: "#5F6368", marginTop: 16 },
-  emptyText: { fontSize: 14, color: "#BCC0C6", marginTop: 6, textAlign: "center" },
+  emptyTitle: { fontSize: 18, fontWeight: "500" as const, color: "#5F6368", marginTop: 16 },
+  emptyText: { fontSize: 14, color: "#9AA0A6", marginTop: 6, textAlign: "center" },
 
   // FAB
   fab: {
@@ -562,6 +681,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   fabDropSub: { fontSize: 12, color: "#9AA0A6", marginTop: 2 },
+  ellipsisItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  ellipsisIcon: { marginRight: 12 },
+  ellipsisItemText: { fontSize: 15, fontWeight: "500" as const, color: "#202124" },
+  ellipsisDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 16,
+  },
 
   // Per-card item menu
   itemMenuOverlay: {
@@ -587,37 +719,15 @@ const styles = StyleSheet.create({
   },
   itemMenuTypeLabel: { fontSize: 12, color: "#9AA0A6", fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.5 },
 
-  // Ellipsis dropdown
-  ellipsisOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-    paddingTop: 100,
-    paddingRight: 10,
+  // Modal Menu - Positioned near ellipses, smaller size  
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 100, paddingRight: 20 },
+  menuModal: {
+    backgroundColor: '#fff', borderRadius: 12, width: 200,
+    paddingVertical: 6, elevation: 8, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
   },
-  ellipsisMenu: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    width: 230,
-    paddingVertical: 6,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-  },
-  ellipsisItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  ellipsisIcon: { marginRight: 12 },
-  ellipsisItemText: { fontSize: 15, fontWeight: "500" as const, color: "#202124" },
-  ellipsisDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "#E0E0E0",
-    marginHorizontal: 16,
-  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20 },
+  menuIcon: { marginRight: 16 },
+  menuItemText: { fontSize: 16, color: '#202124', fontWeight: '500' },
+  menuDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED', marginHorizontal: 20 },
 });

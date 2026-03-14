@@ -287,7 +287,10 @@ export default function StudentDashboard({ navigation, route }: any) {
               )}
             </View>
           </TouchableOpacity>
-          <Text style={styles.appTitle}>NEXAD</Text>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerGreeting}>{getGreeting()}</Text>
+            <Text style={styles.headerTitle}>{getUserName()}! 👋</Text>
+          </View>
         </View>
         <View style={styles.topBarRight}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
@@ -310,10 +313,6 @@ export default function StudentDashboard({ navigation, route }: any) {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[C.accent]} />}
       >
-        <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
-          <Text style={styles.userName}>{getUserName()}! 👋</Text>
-        </View>
 
         {/* UPCOMING APPOINTMENTS CAROUSEL */}
         <View style={styles.carouselSection}>
@@ -468,17 +467,22 @@ export default function StudentDashboard({ navigation, route }: any) {
           )}
         </View>
 
-        {/* CTA */}
-        <TouchableOpacity style={styles.ctaCard} onPress={handleRequestConsultation}>
-          <View style={styles.ctaContent}>
-            <Ionicons name="create-outline" size={32} color={C.ink1} style={{ marginRight: S.md }} />
-            <View style={styles.ctaTextContainer}>
-              <Text style={styles.ctaTitle}>Request a Consultation</Text>
-              <Text style={styles.ctaSubtitle}>Connect with your teachers</Text>
-            </View>
+        {/* QUICK ACTIONS */}
+        <View style={styles.quickActionsSection}>
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity style={styles.quickActionBox} onPress={() => navigation.navigate('StudentClassrooms')}>
+              <Ionicons name="school" size={32} color="#fff" />
+              <Text style={styles.quickActionBoxTitle}>My Classrooms</Text>
+              <Text style={styles.quickActionBoxSubtitle}>View all classes</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.quickActionBox} onPress={handleRequestConsultation}>
+              <Ionicons name="create" size={32} color="#fff" />
+              <Text style={styles.quickActionBoxTitle}>Request Consultation</Text>
+              <Text style={styles.quickActionBoxSubtitle}>Connect with teachers</Text>
+            </TouchableOpacity>
           </View>
-          <Ionicons name="arrow-forward" size={24} color={C.ink2} />
-        </TouchableOpacity>
+        </View>
 
         {/* PENDING REQUESTS */}
         {dashboardData.pendingRequests.length > 0 && (
@@ -865,7 +869,7 @@ const styles = StyleSheet.create({
 
   // ─── Top Bar ──────────────────────────────────────────
   topBar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.xl, paddingTop: S.lg, paddingBottom: S.md, backgroundColor: 'transparent' },
-  topBarLeft:{ flexDirection: 'row', alignItems: 'center', gap: S.md },
+  topBarLeft:{ flexDirection: 'row', alignItems: 'center', flex: 1 },
   topBarRight:{ flexDirection: 'row', alignItems: 'center', gap: S.sm },
   iconButton:{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 22, backgroundColor: C.surface, borderWidth: 1, borderColor: C.borderLight },
   appTitle:  { ...T.h2, color: C.ink1 },
@@ -876,13 +880,13 @@ const styles = StyleSheet.create({
   profileImage:   { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
   profileInitial: { color: C.ink1, fontSize: 16, fontWeight: '600' as const },
   profileImg:     { width: 40, height: 40, borderRadius: 20 },
+  headerTextWrap: { flex: 1, marginLeft: S.md },
+  headerGreeting: { ...T.small, color: C.ink3, marginBottom: 2 },
+  headerTitle:    { ...T.h2, color: C.ink1 },
 
   // ─── Scroll ───────────────────────────────────────────
   scrollView:    { flex: 1 },
   scrollContent: { paddingBottom: 100 },
-  greetingSection: { paddingHorizontal: S.xl, paddingTop: S.xl, paddingBottom: S.md },
-  greeting: { ...T.body, color: C.ink3 },
-  userName: { ...T.h1, color: C.ink1, marginTop: 2 },
 
   // ─── Upcoming Appointments Carousel ──────────────────
   carouselSection:    { marginBottom: S.xl },
@@ -949,6 +953,34 @@ const styles = StyleSheet.create({
   missedBadge:        { backgroundColor: C.redBg, paddingHorizontal: S.sm, paddingVertical: 3, borderRadius: R.sm },
   missedBadgeText:    { color: C.red, fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.5 },
   appointmentCardMissed: { borderColor: C.red + '30', borderWidth: 1 },
+
+  // ─── Quick Actions ────────────────────────────────────
+  quickActionsSection: { marginHorizontal: S.xl, marginBottom: S.xl },
+  quickActionsGrid: { flexDirection: 'row', gap: S.md },
+  quickActionBox: {
+    flex: 1,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(32, 33, 36, 0.9)',
+    borderRadius: R.lg,
+    padding: S.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.soft,
+  },
+  quickActionBoxTitle: { 
+    color: '#fff', 
+    fontSize: 14, 
+    fontWeight: '600' as const, 
+    textAlign: 'center', 
+    marginTop: S.sm,
+    marginBottom: 2,
+  },
+  quickActionBoxSubtitle: { 
+    color: 'rgba(255, 255, 255, 0.7)', 
+    fontSize: 11, 
+    textAlign: 'center',
+    lineHeight: 14,
+  },
 
   // ─── CTA Card ─────────────────────────────────────────
   ctaCard: {

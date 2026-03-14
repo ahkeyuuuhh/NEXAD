@@ -84,7 +84,7 @@ export const classroomService = {
   },
 
   /**
-   * Get student's joined classrooms
+   * Get student's joined classrooms with teacher profile information
    */
   async getStudentClassrooms(studentId: string): Promise<ApiResponse<Classroom[]>> {
     try {
@@ -97,7 +97,48 @@ export const classroomService = {
       if (error) throw error;
 
       const classrooms = data?.map((m: any) => m.classroom) || [];
-      return { data: classrooms };
+      
+      // Enrich with teacher profile information
+      const enrichedClassrooms = await Promise.all(
+        classrooms.map(async (classroom: any) => {
+          if (classroom.teacher_id || classroom.created_by) {
+            const teacherId = classroom.teacher_id || classroom.created_by;
+            
+            // Try to get teacher profile
+            const { data: teacherProfile } = await supabase
+              .from('teacher_profiles')
+              .select('first_name, last_name, email')
+              .eq('user_id', teacherId)
+              .maybeSingle();
+
+            // If no teacher profile, try student profile (in case teacher is also a student)
+            let profileData = teacherProfile;
+            if (!profileData) {
+              const { data: studentProfile } = await supabase
+                .from('student_profiles')
+                .select('first_name, last_name, email')
+                .eq('user_id', teacherId)
+                .maybeSingle();
+              profileData = studentProfile;
+            }
+
+            return {
+              ...classroom,
+              teacher_first_name: profileData?.first_name || 'Teacher',
+              teacher_last_name: profileData?.last_name || '',
+              teacher_email: profileData?.email || '',
+            };
+          }
+          return {
+            ...classroom,
+            teacher_first_name: 'Teacher',
+            teacher_last_name: '',
+            teacher_email: '',
+          };
+        })
+      );
+
+      return { data: enrichedClassrooms };
     } catch (error: any) {
       return { error: error.message || 'Failed to fetch student classrooms' };
     }
@@ -289,14 +330,65 @@ export const classroomService = {
   },
 
   /**
+   * Ensure teacher profile exists - create one if it doesn't
+   */
+  async ensureTeacherProfile(userId: string): Promise<ApiResponse<any>> {
+    try {
+      // Check if teacher profile exists
+      const { data: existingProfile } = await supabase
+        .from('teacher_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return { data: existingProfile };
+      }
+
+      // Get user info from auth.users if possible, or create basic profile
+      const { data: profile, error } = await supabase
+        .from('teacher_profiles')
+        .insert({
+          user_id: userId,
+          email: '',
+          first_name: 'Teacher',
+          last_name: '',
+          max_consultations_per_day: 8,
+          consultation_duration_minutes: 30,
+          average_response_time_hours: 24,
+          is_accepting_consultations: true,
+          notification_preferences: { email: true, push: true, sms: false },
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating teacher profile:', error);
+        return { error: error.message };
+      }
+
+      return { data: profile };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to ensure teacher profile' };
+    }
+  },
+
+  /**
    * Get classroom members with profile details.
-   * Uses two direct queries (no RPC) to be resilient against RLS edge cases:
-   *   1. Fetch membership rows from classroom_memberships (teacher RLS policy allows this)
-   *   2. Batch-fetch student_profiles by user_id (teacher RLS policy allows this)
+   * Fetches both students and teacher profile information.
    */
   async getClassroomMembers(classroomId: string): Promise<ApiResponse<any[]>> {
     try {
-      // Step 1: Get all active memberships for this classroom
+      // Step 1: Get classroom to find teacher_id
+      const { data: classroom, error: classroomError } = await supabase
+        .from('classrooms')
+        .select('teacher_id, created_by')
+        .eq('id', classroomId)
+        .single();
+
+      if (classroomError) throw classroomError;
+
+      // Step 2: Get all active student memberships
       const { data: memberships, error: membershipError } = await supabase
         .from('classroom_memberships')
         .select('id, student_id, joined_at')
@@ -305,37 +397,107 @@ export const classroomService = {
         .order('joined_at', { ascending: false });
 
       if (membershipError) throw membershipError;
-      if (!memberships || memberships.length === 0) return { data: [] };
 
-      // Step 2: Fetch student profiles for those student_ids
-      const studentIds = memberships.map((m: any) => m.student_id);
-      const { data: profiles, error: profileError } = await supabase
-        .from('student_profiles')
-        .select('user_id, first_name, last_name, email, profile_photo_url, student_id, department, course')
-        .in('user_id', studentIds);
+      const members: any[] = [];
 
-      // profileError is non-fatal — we can still show partial data
-      const profileMap = new Map(
-        (profiles || []).map((p: any) => [p.user_id, p])
-      );
+      // Step 3: Fetch teacher profile with multiple fallback strategies
+      if (classroom?.teacher_id || classroom?.created_by) {
+        const teacherId = classroom.teacher_id || classroom.created_by;
+        console.log('Fetching teacher profile for ID:', teacherId);
+        
+        // Try teacher_profiles first
+        let { data: teacherProfile, error: teacherError } = await supabase
+          .from('teacher_profiles')
+          .select('user_id, first_name, last_name, email, profile_photo_url')
+          .eq('user_id', teacherId)
+          .maybeSingle();
 
-      const members = memberships.map((m: any) => {
-        const profile = profileMap.get(m.student_id);
-        return {
-          id: m.student_id,
-          first_name: profile?.first_name || 'Unknown',
-          last_name: profile?.last_name || 'Student',
-          email: profile?.email || '',
-          profile_photo_url: profile?.profile_photo_url || null,
-          student_id: profile?.student_id || null,
-          department: profile?.department || null,
-          course: profile?.course || null,
-          joined_at: m.joined_at,
-        };
-      });
+        console.log('Teacher profile result:', teacherProfile, 'Error:', teacherError);
 
+        // If no teacher profile, try to create one
+        if (!teacherProfile) {
+          console.log('No teacher profile found, attempting to create one');
+          const createResult = await classroomService.ensureTeacherProfile(teacherId);
+          if (createResult.data) {
+            teacherProfile = createResult.data;
+            console.log('Created teacher profile:', teacherProfile);
+          } else {
+            console.log('Failed to create teacher profile:', createResult.error);
+          }
+        }
+
+        // If no teacher profile, try student_profiles (in case teacher is also a student)
+        if (!teacherProfile) {
+          console.log('No teacher profile found, trying student_profiles');
+          const { data: studentProfile } = await supabase
+            .from('student_profiles')
+            .select('user_id, first_name, last_name, email, profile_photo_url')
+            .eq('user_id', teacherId)
+            .maybeSingle();
+          
+          if (studentProfile) {
+            teacherProfile = studentProfile;
+            console.log('Found teacher in student_profiles:', teacherProfile);
+          }
+        }
+
+        // If still no profile, try to get basic info from auth.users (if accessible)
+        if (!teacherProfile) {
+          console.log('No profile found in either table, using fallback');
+          // Create a basic teacher entry
+          teacherProfile = {
+            user_id: teacherId,
+            first_name: 'Teacher',
+            last_name: '',
+            email: '',
+            profile_photo_url: null,
+          };
+        }
+
+        // Add teacher to members list
+        members.push({
+          id: teacherProfile.user_id,
+          first_name: teacherProfile.first_name || 'Teacher',
+          last_name: teacherProfile.last_name || '',
+          email: teacherProfile.email || '',
+          profile_photo_url: teacherProfile.profile_photo_url || null,
+          is_teacher: true,
+        });
+      }
+
+      // Step 4: Fetch student profiles
+      if (memberships && memberships.length > 0) {
+        const studentIds = memberships.map((m: any) => m.student_id);
+        const { data: profiles } = await supabase
+          .from('student_profiles')
+          .select('user_id, first_name, last_name, email, profile_photo_url, student_id, department, course')
+          .in('user_id', studentIds);
+
+        const profileMap = new Map(
+          (profiles || []).map((p: any) => [p.user_id, p])
+        );
+
+        memberships.forEach((m: any) => {
+          const profile = profileMap.get(m.student_id);
+          members.push({
+            id: m.student_id,
+            first_name: profile?.first_name || 'Unknown',
+            last_name: profile?.last_name || 'Student',
+            email: profile?.email || '',
+            profile_photo_url: profile?.profile_photo_url || null,
+            student_id: profile?.student_id || null,
+            department: profile?.department || null,
+            course: profile?.course || null,
+            joined_at: m.joined_at,
+            is_teacher: false,
+          });
+        });
+      }
+
+      console.log('Final members array:', members);
       return { data: members };
     } catch (error: any) {
+      console.error('Error in getClassroomMembers:', error);
       return { error: error.message || 'Failed to fetch members' };
     }
   },
