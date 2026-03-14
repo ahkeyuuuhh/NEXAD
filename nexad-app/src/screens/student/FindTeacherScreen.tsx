@@ -203,7 +203,7 @@ export default function FindTeacherScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent', // Same as dashboard
   },
   header: {
     flexDirection: 'row',
@@ -240,12 +240,12 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent like shortcut buttons
     borderRadius: R.xl,
     paddingHorizontal: S.md,
     paddingVertical: 2,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(32, 33, 36, 0.15)',
   },
   searchInput: {
     flex: 1,

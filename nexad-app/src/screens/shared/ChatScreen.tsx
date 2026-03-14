@@ -771,8 +771,8 @@ export default function ChatScreen({ navigation, route }: any) {
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             ListEmptyComponent={
               <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
-                <Ionicons name="chatbubble-outline" size={40} color={C.ink5} />
                 <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
+                <Ionicons name="chatbubble-outline" size={40} color={C.ink5} />
               </View>
             }
           />
@@ -1174,14 +1174,13 @@ export default function ChatScreen({ navigation, route }: any) {
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
+  screen: { flex: 1, backgroundColor: 'transparent' }, // Same as dashboard background
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    backgroundColor: 'transparent', // Remove white background for seamless look
+    borderBottomWidth: 0, // Remove border for seamless look
     paddingHorizontal: S.sm,
     paddingVertical: S.sm,
   },

@@ -422,8 +422,8 @@ async function handleAuthCallback(url: string) {
 function Navigation() {
   const { user, loading } = useAuth();
 
-  // Log the redirect URL on mount so user can verify it's in Supabase
   useEffect(() => {
+    // Log the redirect URL on mount so user can verify it's in Supabase
     try {
       const { makeRedirectUri } = require('expo-auth-session');
       const redirectUrl = makeRedirectUri();
@@ -438,6 +438,36 @@ function Navigation() {
       console.log(url);
       console.log('========================================');
     }
+
+    // Add manual update check function to global scope for debugging
+    (global as any).checkForUpdates = async () => {
+      try {
+        console.log('🔵 Manual update check triggered...');
+        if (__DEV__) {
+          console.log('🟡 DEV mode - cannot check for updates');
+          return;
+        }
+        
+        if (!Updates.isEnabled) {
+          console.log('🟡 Updates not enabled');
+          return;
+        }
+
+        const update = await Updates.checkForUpdateAsync();
+        console.log('🔵 Update check result:', update);
+        
+        if (update.isAvailable) {
+          console.log('🟢 Update available! Fetching...');
+          await Updates.fetchUpdateAsync();
+          console.log('🟢 Update fetched! Reloading...');
+          await Updates.reloadAsync();
+        } else {
+          console.log('🟡 No updates available');
+        }
+      } catch (error: any) {
+        console.error('🔴 Manual update check failed:', error);
+      }
+    };
   }, []);
 
   // DEV MODE: Skip authentication for testing
@@ -518,23 +548,6 @@ export default function App() {
         showBadge: true,
       }).catch(() => {});
     }
-
-    // Check for OTA updates on app start
-    async function checkForUpdates() {
-      try {
-        if (__DEV__ || !Updates.isEnabled) return;
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch (error: any) {
-        // Silently ignore — updates are best-effort
-        console.warn('OTA update check failed:', error?.message);
-      }
-    }
-    
-    checkForUpdates();
   }, []);
 
   if (!fontsLoaded) {

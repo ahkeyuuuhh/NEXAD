@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,17 +82,21 @@ export default function StudentProfileScreen({ navigation }: any) {
 
           {/* Avatar + name */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarRing}>
-              {profile.profile_photo_url ? (
-                <Image source={{ uri: profile.profile_photo_url }} style={styles.avatarImg} />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitials}>{initials}</Text>
-                </View>
-              )}
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarRing}>
+                {profile.profile_photo_url ? (
+                  <Image source={{ uri: profile.profile_photo_url }} style={styles.avatarImg} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Text style={styles.avatarInitials}>{initials}</Text>
+                  </View>
+                )}
+              </View>
             </View>
             <Text style={styles.profileName}>{fullName}</Text>
-            <Text style={styles.profileRole}>Student</Text>
+            <View style={styles.profileRoleBadge}>
+              <Text style={styles.profileRole}>Student</Text>
+            </View>
             {!!profile.department && (
               <Text style={styles.profileDept}>{profile.department}</Text>
             )}
@@ -161,7 +166,7 @@ export default function StudentProfileScreen({ navigation }: any) {
             style={styles.editBtn}
             onPress={() => navigation.navigate('AccountSettings')}
           >
-            <Ionicons name="settings-outline" size={18} color={C.ink1} style={{ marginRight: S.sm }} />
+            <Ionicons name="settings-outline" size={18} color="#FFFFFF" style={{ marginRight: S.sm }} />
             <Text style={styles.editBtnText}>Edit Profile & Settings</Text>
           </TouchableOpacity>
         </View>
@@ -204,6 +209,10 @@ const styles = StyleSheet.create({
   headerTitle: { ...T.h3, color: '#fff' },
 
   avatarSection: { alignItems: 'center', paddingBottom: S.xl },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: S.md,
+  },
   avatarRing: {
     width: 100,
     height: 100,
@@ -211,7 +220,19 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.4)',
     overflow: 'hidden',
-    marginBottom: S.md,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarFallback: {
@@ -221,8 +242,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarInitials: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-  profileName: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  profileRole: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  profileName: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: S.sm },
+  profileRoleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: S.md,
+    paddingVertical: 4,
+    borderRadius: R.full,
+    marginBottom: 4,
+  },
+  profileRole: { fontSize: 12, color: '#fff', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   profileDept: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
 
   scroll: { flex: 1 },
@@ -231,8 +259,10 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: C.surface,
+    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent like shortcut buttons
     borderRadius: R.lg,
+    borderTopLeftRadius: R.xl, // Add top border radius
+    borderTopRightRadius: R.xl, // Add top border radius
     overflow: 'hidden',
     ...shadow.soft,
     borderWidth: 1,
@@ -250,11 +280,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: '#202124', // Black background
     borderRadius: R.xl,
     paddingVertical: S.lg,
     borderWidth: 1.5,
-    borderColor: C.border,
+    borderColor: '#202124',
   },
-  editBtnText: { fontSize: 15, fontWeight: '600', color: C.ink1 },
+  editBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' }, // White text
 });

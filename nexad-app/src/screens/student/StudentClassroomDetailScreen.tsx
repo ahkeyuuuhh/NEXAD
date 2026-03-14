@@ -287,12 +287,14 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.bannerBackBtn}>
               <Ionicons name="chevron-back" size={24} color="#fff" />
             </TouchableOpacity>
+            <View style={styles.bannerCenter}>
+              <Text style={styles.bannerTitle}>{classroom?.name || 'Classroom'}</Text>
+            </View>
             <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.bannerMenuBtn}>
               <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
           <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>{classroom?.name || 'Classroom'}</Text>
             <View style={styles.inviteCodePill}>
               <Ionicons name="key" size={12} color="#fff" />
               <Text style={styles.inviteCodeText}>{classroom?.invite_code || '------'}</Text>
@@ -377,37 +379,52 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
         />
       )}
 
-      {/* Options Menu - Modal Style */}
+      {/* Options Menu - iOS Style Modal */}
       <Modal
         visible={showMenu}
         transparent
         animationType="fade"
         onRequestClose={() => setShowMenu(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuModal}>
-            <TouchableOpacity style={styles.menuItem} onPress={handleInviteCode}>
-              <Ionicons name="key-outline" size={20} color={C.ink2} style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>Invite Code</Text>
+        <View style={styles.iosModalOverlay}>
+          <TouchableOpacity
+            style={styles.iosModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          />
+          <View style={styles.iosMenuModal}>
+            <View style={styles.iosModalHeader}>
+              <Text style={styles.iosModalTitle}>Classroom Options</Text>
+            </View>
+            
+            <TouchableOpacity style={styles.iosMenuItem} onPress={handleInviteCode}>
+              <Ionicons name="key-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
+              <Text style={styles.iosMenuItemText}>View Invite Code</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleClassmates}>
-              <Ionicons name="people-outline" size={20} color={C.ink2} style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>Classmates</Text>
+            
+            <View style={styles.iosMenuDivider} />
+            
+            <TouchableOpacity style={styles.iosMenuItem} onPress={handleClassmates}>
+              <Ionicons name="people-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
+              <Text style={styles.iosMenuItemText}>View Classmates</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleUnenroll}>
-              <Ionicons name="exit-outline" size={20} color="#D93025" style={styles.menuIcon} />
-              <Text style={[styles.menuItemText, { color: '#D93025' }]}>Unenroll</Text>
+            
+            <View style={styles.iosMenuSeparator} />
+            
+            <TouchableOpacity style={styles.iosMenuItem} onPress={handleUnenroll}>
+              <Ionicons name="exit-outline" size={22} color="#FF3B30" style={styles.iosMenuIcon} />
+              <Text style={[styles.iosMenuItemText, { color: '#FF3B30' }]}>Unenroll from Class</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.iosMenuSeparator} />
+            
+            <TouchableOpacity style={styles.iosCancelButton} onPress={() => setShowMenu(false)}>
+              <Text style={styles.iosCancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
@@ -419,11 +436,18 @@ const styles = StyleSheet.create({
 
   // Banner Header
   banner: { paddingBottom: 24 },
-  bannerTop: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 8 },
+  bannerTop: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingHorizontal: 8, 
+    paddingTop: 8 
+  },
   bannerBackBtn: { padding: 8 },
+  bannerCenter: { flex: 1, alignItems: 'center' },
   bannerMenuBtn: { padding: 8 },
-  bannerContent: { paddingHorizontal: 24, paddingTop: 16 },
-  bannerTitle: { fontSize: 28, fontWeight: '400', color: '#fff', marginBottom: 16 },
+  bannerContent: { paddingHorizontal: 24, paddingTop: 8, alignItems: 'center' },
+  bannerTitle: { fontSize: 20, fontWeight: '600', color: '#fff', textAlign: 'center' },
   inviteCodePill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(255,255,255,0.25)',
@@ -518,15 +542,77 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '500', color: '#5F6368', marginTop: 16 },
   emptyText: { fontSize: 14, color: '#9AA0A6', marginTop: 6 },
 
-  // Modal Menu - Positioned near ellipses, smaller size
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 100, paddingRight: 20 },
-  menuModal: {
-    backgroundColor: '#fff', borderRadius: 12, width: 200,
-    paddingVertical: 6, elevation: 8, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+  // iOS-style Modal Menu
+  iosModalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.4)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20 },
-  menuIcon: { marginRight: 16 },
-  menuItemText: { fontSize: 16, color: '#202124', fontWeight: '500' },
-  menuDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED', marginHorizontal: 20 },
+  iosModalBackdrop: { 
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0 
+  },
+  iosMenuModal: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    width: '100%',
+    maxWidth: 320,
+    overflow: 'hidden',
+  },
+  iosModalHeader: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#C6C6C8',
+    backgroundColor: '#FFFFFF',
+  },
+  iosModalTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  iosMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    minHeight: 56,
+  },
+  iosMenuIcon: { 
+    marginRight: 16,
+    width: 22,
+  },
+  iosMenuItemText: { 
+    fontSize: 17, 
+    color: '#000000',
+    flex: 1,
+  },
+  iosMenuDivider: { 
+    height: StyleSheet.hairlineWidth, 
+    backgroundColor: '#C6C6C8',
+    marginLeft: 58,
+  },
+  iosMenuSeparator: {
+    height: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  iosCancelButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  iosCancelButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
 });

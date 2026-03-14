@@ -856,6 +856,28 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
+            
+            {/* Consultation Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CONSULTATIONS</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherConsultations'); }}>
+              <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Consultations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AllRequests'); }}>
+              <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Requests</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
+              <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Consultation History</Text>
+            </TouchableOpacity>
+            
+            {/* Classes Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CLASSES</Text>
+            </View>
             <TouchableOpacity style={styles.drawerItem} onPress={() => {
               closeMenu();
               navigation.navigate('ClassroomHub');
@@ -867,22 +889,23 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Classes</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AllRequests'); }}>
-              <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>Requests</Text>
-            </TouchableOpacity>
+            
+            {/* Messages Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>MESSAGES</Text>
+            </View>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
               <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Messages</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
-              <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>Consultation History</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Notifications'); }}>
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Notifications</Text>
             </TouchableOpacity>
+            
+            <View style={styles.drawerDivider} />
+            
+            {/* Profile & Settings Section */}
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherProfile', { userId: userId, isOwnProfile: true }); }}>
               <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Profile</Text>
@@ -1156,7 +1179,7 @@ const styles = StyleSheet.create({
   messagePreview: { ...T.small, color: C.ink3, lineHeight: 17, marginTop: 2 },
 
   // ─── Empty State ──────────────────────────────────────
-  emptyState:     { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
+  emptyState:     { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight, opacity: 0.4 }, // Low opacity
   emptyStateText: { ...T.body, color: C.ink4 },
 
   // ─── Burger Drawer ────────────────────────────────────
@@ -1175,12 +1198,14 @@ const styles = StyleSheet.create({
   drawerItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingVertical: 14 },
   drawerItemIcon:   { marginRight: S.lg },
   drawerItemText:   { ...T.body, color: C.ink1 },
+  drawerSectionHeader: { paddingHorizontal: S.xl, paddingTop: S.md, paddingBottom: S.xs },
+  drawerSectionTitle: { fontSize: 11, fontWeight: '600', color: C.ink3, letterSpacing: 0.5 },
 
   // ─── Profile Menu ─────────────────────────────────────
   profileOverlay:        { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-start', alignItems: 'flex-start', paddingTop: 72, paddingLeft: S.xl },
   profileMenu:           { backgroundColor: C.surface, borderRadius: R.xl, width: 280, padding: S.xl, ...shadow.lift },
   profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
-  profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md },
+  profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, overflow: 'hidden' },
   profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
   profileMenuAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   profileMenuInfo:       { flex: 1 },

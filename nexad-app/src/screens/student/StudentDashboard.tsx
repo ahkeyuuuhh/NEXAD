@@ -289,7 +289,7 @@ export default function StudentDashboard({ navigation, route }: any) {
           </TouchableOpacity>
           <View style={styles.headerTextWrap}>
             <Text style={styles.headerGreeting}>{getGreeting()}</Text>
-            <Text style={styles.headerTitle}>{getUserName()}! 👋</Text>
+            <Text style={styles.headerTitle}>{getUserName()}</Text>
           </View>
         </View>
         <View style={styles.topBarRight}>
@@ -471,13 +471,13 @@ export default function StudentDashboard({ navigation, route }: any) {
         <View style={styles.quickActionsSection}>
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity style={styles.quickActionBox} onPress={() => navigation.navigate('StudentClassrooms')}>
-              <Ionicons name="school" size={32} color="#fff" />
+              <Ionicons name="school" size={20} color="#202124" />
               <Text style={styles.quickActionBoxTitle}>My Classrooms</Text>
               <Text style={styles.quickActionBoxSubtitle}>View all classes</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.quickActionBox} onPress={handleRequestConsultation}>
-              <Ionicons name="create" size={32} color="#fff" />
+              <Ionicons name="create" size={20} color="#202124" />
               <Text style={styles.quickActionBoxTitle}>Request Consultation</Text>
               <Text style={styles.quickActionBoxSubtitle}>Connect with teachers</Text>
             </TouchableOpacity>
@@ -610,10 +610,11 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentClassrooms'); }}>
-              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>My Classes</Text>
-            </TouchableOpacity>
+            
+            {/* Consultation Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CONSULTATIONS</Text>
+            </View>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('FindTeacher'); }}>
               <Ionicons name="search-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Find a Teacher</Text>
@@ -622,18 +623,36 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Consultations</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
-              <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>Messages</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
               <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Consultation History</Text>
+            </TouchableOpacity>
+            
+            {/* Classes Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CLASSES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentClassrooms'); }}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
+            </TouchableOpacity>
+            
+            {/* Messages Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>MESSAGES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
+              <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Messages</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Notifications'); }}>
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Notifications</Text>
             </TouchableOpacity>
+            
+            <View style={styles.drawerDivider} />
+            
+            {/* Profile & Settings Section */}
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentProfile'); }}>
               <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Profile</Text>
@@ -896,7 +915,7 @@ const styles = StyleSheet.create({
   viewAllBtn:         { flexDirection: 'row', alignItems: 'center', gap: 4 },
   viewAllBtnText:     { ...T.label, color: C.ink2, fontSize: 13 },
   carouselScroll:     { paddingLeft: S.xl, paddingRight: S.md },
-  carouselEmpty:      { marginHorizontal: S.xl, backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', gap: S.md, borderWidth: 1, borderColor: C.borderLight },
+  carouselEmpty:      { marginHorizontal: S.xl, backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', gap: S.md, borderWidth: 1, borderColor: C.borderLight, opacity: 0.4 }, // Low opacity
   carouselEmptyText:  { ...T.body, color: C.ink4 },
   carouselCardWrap:   { marginRight: S.md },
   carouselCard: {
@@ -956,30 +975,31 @@ const styles = StyleSheet.create({
 
   // ─── Quick Actions ────────────────────────────────────
   quickActionsSection: { marginHorizontal: S.xl, marginBottom: S.xl },
-  quickActionsGrid: { flexDirection: 'row', gap: S.md },
+  quickActionsGrid: { flexDirection: 'row', gap: S.sm },
   quickActionBox: {
     flex: 1,
-    aspectRatio: 1,
-    backgroundColor: 'rgba(32, 33, 36, 0.9)',
-    borderRadius: R.lg,
-    padding: S.lg,
+    backgroundColor: 'rgba(32, 33, 36, 0.08)', // More translucent
+    borderRadius: 999, // Pill shape
+    paddingVertical: S.md, // Smaller padding
+    paddingHorizontal: S.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.soft,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    minHeight: 60, // Smaller card
   },
   quickActionBoxTitle: { 
-    color: '#fff', 
-    fontSize: 14, 
+    color: '#202124', // Dark text
+    fontSize: 12, // Smaller text
     fontWeight: '600' as const, 
     textAlign: 'center', 
-    marginTop: S.sm,
-    marginBottom: 2,
+    marginTop: S.xs,
   },
   quickActionBoxSubtitle: { 
-    color: 'rgba(255, 255, 255, 0.7)', 
-    fontSize: 11, 
+    color: 'rgba(32, 33, 36, 0.7)', // Dark with opacity
+    fontSize: 9, // Smaller subtitle
     textAlign: 'center',
-    lineHeight: 14,
+    marginTop: 1,
   },
 
   // ─── CTA Card ─────────────────────────────────────────
@@ -1009,7 +1029,7 @@ const styles = StyleSheet.create({
   viewAllText:   { ...T.label, color: C.ink2 },
 
   // ─── Empty State ──────────────────────────────────────
-  emptyCard: { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight },
+  emptyCard: { backgroundColor: C.surface, borderRadius: R.xl, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: C.borderLight, opacity: 0.4 }, // Low opacity
   emptyText: { ...T.body, color: C.ink4 },
 
   // ─── Appointment Cards ────────────────────────────────
@@ -1060,7 +1080,7 @@ const styles = StyleSheet.create({
   modalOverlay:    { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-start', alignItems: 'flex-start', paddingTop: 72, paddingLeft: S.xl },
   profileMenu:     { backgroundColor: C.surface, borderRadius: R.xl, width: 280, padding: S.xl, ...shadow.lift },
   profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
-  profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md },
+  profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, overflow: 'hidden' },
   profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
   profileMenuAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   profileMenuInfo:  { flex: 1 },
@@ -1088,6 +1108,8 @@ const styles = StyleSheet.create({
   drawerItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingVertical: 14 },
   drawerItemIcon:   { marginRight: S.lg },
   drawerItemText:   { ...T.body, color: C.ink1 },
+  drawerSectionHeader: { paddingHorizontal: S.xl, paddingTop: S.md, paddingBottom: S.xs },
+  drawerSectionTitle: { fontSize: 11, fontWeight: '600', color: C.ink3, letterSpacing: 0.5 },
 
   // ─── Side Menu (kept for TS compat) ───────────────────
   sideMenuContainer: { flex: 1, flexDirection: 'row' },

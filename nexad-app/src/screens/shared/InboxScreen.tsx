@@ -50,6 +50,8 @@ export default function InboxScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [conversationToArchive, setConversationToArchive] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -72,6 +74,13 @@ export default function InboxScreen({ navigation }: any) {
     if (!userId) return;
     await conversationService.archiveConversation(conversationId, userId);
     setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    setShowArchiveModal(false);
+    setConversationToArchive(null);
+  };
+
+  const showArchiveConfirmation = (conversationId: string, name: string) => {
+    setConversationToArchive({ id: conversationId, name });
+    setShowArchiveModal(true);
   };
 
   const handleDeleteConversation = async (conversationId: string, name: string) => {
@@ -88,11 +97,11 @@ export default function InboxScreen({ navigation }: any) {
     setConversations((prev) => prev.filter((c) => c.id !== conversationId));
   };
 
-  const renderLeftActions = (conversationId: string) => (
+  const renderLeftActions = (conversationId: string, name: string) => (
     <View style={styles.swipeActionsRowLeft}>
       <TouchableOpacity
         style={styles.swipeArchiveAction}
-        onPress={() => handleArchiveConversation(conversationId)}
+        onPress={() => showArchiveConfirmation(conversationId, name)}
       >
         <Ionicons name="archive-outline" size={22} color="#fff" />
         <Text style={styles.swipeActionText}>Archive</Text>
@@ -138,7 +147,7 @@ export default function InboxScreen({ navigation }: any) {
 
     return (
       <Swipeable
-        renderLeftActions={() => renderLeftActions(item.id)}
+        renderLeftActions={() => renderLeftActions(item.id, name)}
         renderRightActions={() => renderRightActions(item.id, name)}
         overshootLeft={false}
         overshootRight={false}
@@ -147,7 +156,7 @@ export default function InboxScreen({ navigation }: any) {
         rightThreshold={40}
       >
         <TouchableOpacity
-          style={styles.card}
+          style={[styles.card, unread > 0 ? styles.cardUnread : styles.cardRead]} // Different opacity for read/unread
           onPress={() => openChat(item)}
           activeOpacity={0.75}
         >
@@ -247,12 +256,43 @@ export default function InboxScreen({ navigation }: any) {
           }
         />
       )}
+
+      {/* Archive Confirmation Modal */}
+      {showArchiveModal && conversationToArchive && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Archive Conversation</Text>
+              <Text style={styles.modalMessage}>
+                Are you sure you want to archive the conversation with {conversationToArchive.name}?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    setShowArchiveModal(false);
+                    setConversationToArchive(null);
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalArchiveButton}
+                  onPress={() => handleArchiveConversation(conversationToArchive.id)}
+                >
+                  <Text style={styles.modalArchiveText}>Archive</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
+  screen: { flex: 1, backgroundColor: 'transparent' }, // Same as dashboard background
 
   header: {
     flexDirection: 'row',
@@ -260,9 +300,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.md,
     paddingVertical: S.sm,
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    backgroundColor: 'transparent', // Remove white background for seamless look
+    borderBottomWidth: 0, // Remove border for seamless look
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.ink1 },
@@ -286,6 +325,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 0,
+  },
+  cardUnread: {
+    opacity: 1, // High opacity for unread messages
+  },
+  cardRead: {
+    opacity: 0.4, // Low opacity for read messages
   },
 
   avatar: {
@@ -363,7 +408,7 @@ const styles = StyleSheet.create({
   swipeArchiveAction: {
     width: 76,
     borderRadius: R.lg,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#404040', // Dark grey background for archive button
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'column',
@@ -401,5 +446,69 @@ const styles = StyleSheet.create({
     marginTop: S.sm,
     textAlign: 'center',
     lineHeight: 18,
+  },
+
+  // Archive Confirmation Modal (iOS style)
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContainer: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    marginHorizontal: 40,
+    overflow: 'hidden',
+  },
+  modalContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 13,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#C6C6C8',
+    marginHorizontal: -20,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: '#C6C6C8',
+  },
+  modalArchiveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 17,
+    color: '#007AFF',
+    fontWeight: '400',
+  },
+  modalArchiveText: {
+    fontSize: 17,
+    color: '#FF3B30',
+    fontWeight: '600',
   },
 });

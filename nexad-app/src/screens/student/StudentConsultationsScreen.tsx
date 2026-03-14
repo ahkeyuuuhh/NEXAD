@@ -229,8 +229,8 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
               />
             )}
             theme={{
-              backgroundColor: C.surface,
-              calendarBackground: C.surface,
+              backgroundColor: 'rgba(32, 33, 36, 0.15)', // Darker background
+              calendarBackground: 'rgba(32, 33, 36, 0.15)', // Darker background
               textSectionTitleColor: C.ink1,
               selectedDayBackgroundColor: C.ink1,
               selectedDayTextColor: '#ffffff',

@@ -12,8 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { C, S, R, shadow, T } from '../../config/theme';
@@ -877,6 +879,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
 
   // Student fields
   const [studentId, setStudentId] = useState('');
@@ -912,6 +915,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
           setLastName(p.last_name || '');
           setPhone(p.phone || '');
           setEmail(p.email || '');
+          setProfilePhotoUrl(p.profile_photo_url || '');
           setEmployeeId(p.employee_id || '');
           setTDepartment(p.department || '');
           setPosition(p.position || '');
@@ -934,6 +938,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
           setLastName(p.last_name || '');
           setPhone(p.phone || '');
           setEmail(p.email || '');
+          setProfilePhotoUrl(p.profile_photo_url || '');
           setStudentId(p.student_id || '');
           setDepartment(p.department || '');
           setYearLevel(p.year_level ? String(p.year_level) : '');
@@ -1043,15 +1048,30 @@ export default function AccountSettingsScreen({ navigation }: any) {
         >
           {/* ── Profile overview card ── */}
           <View style={styles.profileCard}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitialsText}>
-                {([firstName[0], lastName[0]].filter(Boolean).join('') || '?').toUpperCase()}
-              </Text>
+            <LinearGradient
+              colors={['#111111', '#2a2a2a']}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarCircle}>
+                {profilePhotoUrl ? (
+                  <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitialsText}>
+                    {([firstName[0], lastName[0]].filter(Boolean).join('') || '?').toUpperCase()}
+                  </Text>
+                )}
+              </View>
             </View>
-            <Text style={styles.profileCardName}>
-              {[firstName, lastName].filter(Boolean).join(' ') || 'Your Name'}
-            </Text>
-            <Text style={styles.profileCardSub}>{email}</Text>
+            <View style={styles.profileCardInfo}>
+              <Text style={styles.profileCardName}>
+                {[firstName, lastName].filter(Boolean).join(' ') || 'Your Name'}
+              </Text>
+              <Text style={styles.profileCardSub}>{email}</Text>
+              <View style={styles.profileCardRole}>
+                <Text style={styles.profileCardRoleText}>{role === 'teacher' ? 'Teacher' : 'Student'}</Text>
+              </View>
+            </View>
           </View>
 
           {/* ── Personal Information ── */}
@@ -1178,7 +1198,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
                 </View>
                 <View style={[styles.menuRow, styles.lastRow]}>
                   <Text style={[styles.menuLabel, { flex: 1 }]}>Accepting Consultations</Text>
-                  <Switch value={isAccepting} onValueChange={setIsAccepting} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
+                  <Switch value={isAccepting} onValueChange={setIsAccepting} trackColor={{ false: C.border, true: '#202124' }} thumbColor="#fff" />
                 </View>
               </View>
 
@@ -1195,12 +1215,12 @@ export default function AccountSettingsScreen({ navigation }: any) {
             <View style={styles.menuRow}>
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.menuIcon} />
               <Text style={[styles.menuLabel, { flex: 1 }]}>Push Notifications</Text>
-              <Switch value={notifPush} onValueChange={setNotifPush} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
+              <Switch value={notifPush} onValueChange={setNotifPush} trackColor={{ false: C.border, true: '#202124' }} thumbColor="#fff" />
             </View>
             <View style={[styles.menuRow, styles.lastRow]}>
               <Ionicons name="mail-outline" size={20} color={C.ink2} style={styles.menuIcon} />
               <Text style={[styles.menuLabel, { flex: 1 }]}>Email Notifications</Text>
-              <Switch value={notifEmail} onValueChange={setNotifEmail} trackColor={{ false: C.border, true: C.orange }} thumbColor="#fff" />
+              <Switch value={notifEmail} onValueChange={setNotifEmail} trackColor={{ false: C.border, true: '#202124' }} thumbColor="#fff" />
             </View>
           </View>
 
@@ -1236,8 +1256,8 @@ export default function AccountSettingsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  screen: { flex: 1, backgroundColor: 'transparent' }, // Same as dashboard
+  loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
 
   safeHeader: { backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.borderLight },
   headerRow: {
@@ -1255,19 +1275,64 @@ const styles = StyleSheet.create({
 
   // Profile overview card
   profileCard: {
-    alignItems: 'center', paddingVertical: S.xl,
-    marginHorizontal: S.lg, marginBottom: S.xl,
-    backgroundColor: C.surface, borderRadius: R.xl,
-    borderWidth: 1, borderColor: C.borderLight, ...shadow.soft,
+    flexDirection: 'row', // Horizontal alignment
+    alignItems: 'center', 
+    paddingVertical: S.lg,
+    paddingHorizontal: S.lg,
+    marginHorizontal: S.lg, 
+    marginBottom: S.xl,
+    backgroundColor: 'transparent', // Will use LinearGradient
+    borderRadius: R.xl,
+    borderWidth: 1, 
+    borderColor: C.borderLight, 
+    ...shadow.soft,
+    overflow: 'hidden',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: S.md, // Add margin for horizontal layout
   },
   avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 60, height: 60, borderRadius: 30, // Smaller for horizontal layout
     backgroundColor: C.ink1, justifyContent: 'center', alignItems: 'center',
-    marginBottom: S.md,
+    overflow: 'hidden',
   },
-  avatarInitialsText: { fontSize: 26, fontWeight: '700', color: '#fff', letterSpacing: 1 },
-  profileCardName: { fontSize: 18, fontWeight: '700', color: C.ink1, marginBottom: 3 },
-  profileCardSub: { fontSize: 13, color: C.ink3 },
+  avatarImage: {
+    width: 60, 
+    height: 60, 
+    borderRadius: 30,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarInitialsText: { fontSize: 20, fontWeight: '700', color: '#fff', letterSpacing: 1 }, // Smaller for horizontal layout
+  profileCardInfo: { flex: 1 }, // New style for horizontal layout
+  profileCardName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 3 }, // White text for gradient
+  profileCardSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: S.sm }, // White with opacity
+  profileCardRole: {
+    backgroundColor: 'rgba(255,255,255,0.2)', // Translucent white for gradient
+    paddingHorizontal: S.md,
+    paddingVertical: 4,
+    borderRadius: R.full,
+    alignSelf: 'flex-start', // For horizontal layout
+  },
+  profileCardRoleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF', // White text
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
   // Section group labels
   groupLabel: { ...T.cap, marginHorizontal: S.lg + 4, marginBottom: S.sm, marginTop: 2 },
@@ -1275,7 +1340,8 @@ const styles = StyleSheet.create({
   // Form group container (card with flat rows)
   formGroup: {
     marginHorizontal: S.lg, marginBottom: S.xl,
-    backgroundColor: C.surface, borderRadius: R.lg,
+    backgroundColor: 'rgba(32, 33, 36, 0.08)', // Dark translucent like shortcut buttons
+    borderRadius: R.lg,
     borderWidth: 1, borderColor: C.borderLight,
     overflow: 'hidden', ...shadow.soft,
   },
