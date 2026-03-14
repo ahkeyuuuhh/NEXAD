@@ -61,9 +61,7 @@
       "bundler": "metro"
     },
     "updates": {
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "url": "https://u.expo.dev/c58f8a0d-88ab-4e14-93b2-368c91253b52"
+      "enabled": false
     },
     "plugins": [
       "expo-dev-client",
@@ -93,10 +91,10 @@
       ],
       "expo-web-browser"
     ],
-    "owner": "kaisxui",
+    "owner": "jheanne",
     "extra": {
       "eas": {
-        "projectId": "c58f8a0d-88ab-4e14-93b2-368c91253b52"
+        "projectId": "d2fcd258-30e3-4ae0-aab5-2e57d66de650"
       }
     },
     "runtimeVersion": {
