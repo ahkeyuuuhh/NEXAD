@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: S.lg,
-    backgroundColor: 'rgba(32, 33, 36, 0.05)', // Lighter translucent background
+    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
