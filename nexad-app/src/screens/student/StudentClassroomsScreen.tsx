@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderRadius: 8,
     marginBottom: 8,
     overflow: 'hidden',

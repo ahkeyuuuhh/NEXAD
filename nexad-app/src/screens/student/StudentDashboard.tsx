@@ -209,16 +209,21 @@ export default function StudentDashboard({ navigation, route }: any) {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await authContext.signOut();
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await authContext.signOut();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleRequestConsultation = () => {
@@ -1124,25 +1129,24 @@ const styles = StyleSheet.create({
   pendingBadge:        { backgroundColor: C.surfaceAlt, paddingHorizontal: S.sm + 2, paddingVertical: 4, borderRadius: R.full },
   pendingBadgeText:    { color: C.ink2, fontSize: 12, fontWeight: '600' as const },
   pendingCard: {
-    backgroundColor: 'rgba(32, 33, 36, 0.06)', // Lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Light translucent white card
     padding: S.lg,
     borderRadius: R.xl,
     marginBottom: S.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: C.borderLight,
-    ...shadow.soft,
+    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
   },
-  pendingAvatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
-  pendingAvatarText:   { fontSize: 18, fontWeight: '600' as const, color: C.ink2 },
+  pendingAvatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
+  pendingAvatarText:   { fontSize: 18, fontWeight: '600' as const, color: C.ink1 },
   pendingAvatarImg:    { width: 44, height: 44, borderRadius: 22 },
   pendingContent:      { flex: 1 },
-  pendingTeacher:      { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 2 },
-  pendingTopic:        { ...T.small, color: C.ink3, marginBottom: 4 },
-  pendingTime:         { ...T.tiny },
-  pendingStatusBadge:  { backgroundColor: C.surfaceAlt, paddingHorizontal: S.sm + 2, paddingVertical: 6, borderRadius: R.sm },
-  pendingStatusText:   { fontSize: 11, fontWeight: '600' as const, color: C.ink3 },
+  pendingTeacher:      { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 2, fontWeight: '700' as const },
+  pendingTopic:        { ...T.small, color: C.ink2, marginBottom: 4, fontWeight: '500' as const },
+  pendingTime:         { ...T.tiny, color: C.ink3 },
+  pendingStatusBadge:  { backgroundColor: 'transparent', paddingHorizontal: S.sm + 2, paddingVertical: 6, borderRadius: R.sm },
+  pendingStatusText:   { fontSize: 11, fontWeight: '600' as const, color: C.ink2 },
 
   // ─── Details Modal (redesigned) ──────────────────────
   detailsModalOverlay:  { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },

@@ -50,8 +50,6 @@ export default function InboxScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [conversationToArchive, setConversationToArchive] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -70,31 +68,52 @@ export default function InboxScreen({ navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  const handleArchiveConversation = async (conversationId: string) => {
-    if (!userId) return;
-    await conversationService.archiveConversation(conversationId, userId);
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-    setShowArchiveModal(false);
-    setConversationToArchive(null);
-  };
-
   const showArchiveConfirmation = (conversationId: string, name: string) => {
-    setConversationToArchive({ id: conversationId, name });
-    setShowArchiveModal(true);
+    Alert.alert(
+      'Archive Conversation',
+      `Archive the conversation with ${name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Archive',
+          style: 'default',
+          onPress: async () => {
+            if (!userId) return;
+            await conversationService.archiveConversation(conversationId, userId);
+            setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleDeleteConversation = async (conversationId: string, name: string) => {
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversationId);
+    Alert.alert(
+      'Delete Conversation',
+      `Permanently delete the conversation with ${name}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('conversations')
+              .delete()
+              .eq('id', conversationId);
 
-    if (error) {
-      Alert.alert('Error', 'Could not delete conversation.');
-      return;
-    }
+            if (error) {
+              Alert.alert('Error', 'Could not delete conversation.');
+              return;
+            }
 
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+            setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const renderLeftActions = (conversationId: string, name: string) => (
@@ -256,37 +275,6 @@ export default function InboxScreen({ navigation }: any) {
           }
         />
       )}
-
-      {/* Archive Confirmation Modal */}
-      {showArchiveModal && conversationToArchive && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Archive Conversation</Text>
-              <Text style={styles.modalMessage}>
-                Are you sure you want to archive the conversation with {conversationToArchive.name}?
-              </Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={() => {
-                    setShowArchiveModal(false);
-                    setConversationToArchive(null);
-                  }}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalArchiveButton}
-                  onPress={() => handleArchiveConversation(conversationToArchive.id)}
-                >
-                  <Text style={styles.modalArchiveText}>Archive</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -327,10 +315,10 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   cardUnread: {
-    opacity: 1, // High opacity for unread messages
+    opacity: 1, // Full opacity for unread messages
   },
   cardRead: {
-    opacity: 0.4, // Low opacity for read messages
+    opacity: 0.65, // Higher opacity for read messages (was 0.4, now more visible)
   },
 
   avatar: {
@@ -446,69 +434,5 @@ const styles = StyleSheet.create({
     marginTop: S.sm,
     textAlign: 'center',
     lineHeight: 18,
-  },
-
-  // Archive Confirmation Modal (iOS style)
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalContainer: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 14,
-    marginHorizontal: 40,
-    overflow: 'hidden',
-  },
-  modalContent: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
-  },
-  modalMessage: {
-    fontSize: 13,
-    color: '#000',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#C6C6C8',
-    marginHorizontal: -20,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: '#C6C6C8',
-  },
-  modalArchiveButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 17,
-    color: '#007AFF',
-    fontWeight: '400',
-  },
-  modalArchiveText: {
-    fontSize: 17,
-    color: '#FF3B30',
-    fontWeight: '600',
   },
 });

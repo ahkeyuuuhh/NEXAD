@@ -62,16 +62,30 @@ export default function ArchivedInboxScreen({ navigation }: any) {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  const handleUnarchive = async (conversationId: string) => {
+  const handleUnarchive = async (conversationId: string, name: string) => {
     if (!userId) return;
-    await conversationService.unarchiveConversation(conversationId, userId);
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    Alert.alert(
+      'Unarchive Conversation',
+      `Unarchive the conversation with ${name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unarchive',
+          style: 'default',
+          onPress: async () => {
+            await conversationService.unarchiveConversation(conversationId, userId);
+            setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
-  const handleDelete = async (conversationId: string) => {
+  const handleDelete = async (conversationId: string, name: string) => {
     Alert.alert(
       'Delete Conversation',
-      'Permanently delete this conversation?',
+      `Permanently delete the conversation with ${name}? This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -89,7 +103,8 @@ export default function ArchivedInboxScreen({ navigation }: any) {
             setConversations((prev) => prev.filter((c) => c.id !== conversationId));
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -106,11 +121,11 @@ export default function ArchivedInboxScreen({ navigation }: any) {
     });
   };
 
-  const renderLeftActions = (conversationId: string) => (
+  const renderLeftActions = (conversationId: string, name: string) => (
     <View style={styles.swipeActionsRowLeft}>
       <TouchableOpacity
         style={styles.swipeUnarchiveAction}
-        onPress={() => handleUnarchive(conversationId)}
+        onPress={() => handleUnarchive(conversationId, name)}
       >
         <Ionicons name="arrow-undo-outline" size={22} color="#fff" />
         <Text style={styles.swipeActionText}>Unarchive</Text>
@@ -118,11 +133,11 @@ export default function ArchivedInboxScreen({ navigation }: any) {
     </View>
   );
 
-  const renderRightActions = (conversationId: string) => (
+  const renderRightActions = (conversationId: string, name: string) => (
     <View style={styles.swipeActionsRow}>
       <TouchableOpacity
         style={styles.swipeDeleteAction}
-        onPress={() => handleDelete(conversationId)}
+        onPress={() => handleDelete(conversationId, name)}
       >
         <Ionicons name="trash-outline" size={22} color="#fff" />
         <Text style={styles.swipeActionText}>Delete</Text>
@@ -142,8 +157,8 @@ export default function ArchivedInboxScreen({ navigation }: any) {
 
     return (
       <Swipeable
-        renderLeftActions={() => renderLeftActions(item.id)}
-        renderRightActions={() => renderRightActions(item.id)}
+        renderLeftActions={() => renderLeftActions(item.id, name)}
+        renderRightActions={() => renderRightActions(item.id, name)}
         overshootLeft={false}
         overshootRight={false}
         friction={2}
@@ -243,9 +258,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: S.md,
     paddingVertical: S.sm,
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    backgroundColor: 'transparent', // Seamless - no white background
+    borderBottomWidth: 0, // Remove border for seamless look
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.ink1 },
@@ -332,7 +346,7 @@ const styles = StyleSheet.create({
   swipeUnarchiveAction: {
     width: 84,
     borderRadius: R.lg,
-    backgroundColor: '#16A34A',
+    backgroundColor: '#000000', // Black background
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'column',

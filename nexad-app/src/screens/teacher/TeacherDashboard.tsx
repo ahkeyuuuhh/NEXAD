@@ -333,7 +333,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
   const handleMarkAsCompleted = async (consultationId: string) => {
     Alert.alert(
       'Mark as Done',
-      'Are you sure you want to mark this consultation as completed?',
+      'Mark this consultation as completed?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -393,16 +393,21 @@ export default function TeacherDashboard({ navigation, route }: any) {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await authContext.signOut();
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await authContext.signOut();
+          },
         },
-      },
-    ]);
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleApproveRequest = async (requestId: string) => {

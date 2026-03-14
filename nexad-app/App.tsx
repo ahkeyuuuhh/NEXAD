@@ -95,26 +95,30 @@ function HomeScreen() {
 const Stack = createStackNavigator();
 
 // ─── Shared transition configs ───────────────────────────────────────────────
+// Smooth horizontal slide transition (iOS-style)
 const slideTransition = {
   cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 280, easing: Easing.out(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
-    close: { animation: 'timing' as const, config: { duration: 240, easing: Easing.in(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
+    open:  { animation: 'timing' as const, config: { duration: 300, easing: Easing.out(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
+    close: { animation: 'timing' as const, config: { duration: 250, easing: Easing.in(Easing.bezier(0.25, 0.1, 0.25, 1)) } },
   },
+  gestureEnabled: true,
+  gestureDirection: 'horizontal' as const,
 };
 
+// Fade + slide transition for special screens
 const fadeSlideTransition = {
   cardStyleInterpolator: ({ current, next, layouts }: any) => {
     const translateX = current.progress.interpolate({
       inputRange: [0, 1],
-      outputRange: [layouts.screen.width * 0.08, 0],
+      outputRange: [layouts.screen.width * 0.05, 0],
     });
     const opacity = current.progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 0.5, 1],
     });
     const overlayOpacity = next
-      ? next.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.1] })
+      ? next.progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.05] })
       : 0;
     return {
       cardStyle: { transform: [{ translateX }], opacity },
@@ -122,17 +126,22 @@ const fadeSlideTransition = {
     };
   },
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 320, easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)) } },
-    close: { animation: 'timing' as const, config: { duration: 260, easing: Easing.in(Easing.bezier(0.16, 1, 0.3, 1)) } },
+    open:  { animation: 'timing' as const, config: { duration: 300, easing: Easing.out(Easing.bezier(0.16, 1, 0.3, 1)) } },
+    close: { animation: 'timing' as const, config: { duration: 250, easing: Easing.in(Easing.bezier(0.16, 1, 0.3, 1)) } },
   },
+  gestureEnabled: true,
+  gestureDirection: 'horizontal' as const,
 };
 
+// Modal transition (vertical slide from bottom)
 const modalTransition = {
   cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 340, easing: Easing.out(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
-    close: { animation: 'timing' as const, config: { duration: 280, easing: Easing.in(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
+    open:  { animation: 'timing' as const, config: { duration: 320, easing: Easing.out(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
+    close: { animation: 'timing' as const, config: { duration: 260, easing: Easing.in(Easing.bezier(0.25, 0.46, 0.45, 0.94)) } },
   },
+  gestureEnabled: true,
+  gestureDirection: 'vertical' as const,
 };
 
 function AuthStack() {

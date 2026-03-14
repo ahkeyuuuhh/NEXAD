@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 12, paddingBottom: 120 },
 
   card: {
-    backgroundColor: "#fff", borderRadius: 8, marginBottom: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 8, marginBottom: 12,
     overflow: "hidden", elevation: 2, shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4,
   },

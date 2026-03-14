@@ -186,7 +186,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
   const handleMarkAsCompleted = async (consultationId: string) => {
     Alert.alert(
       'Mark as Done',
-      'Are you sure you want to mark this consultation as completed?',
+      'Mark this consultation as completed?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -311,8 +311,8 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
               />
             )}
             theme={{
-              backgroundColor: 'rgba(32, 33, 36, 0.25)', // Darker background for whole calendar
-              calendarBackground: 'rgba(32, 33, 36, 0.25)', // Darker background for whole calendar
+              backgroundColor: 'transparent', // Seamless - no background
+              calendarBackground: 'transparent', // Seamless - no background
               textSectionTitleColor: C.ink1,
               selectedDayBackgroundColor: C.ink1,
               selectedDayTextColor: '#ffffff',

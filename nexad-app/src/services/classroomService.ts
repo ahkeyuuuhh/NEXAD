@@ -430,7 +430,7 @@ export const classroomService = {
             const profile = profileMap.get(m.student_id);
             members.push({
               id: m.student_id,
-              first_name: profile?.first_name || 'Student',
+              first_name: profile?.first_name || '',
               last_name: profile?.last_name || '',
               email: profile?.email || '',
               profile_photo_url: profile?.profile_photo_url || null,
@@ -447,7 +447,7 @@ export const classroomService = {
         (studentMembers || []).forEach((member: any) => {
           members.push({
             id: member.student_user_id,
-            first_name: member.first_name || 'Student',
+            first_name: member.first_name || '',
             last_name: member.last_name || '',
             email: member.email || '',
             profile_photo_url: member.profile_photo_url || null,
@@ -492,10 +492,10 @@ export const classroomService = {
           }
         }
 
-        // Add teacher to members list with fallback values
+        // Add teacher to members list with proper name display (no fallback to generic names)
         members.unshift({
           id: teacherId,
-          first_name: teacherProfile?.first_name || 'Teacher',
+          first_name: teacherProfile?.first_name || '',
           last_name: teacherProfile?.last_name || '',
           email: teacherProfile?.email || '',
           profile_photo_url: teacherProfile?.profile_photo_url || null,

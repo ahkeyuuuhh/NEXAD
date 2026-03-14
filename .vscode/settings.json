@@ -45,5 +45,6 @@
   "typescript.tsserver.watchOptions": {
     "watchFile": "useFsEvents",
     "watchDirectory": "useFsEvents"
-  }
+  },
+  "typescript.autoClosingTags": false
 }

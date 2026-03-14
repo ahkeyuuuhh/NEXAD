@@ -472,16 +472,30 @@ export default function ChatScreen({ navigation, route }: any) {
   const handleDeleteForEveryone = async (msgId: string) => {
     setShowMessageActions(false);
     setSelectedMessage(null);
-    try {
-      const { error } = await supabase
-        .from('conversation_messages')
-        .delete()
-        .eq('id', msgId);
-      if (error) throw error;
-      setMessages((prev) => prev.filter((m) => m.id !== msgId));
-    } catch {
-      Alert.alert('Error', 'Could not delete message.');
-    }
+    Alert.alert(
+      'Delete Message',
+      'Delete this message for everyone? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('conversation_messages')
+                .delete()
+                .eq('id', msgId);
+              if (error) throw error;
+              setMessages((prev) => prev.filter((m) => m.id !== msgId));
+            } catch {
+              Alert.alert('Error', 'Could not delete message.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // ── Delete for Me (local only) ─────────────────────────────────────────────
@@ -531,8 +545,22 @@ export default function ChatScreen({ navigation, route }: any) {
   // ── Archive conversation from chat ────────────────────────────────────────
   const handleArchiveFromChat = async () => {
     setShowHeaderMenu(false);
-    await conversationService.archiveConversation(conversationId, userId);
-    navigation.goBack();
+    Alert.alert(
+      'Archive Conversation',
+      'Archive this conversation? You can find it in your archived messages.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Archive',
+          style: 'default',
+          onPress: async () => {
+            await conversationService.archiveConversation(conversationId, userId);
+            navigation.goBack();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // ── Delete entire conversation ─────────────────────────────────────────────
@@ -770,9 +798,9 @@ export default function ChatScreen({ navigation, route }: any) {
             keyboardDismissMode="interactive"
             automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             ListEmptyComponent={
-              <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
-                <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
+              <View style={styles.emptyChat}>
                 <Ionicons name="chatbubble-outline" size={40} color={C.ink5} />
+                <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
               </View>
             }
           />
@@ -1294,11 +1322,11 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: C.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
+    backgroundColor: 'transparent', // Seamless with dashboard background
+    borderTopWidth: 0, // Remove border for cleaner look
     paddingHorizontal: S.md,
-    paddingTop: S.sm,
+    paddingTop: S.md,
+    paddingBottom: S.xl, // Even more padding below textbox (away from device navigation)
     gap: S.sm,
   },
   attachBtn: {

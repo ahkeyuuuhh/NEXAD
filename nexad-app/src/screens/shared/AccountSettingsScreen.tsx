@@ -829,7 +829,8 @@ const hsStyles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.lg, minHeight: 54,
-    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    backgroundColor: 'transparent', // Completely transparent
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0, 0, 0, 0.04)', // Very subtle divider
   },
   lastRow: { borderBottomWidth: 0 },
   label: { fontSize: 14, color: C.ink3, fontWeight: '500' as const },
@@ -1337,32 +1338,34 @@ const styles = StyleSheet.create({
   // Section group labels
   groupLabel: { ...T.cap, marginHorizontal: S.lg + 4, marginBottom: S.sm, marginTop: 2 },
 
-  // Form group container (card with flat rows)
+  // Form group container (very light translucent card - almost invisible)
   formGroup: {
     marginHorizontal: S.lg, marginBottom: S.xl,
-    backgroundColor: 'rgba(32, 33, 36, 0.03)', // Even lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Even lighter translucent white
     borderRadius: R.lg,
-    borderWidth: 1, borderColor: C.borderLight,
-    overflow: 'hidden', ...shadow.soft,
+    borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.04)', // Even more subtle border
+    overflow: 'hidden',
   },
   paddedGroup: { padding: S.lg },
 
-  // Horizontal form rows (label left, input right)
+  // Horizontal form rows (label left, input right) - completely flat
   formRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.lg, minHeight: 54,
-    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    backgroundColor: 'transparent', // Completely transparent
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0, 0, 0, 0.04)', // Very subtle divider
   },
   lastRow: { borderBottomWidth: 0 },
   rowLabel: { fontSize: 14, color: C.ink2, fontWeight: '600' as const, flexShrink: 0, marginRight: S.sm }, // Darker and bolder
   rowInput: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md, backgroundColor: 'transparent' }, // Transparent background
   rowValueDisabled: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink3, backgroundColor: 'transparent' }, // Transparent background
 
-  // Menu rows (icon + label + switch)
+  // Menu rows (icon + label + switch) - completely flat
   menuRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: S.lg, minHeight: 54,
-    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    backgroundColor: 'transparent', // Completely transparent
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0, 0, 0, 0.04)', // Very subtle divider
   },
   menuIcon: { marginRight: S.md },
   menuLabel: { ...T.body, color: C.ink1 },

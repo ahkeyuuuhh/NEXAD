@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
-  Modal,
   Alert,
   Image,
   ScrollView,
@@ -41,7 +40,6 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('Classwork');
-  const [showMenu, setShowMenu] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -111,7 +109,6 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const studentMembers = members.filter(m => m.is_teacher !== true);
 
   const handleUnenroll = () => {
-    setShowMenu(false);
     Alert.alert(
       'Unenroll from Classroom',
       `Are you sure you want to unenroll from "${classroom?.name}"?`,
@@ -144,22 +141,41 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
     );
   };
 
-  const handleInviteCode = () => {
-    setShowMenu(false);
-    navigation.navigate('InviteCode', {
-      classroomName: classroom?.name,
-      inviteCode: classroom?.invite_code,
-    });
+  const handleMenuPress = () => {
+    Alert.alert(
+      'Classroom Options',
+      undefined,
+      [
+        {
+          text: 'View Invite Code',
+          onPress: () => {
+            navigation.navigate('InviteCode', {
+              classroomName: classroom?.name,
+              inviteCode: classroom?.invite_code,
+            });
+          },
+        },
+        {
+          text: 'View Classmates',
+          onPress: () => {
+            navigation.navigate('EnrolledStudents', { classroomId });
+          },
+        },
+        {
+          text: 'Unenroll from Class',
+          onPress: handleUnenroll,
+          style: 'destructive',
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
-  const handleClassmates = () => {
-    setShowMenu(false);
-    navigation.navigate('EnrolledStudents', {
-      classroomId,
-      classroomName: classroom?.name,
-      viewOnly: true,
-    });
-  };
+
 
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === 'announcement') {
@@ -290,7 +306,7 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
             <View style={styles.bannerCenter}>
               <Text style={styles.bannerTitle}>{classroom?.name || 'Classroom'}</Text>
             </View>
-            <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.bannerMenuBtn}>
+            <TouchableOpacity onPress={handleMenuPress} style={styles.bannerMenuBtn}>
               <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -378,54 +394,6 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
-
-      {/* Options Menu - iOS Style Modal */}
-      <Modal
-        visible={showMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <View style={styles.iosModalOverlay}>
-          <TouchableOpacity
-            style={styles.iosModalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowMenu(false)}
-          />
-          <View style={styles.iosMenuModal}>
-            <View style={styles.iosModalHeader}>
-              <Text style={styles.iosModalTitle}>Classroom Options</Text>
-            </View>
-            
-            <TouchableOpacity style={styles.iosMenuItem} onPress={handleInviteCode}>
-              <Ionicons name="key-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>View Invite Code</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuDivider} />
-            
-            <TouchableOpacity style={styles.iosMenuItem} onPress={handleClassmates}>
-              <Ionicons name="people-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>View Classmates</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity style={styles.iosMenuItem} onPress={handleUnenroll}>
-              <Ionicons name="exit-outline" size={22} color="#FF3B30" style={styles.iosMenuIcon} />
-              <Text style={[styles.iosMenuItemText, { color: '#FF3B30' }]}>Unenroll from Class</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity style={styles.iosCancelButton} onPress={() => setShowMenu(false)}>
-              <Text style={styles.iosCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -484,7 +452,7 @@ const styles = StyleSheet.create({
 
   // Activity Cards
   activityCard: {
-    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12,
+    flexDirection: 'row', backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 12,
     borderWidth: 1, borderColor: '#DADCE0',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
@@ -525,7 +493,7 @@ const styles = StyleSheet.create({
   },
   personCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 8,
     borderWidth: 1, borderColor: '#DADCE0',
   },
   personAvatar: {
@@ -541,78 +509,4 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: 80 },
   emptyTitle: { fontSize: 18, fontWeight: '500', color: '#5F6368', marginTop: 16 },
   emptyText: { fontSize: 14, color: '#9AA0A6', marginTop: 6 },
-
-  // iOS-style Modal Menu
-  iosModalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.4)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  iosModalBackdrop: { 
-    position: 'absolute', 
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    bottom: 0 
-  },
-  iosMenuModal: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 14,
-    width: '100%',
-    maxWidth: 320,
-    overflow: 'hidden',
-  },
-  iosModalHeader: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-    backgroundColor: '#FFFFFF',
-  },
-  iosModalTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  iosMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    minHeight: 56,
-  },
-  iosMenuIcon: { 
-    marginRight: 16,
-    width: 22,
-  },
-  iosMenuItemText: { 
-    fontSize: 17, 
-    color: '#000000',
-    flex: 1,
-  },
-  iosMenuDivider: { 
-    height: StyleSheet.hairlineWidth, 
-    backgroundColor: '#C6C6C8',
-    marginLeft: 58,
-  },
-  iosMenuSeparator: {
-    height: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  iosCancelButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  iosCancelButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
 });

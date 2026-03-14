@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
-  Modal,
   StatusBar,
   ScrollView,
   Image,
@@ -37,9 +36,6 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Classwork");
-  const [showFabMenu, setShowFabMenu] = useState(false);
-  const [showEllipsisMenu, setShowEllipsisMenu] = useState(false);
-  const [itemMenuTarget, setItemMenuTarget] = useState<{ id: string; type: "announcement" | "bin"; item: any } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,8 +86,50 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const onRefresh = () => { setRefreshing(true); loadClassroomData(); };
 
   // ── Ellipsis menu ────────────────────────────────────────────────────────
+  const handleEllipsisMenu = () => {
+    Alert.alert(
+      "Classroom Options",
+      undefined,
+      [
+        {
+          text: "Edit Classroom",
+          onPress: () => {
+            navigation.navigate("CreateClassroom", { editMode: true, classroom });
+          },
+        },
+        {
+          text: "Enrolled Students",
+          onPress: () => {
+            navigation.navigate("EnrolledStudents", {
+              classroomId,
+              classroomName: classroom?.name || "",
+            });
+          },
+        },
+        {
+          text: "Invite Code",
+          onPress: () => {
+            navigation.navigate("InviteCode", {
+              classroomName: classroom?.name || "",
+              inviteCode: classroom?.invite_code || "",
+            });
+          },
+        },
+        {
+          text: "Delete Classroom",
+          style: "destructive",
+          onPress: () => handleDeleteClassroom(),
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const handleDeleteClassroom = () => {
-    setShowEllipsisMenu(false);
     Alert.alert("Delete Classroom", `Delete "${classroom?.name}"? This cannot be undone.`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -129,8 +167,34 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   };
 
   // ── Per-card item actions ────────────────────────────────────────────────
+  const handleAnnouncementMenu = (item: any) => {
+    Alert.alert(
+      "Announcement Options",
+      undefined,
+      [
+        {
+          text: "Edit",
+          onPress: () => {
+            navigation.navigate("CreateAnnouncement", {
+              classroomId, classroomName: classroom?.name || "", editMode: true, announcement: item,
+            });
+          },
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => handleDeleteAnnouncement(item),
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const handleDeleteAnnouncement = (item: any) => {
-    setItemMenuTarget(null);
     Alert.alert("Delete Announcement", `Delete "${item.title}"?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -144,15 +208,32 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     ]);
   };
 
-  const handleEditAnnouncement = (item: any) => {
-    setItemMenuTarget(null);
-    navigation.navigate("CreateAnnouncement", {
-      classroomId, classroomName: classroom?.name || "", editMode: true, announcement: item,
-    });
+  const handleBinMenu = (item: any) => {
+    Alert.alert(
+      "Assignment Options",
+      undefined,
+      [
+        {
+          text: "Edit",
+          onPress: () => {
+            navigation.navigate("CreateAttachmentBin", { classroomId, editMode: true, bin: item });
+          },
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => handleDeleteBin(item),
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleDeleteBin = (item: any) => {
-    setItemMenuTarget(null);
     Alert.alert("Delete Bin", `Delete "${item.title}"? All submissions will be lost.`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -166,9 +247,30 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     ]);
   };
 
-  const handleEditBin = (item: any) => {
-    setItemMenuTarget(null);
-    navigation.navigate("CreateAttachmentBin", { classroomId, editMode: true, bin: item });
+  const handleFabMenu = () => {
+    Alert.alert(
+      "Create Content",
+      undefined,
+      [
+        {
+          text: "Announcement",
+          onPress: () => {
+            navigation.navigate("CreateAnnouncement", { classroomId, classroomName: classroom?.name || "" });
+          },
+        },
+        {
+          text: "Assignment",
+          onPress: () => {
+            navigation.navigate("CreateAttachmentBin", { classroomId });
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // ── Tab content ──────────────────────────────────────────────────────────
@@ -192,7 +294,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       </View>
       <TouchableOpacity
         style={styles.cardEllipsisBtn}
-        onPress={() => setItemMenuTarget({ id: item.id, type: "announcement", item })}
+        onPress={() => handleAnnouncementMenu(item)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="ellipsis-vertical" size={18} color="#5F6368" />
@@ -229,7 +331,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         <TouchableOpacity
           onPress={(e) => {
             e.stopPropagation();
-            setItemMenuTarget({ id: item.id, type: "bin", item });
+            handleBinMenu(item);
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -285,7 +387,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
             <View style={styles.bannerCenter}>
               <Text style={styles.bannerTitle}>{classroom.name}</Text>
             </View>
-            <TouchableOpacity onPress={() => setShowEllipsisMenu(true)} style={styles.bannerMenuBtn}>
+            <TouchableOpacity onPress={handleEllipsisMenu} style={styles.bannerMenuBtn}>
               <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -388,198 +490,9 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       )}
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowFabMenu(true)} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} onPress={handleFabMenu} activeOpacity={0.85}>
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
-
-      {/* Ellipsis dropdown menu - iOS Style */}
-      <Modal
-        visible={showEllipsisMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowEllipsisMenu(false)}
-      >
-        <View style={styles.iosModalOverlay}>
-          <TouchableOpacity
-            style={styles.iosModalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowEllipsisMenu(false)}
-          />
-          <View style={styles.iosMenuModal}>
-            <View style={styles.iosModalHeader}>
-              <Text style={styles.iosModalTitle}>Classroom Options</Text>
-            </View>
-            
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() => {
-                setShowEllipsisMenu(false);
-                navigation.navigate("CreateClassroom", { editMode: true, classroom });
-              }}
-            >
-              <Ionicons name="pencil-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Edit Classroom</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuDivider} />
-
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() => {
-                setShowEllipsisMenu(false);
-                navigation.navigate("EnrolledStudents", {
-                  classroomId,
-                  classroomName: classroom?.name || "",
-                });
-              }}
-            >
-              <Ionicons name="people-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Enrolled Students</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuDivider} />
-
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() => {
-                setShowEllipsisMenu(false);
-                navigation.navigate("InviteCode", {
-                  classroomName: classroom?.name || "",
-                  inviteCode: classroom?.invite_code || "",
-                });
-              }}
-            >
-              <Ionicons name="key-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Invite Code</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-
-            <TouchableOpacity style={styles.iosMenuItem} onPress={handleDeleteClassroom}>
-              <Ionicons name="trash-outline" size={22} color="#FF3B30" style={styles.iosMenuIcon} />
-              <Text style={[styles.iosMenuItemText, { color: "#FF3B30" }]}>Delete Classroom</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity style={styles.iosCancelButton} onPress={() => setShowEllipsisMenu(false)}>
-              <Text style={styles.iosCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* FAB dropdown - iOS Style */}
-      <Modal
-        visible={showFabMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFabMenu(false)}
-      >
-        <View style={styles.iosModalOverlay}>
-          <TouchableOpacity
-            style={styles.iosModalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowFabMenu(false)}
-          />
-          <View style={styles.iosMenuModal}>
-            <View style={styles.iosModalHeader}>
-              <Text style={styles.iosModalTitle}>Create Content</Text>
-            </View>
-            
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() => {
-                setShowFabMenu(false);
-                navigation.navigate("CreateAnnouncement", { classroomId, classroomName: classroom?.name || "" });
-              }}
-            >
-              <Ionicons name="megaphone-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Announcement</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuDivider} />
-            
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() => {
-                setShowFabMenu(false);
-                navigation.navigate("CreateAttachmentBin", { classroomId });
-              }}
-            >
-              <Ionicons name="folder-open-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Assignment</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity style={styles.iosCancelButton} onPress={() => setShowFabMenu(false)}>
-              <Text style={styles.iosCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Per-card item menu - iOS Style */}
-      <Modal
-        visible={!!itemMenuTarget}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setItemMenuTarget(null)}
-      >
-        <View style={styles.iosModalOverlay}>
-          <TouchableOpacity 
-            style={styles.iosModalBackdrop} 
-            activeOpacity={1} 
-            onPress={() => setItemMenuTarget(null)}
-          />
-          <View style={styles.iosMenuModal}>
-            <View style={styles.iosModalHeader}>
-              <Text style={styles.iosModalTitle}>
-                {itemMenuTarget?.type === "announcement" ? "Announcement Options" : "Assignment Options"}
-              </Text>
-            </View>
-            
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() =>
-                itemMenuTarget?.type === "announcement"
-                  ? handleEditAnnouncement(itemMenuTarget.item)
-                  : handleEditBin(itemMenuTarget!.item)
-              }
-            >
-              <Ionicons name="pencil-outline" size={22} color="#007AFF" style={styles.iosMenuIcon} />
-              <Text style={styles.iosMenuItemText}>Edit</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity
-              style={styles.iosMenuItem}
-              onPress={() =>
-                itemMenuTarget?.type === "announcement"
-                  ? handleDeleteAnnouncement(itemMenuTarget.item)
-                  : handleDeleteBin(itemMenuTarget!.item)
-              }
-            >
-              <Ionicons name="trash-outline" size={22} color="#FF3B30" style={styles.iosMenuIcon} />
-              <Text style={[styles.iosMenuItemText, { color: "#FF3B30" }]}>Delete</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.iosMenuSeparator} />
-            
-            <TouchableOpacity style={styles.iosCancelButton} onPress={() => setItemMenuTarget(null)}>
-              <Text style={styles.iosCancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -635,7 +548,7 @@ const styles = StyleSheet.create({
 
   // Activity Cards
   activityCard: {
-    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12,
+    flexDirection: 'row', backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 12,
     borderWidth: 1, borderColor: '#DADCE0',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
@@ -668,7 +581,7 @@ const styles = StyleSheet.create({
   },
   personCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 8,
     borderWidth: 1, borderColor: '#DADCE0',
   },
   personAvatar: {
@@ -695,79 +608,5 @@ const styles = StyleSheet.create({
     justifyContent: "center", alignItems: "center",
     elevation: 6, shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
-  },
-
-  // iOS-style Modal Menu
-  iosModalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.4)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  iosModalBackdrop: { 
-    position: 'absolute', 
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    bottom: 0 
-  },
-  iosMenuModal: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 14,
-    width: '100%',
-    maxWidth: 320,
-    overflow: 'hidden',
-  },
-  iosModalHeader: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#C6C6C8',
-    backgroundColor: '#FFFFFF',
-  },
-  iosModalTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  iosMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    minHeight: 56,
-  },
-  iosMenuIcon: { 
-    marginRight: 16,
-    width: 22,
-  },
-  iosMenuItemText: { 
-    fontSize: 17, 
-    color: '#000000',
-    flex: 1,
-  },
-  iosMenuDivider: { 
-    height: StyleSheet.hairlineWidth, 
-    backgroundColor: '#C6C6C8',
-    marginLeft: 58,
-  },
-  iosMenuSeparator: {
-    height: 8,
-    backgroundColor: '#F2F2F7',
-  },
-  iosCancelButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  iosCancelButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
   },
 });
