@@ -385,92 +385,106 @@ export const classroomService = {
   },
 
   /**
-   * Get classroom members with profile details.
-   * Simplified approach with better error handling.
+   * Get classroom members (students + teacher)
+   * Uses direct queries with fallback for RLS issues
    */
   async getClassroomMembers(classroomId: string): Promise<ApiResponse<any[]>> {
     try {
-      console.log('=== Getting classroom members for:', classroomId);
+      console.log('Getting classroom members for:', classroomId);
       const members: any[] = [];
 
-      // Step 1: Get classroom info
+      // First, try the RPC function if it exists
+      try {
+        const { data: rpcMembers, error: rpcError } = await supabase
+          .rpc('get_classroom_members', { p_classroom_id: classroomId });
+
+        if (!rpcError && rpcMembers) {
+          console.log('RPC success, got members:', rpcMembers.length);
+          // Add students from RPC result
+          rpcMembers.forEach((member: any) => {
+            members.push({
+              id: member.student_user_id,
+              first_name: member.first_name || 'Student',
+              last_name: member.last_name || '',
+              email: member.email || '',
+              profile_photo_url: member.profile_photo_url || null,
+              student_id: member.student_id_number || null,
+              department: member.department || null,
+              course: member.course || null,
+              joined_at: member.joined_at,
+              is_teacher: false,
+            });
+          });
+        } else {
+          throw new Error('RPC failed: ' + (rpcError?.message || 'Unknown error'));
+        }
+      } catch (rpcErr) {
+        console.log('RPC failed, falling back to direct queries:', rpcErr);
+        
+        // Fallback: Direct query approach
+        const { data: memberships, error: membershipError } = await supabase
+          .from('classroom_memberships')
+          .select('student_id, joined_at')
+          .eq('classroom_id', classroomId)
+          .eq('is_active', true);
+
+        if (membershipError) {
+          console.error('Membership query error:', membershipError);
+          throw membershipError;
+        }
+
+        if (memberships && memberships.length > 0) {
+          const studentIds = memberships.map((m: any) => m.student_id);
+          
+          const { data: profiles, error: profilesError } = await supabase
+            .from('student_profiles')
+            .select('user_id, first_name, last_name, email, profile_photo_url, student_id, department, course')
+            .in('user_id', studentIds);
+
+          if (profilesError) {
+            console.error('Profiles query error:', profilesError);
+            throw profilesError;
+          }
+
+          // Create profile map
+          const profileMap = new Map(
+            (profiles || []).map((p: any) => [p.user_id, p])
+          );
+
+          // Add students to members array
+          memberships.forEach((membership: any) => {
+            const profile = profileMap.get(membership.student_id);
+            members.push({
+              id: membership.student_id,
+              first_name: profile?.first_name || 'Student',
+              last_name: profile?.last_name || '',
+              email: profile?.email || '',
+              profile_photo_url: profile?.profile_photo_url || null,
+              student_id: profile?.student_id || null,
+              department: profile?.department || null,
+              course: profile?.course || null,
+              joined_at: membership.joined_at,
+              is_teacher: false,
+            });
+          });
+        }
+      }
+
+      // Get classroom info to add teacher
       const { data: classroom, error: classroomError } = await supabase
         .from('classrooms')
-        .select('teacher_id, created_by, name')
+        .select('teacher_id, name')
         .eq('id', classroomId)
         .single();
 
       if (classroomError) {
-        console.error('Classroom error:', classroomError);
+        console.error('Classroom query error:', classroomError);
         return { error: classroomError.message };
       }
 
-      console.log('Classroom found:', classroom);
-
-      // Step 2: Get all memberships for this classroom
-      const { data: memberships, error: membershipError } = await supabase
-        .from('classroom_memberships')
-        .select('id, student_id, joined_at, is_active')
-        .eq('classroom_id', classroomId)
-        .eq('is_active', true)
-        .order('joined_at', { ascending: false });
-
-      if (membershipError) {
-        console.error('Membership error:', membershipError);
-        return { error: membershipError.message };
-      }
-
-      console.log('Found memberships:', memberships);
-
-      // Step 3: Get student profiles for all members
-      if (memberships && memberships.length > 0) {
-        const studentIds = memberships.map((m: any) => m.student_id);
-        console.log('Looking up student profiles for IDs:', studentIds);
-
-        const { data: profiles, error: profilesError } = await supabase
-          .from('student_profiles')
-          .select('user_id, first_name, last_name, email, profile_photo_url, student_id, department, course')
-          .in('user_id', studentIds);
-
-        if (profilesError) {
-          console.error('Profiles error:', profilesError);
-        }
-
-        console.log('Found student profiles:', profiles);
-
-        // Create profile map for easy lookup
-        const profileMap = new Map(
-          (profiles || []).map((p: any) => [p.user_id, p])
-        );
-
-        // Add each student to members array
-        memberships.forEach((membership: any) => {
-          const profile = profileMap.get(membership.student_id);
-          console.log('Processing membership:', membership.student_id, 'with profile:', profile);
-          
-          const member = {
-            id: membership.student_id,
-            first_name: profile?.first_name || 'Student',
-            last_name: profile?.last_name || '',
-            email: profile?.email || '',
-            profile_photo_url: profile?.profile_photo_url || null,
-            student_id: profile?.student_id || null,
-            department: profile?.department || null,
-            course: profile?.course || null,
-            joined_at: membership.joined_at,
-            is_teacher: false, // Explicitly set to false for students
-          };
-          
-          console.log('Adding student member:', member);
-          members.push(member);
-        });
-      }
-
-      // Step 4: Add teacher to the list
-      const teacherId = classroom.teacher_id || classroom.created_by;
+      // Add teacher to the list
+      const teacherId = classroom.teacher_id;
       if (teacherId) {
-        console.log('Adding teacher:', teacherId);
-        
         // Try to get teacher profile
         let { data: teacherProfile } = await supabase
           .from('teacher_profiles')
@@ -495,20 +509,16 @@ export const classroomService = {
           last_name: teacherProfile?.last_name || '',
           email: teacherProfile?.email || '',
           profile_photo_url: teacherProfile?.profile_photo_url || null,
-          is_teacher: true, // Explicitly set to true for teacher
+          is_teacher: true,
         };
         
-        console.log('Adding teacher member:', teacherMember);
         members.unshift(teacherMember);
       }
-
-      console.log('=== Final members array:', members);
-      console.log('Total members:', members.length);
-      console.log('Students only:', members.filter(m => !m.is_teacher));
       
+      console.log('Final members count:', members.length);
       return { data: members };
     } catch (error: any) {
-      console.error('=== Error in getClassroomMembers:', error);
+      console.error('getClassroomMembers error:', error);
       return { error: error.message || 'Failed to fetch members' };
     }
   },

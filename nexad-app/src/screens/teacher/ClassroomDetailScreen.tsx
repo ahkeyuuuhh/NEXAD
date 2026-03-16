@@ -341,9 +341,42 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     </TouchableOpacity>
   );
 
+  const renderStudent = ({ item }: { item: any }) => (
+    <View style={styles.activityCard}>
+      <View style={styles.personAvatar}>
+        {item.profile_photo_url ? (
+          <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
+        ) : (
+          <Text style={styles.personAvatarText}>
+            {item.first_name ? item.first_name[0].toUpperCase() : 'S'}
+          </Text>
+        )}
+      </View>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTitle}>
+          {item.first_name} {item.last_name}
+        </Text>
+        {item.student_id && (
+          <Text style={styles.activityBody}>ID: {item.student_id}</Text>
+        )}
+        {item.department && (
+          <Text style={styles.activityDate}>{item.department}</Text>
+        )}
+      </View>
+      <TouchableOpacity
+        style={styles.unenrollBtn}
+        onPress={() => handleUnenrollStudent(item)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="person-remove" size={18} color="#D93025" />
+      </TouchableOpacity>
+    </View>
+  );
+
   type ListItem =
     | { type: "announcement"; data: any }
-    | { type: "bin"; data: any };
+    | { type: "bin"; data: any }
+    | { type: "student"; data: any };
 
   const getListData = (): ListItem[] => {
     if (activeTab === "Announcements") {
@@ -411,6 +444,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabBar}
         style={styles.tabBarContainer}
+        bounces={false}
       >
         {tabs.map((tab) => (
           <TouchableOpacity
@@ -429,21 +463,30 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
         keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) =>
-          item.type === "announcement"
-            ? renderAnnouncement({ item: item.data })
-            : renderBin({ item: item.data })
-        }
+        renderItem={({ item }) => {
+          if (item.type === "announcement") {
+            return renderAnnouncement({ item: item.data });
+          } else if (item.type === "bin") {
+            return renderBin({ item: item.data });
+          } else if (item.type === "student") {
+            return renderStudent({ item: item.data });
+          }
+          return null;
+        }}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <Ionicons
-              name="clipboard-outline"
+              name={activeTab === "Announcements" ? "megaphone-outline" : 
+                   activeTab === "Bins" ? "clipboard-outline" : 
+                   "reader-outline"}
               size={60}
               color="#DADCE0"
             />
             <Text style={styles.emptyTitle}>Nothing here yet</Text>
             <Text style={styles.emptyText}>
-              Tap + to add content
+              {activeTab === "Announcements" ? "No announcements posted" : 
+               activeTab === "Bins" ? "No assignments posted" : 
+               "Tap + to add content"}
             </Text>
           </View>
         }
@@ -482,22 +525,25 @@ const styles = StyleSheet.create({
   },
   inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tabs - Pill shaped carousel
+  // Tab Bar - Responsive carousel-style tabs
   tabBarContainer: { 
-    backgroundColor: C.bg,
+    backgroundColor: '#F8F9FA',
     paddingVertical: 12,
+    maxHeight: 60,
   },
   tabBar: { 
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   tab: { 
     paddingVertical: 10, 
-    paddingHorizontal: 16,
-    alignItems: "center",
+    paddingHorizontal: 20,
+    alignItems: 'center',
     backgroundColor: '#E8E8E8',
     borderRadius: 999,
-    minWidth: 60,
+    minWidth: 80,
   },
   tabActive: { backgroundColor: '#202124' },
   tabText: { fontSize: 14, fontWeight: "600" as const, color: "#5F6368" },

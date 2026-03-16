@@ -1,58 +1,48 @@
-# 🚨 EMERGENCY FIX - Updates Not Showing
+# 🚨 EMERGENCY FIX - Multiple APK Downloads Issue
 
-## I've published updates for BOTH APK versions!
+## The Problem
+Your browser is downloading multiple APK files because it has cached multiple build URLs or there are browser redirects happening.
 
-No matter which APK you're using, the update is ready. Here's what to do:
+## 🎯 IMMEDIATE SOLUTION
 
----
+### Option 1: Use Incognito/Private Mode
+1. **Open your browser in Incognito/Private mode**
+2. **Use this direct link**: https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
+3. **This should download only ONE file**
 
-## 🔄 TRY THIS FIRST (Clear Cache Method):
+### Option 2: Clear Browser Data
+1. **Clear your browser cache and cookies**
+2. **Clear download history**
+3. **Then use the link**: https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
 
-1. **Go to your phone Settings**
-2. **Apps** → **NEXAD**
-3. **Storage**
-4. **Clear Cache** (NOT Clear Data!)
-5. **Close NEXAD completely** (swipe away from recent apps)
-6. **Wait 10 seconds**
-7. **Open NEXAD** (wait 10 seconds)
-8. **Close NEXAD again**
-9. **Open NEXAD** → Changes should appear!
+### Option 3: Use Different Browser
+1. **Try a different browser** (Chrome, Firefox, Edge, etc.)
+2. **Use this link**: https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
 
----
+## 📱 WHICH APK TO INSTALL
 
-## 🆕 OR USE THE LATEST APK:
+From your screenshot, install **ONLY THIS ONE**:
+```
+application-133045c6-05d5-450....apk (696.00 KB/100.59 MB)
+```
 
-If clearing cache doesn't work, download the newest APK:
+**DELETE/CANCEL the others:**
+- application-360acb08-1bd9-4b1... (older build)
+- application-ea5e568d-4b50-4f2... (older build)  
+- application-2057273a-98dd-487... (older build)
 
-**Latest APK (Runtime 1.0.2)**:
-https://expo.dev/artifacts/eas/mc9oEgBNs6KS8EmbEWNY4h.apk
+## 🔧 Why This Happens
 
-### Steps:
-1. Uninstall current NEXAD app
-2. Download and install the new APK
-3. Log in
-4. Close the app
-5. Wait 10 seconds
-6. Open the app
-7. Close the app again
-8. Open the app → Changes appear!
+This is a common issue with:
+- **Browser cache** storing multiple URLs
+- **Download managers** trying to resume old downloads
+- **Expo's CDN** sometimes serving cached responses
 
----
+## ✅ FINAL APK TO USE
+```
+Build ID: 133045c6-05d5-450a-98b5-74c8ad0841a3
+APK: https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
+Size: ~37-40 MB when fully downloaded
+```
 
-## ✅ What You Should See:
-
-### Account Settings Screen:
-- Text fields with **NO white background** (transparent)
-- Labels that are **darker and bolder**
-- Logout icon that is **WHITE** (not red)
-
----
-
-## 📞 Still Not Working?
-
-Tell me:
-1. Which APK did you download? (check your download history)
-2. Did you try clearing cache?
-3. What do you see on the Account Settings screen?
-
-I'll figure out what's wrong!
+**This APK has all the fixes and will receive OTA updates.**

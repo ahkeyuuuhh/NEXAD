@@ -23,7 +23,7 @@ import { Alert } from '../../utils/Alert';
 
 type Tab = 'All' | 'Announcements' | 'Bins';
 const TABS: Tab[] = ['All', 'Announcements', 'Bins'];
-type ListItem = { type: 'announcement'; data: any } | { type: 'bin'; data: any };
+type ListItem = { type: 'announcement'; data: any } | { type: 'bin'; data: any } | { type: 'student'; data: any };
 
 const getBannerColor = (coverColor: string | null | undefined) => {
   // Use the classroom's cover_color if set, otherwise default to black
@@ -232,13 +232,48 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
       );
     }
 
+    if (item.type === 'student') {
+      const student = item.data;
+      return (
+        <View style={styles.activityCard}>
+          <View style={styles.personAvatar}>
+            {student.profile_photo_url ? (
+              <Image source={{ uri: student.profile_photo_url }} style={styles.personAvatarImage} />
+            ) : (
+              <Text style={styles.personAvatarText}>
+                {student.first_name ? student.first_name[0].toUpperCase() : 'S'}
+              </Text>
+            )}
+          </View>
+          <View style={styles.activityContent}>
+            <Text style={styles.activityTitle}>
+              {student.first_name} {student.last_name}
+            </Text>
+            {student.student_id && (
+              <Text style={styles.activityBody}>ID: {student.student_id}</Text>
+            )}
+            {student.department && (
+              <Text style={styles.activityDate}>{student.department}</Text>
+            )}
+          </View>
+        </View>
+      );
+    }
+
     const bin = item.data;
     const isOverdue = bin.deadline && new Date(bin.deadline) < new Date();
     return (
       <TouchableOpacity
         style={styles.activityCard}
         activeOpacity={0.7}
-        onPress={() => navigation.navigate('AttachmentBinSubmission', { binId: bin.id })}
+        onPress={() => {
+          console.log('Navigating to AttachmentBinSubmission with binId:', bin.id);
+          if (bin.id) {
+            navigation.navigate('AttachmentBinSubmission', { binId: bin.id });
+          } else {
+            console.error('No bin.id available for navigation');
+          }
+        }}
       >
         <View style={styles.activityIconWrap}>
           <Ionicons name="clipboard" size={20} color="#202124" />
@@ -267,7 +302,9 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <Ionicons
-        name={activeTab === 'Announcements' ? 'megaphone-outline' : activeTab === 'Bins' ? 'clipboard-outline' : 'reader-outline'}
+        name={activeTab === 'Announcements' ? 'megaphone-outline' : 
+             activeTab === 'Bins' ? 'clipboard-outline' : 
+             'reader-outline'}
         size={56}
         color="#DADCE0"
       />
@@ -331,6 +368,7 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabBar}
         style={styles.tabBarContainer}
+        bounces={false}
       >
         {TABS.map((tab) => (
           <TouchableOpacity
@@ -382,22 +420,25 @@ const styles = StyleSheet.create({
   },
   inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tab Bar - Pill shaped carousel
+  // Tab Bar - Responsive carousel-style tabs
   tabBarContainer: { 
-    backgroundColor: C.bg,
+    backgroundColor: '#F8F9FA',
     paddingVertical: 12,
+    maxHeight: 60,
   },
   tabBar: { 
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   tab: { 
     paddingVertical: 10, 
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
     backgroundColor: '#E8E8E8',
     borderRadius: 999,
-    minWidth: 60,
+    minWidth: 80,
   },
   tabActive: { backgroundColor: '#202124' },
   tabText: { fontSize: 14, color: '#5F6368', fontWeight: '600' },

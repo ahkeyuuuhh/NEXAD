@@ -29,8 +29,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 };
 
 export default function AttachmentBinSubmissionScreen({ navigation, route }: any) {
-  const { binId } = route.params as { binId: string };
+  const { binId } = route.params || {};
   const { user } = useAuth();
+
+  console.log('AttachmentBinSubmissionScreen received binId:', binId);
 
   const [bin, setBin] = useState<any>(null);
   const [submission, setSubmission] = useState<any>(null);
@@ -67,64 +69,80 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   );
 
   const loadBinData = async () => {
-    if (!binId) {
-      console.error('No binId provided');
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      console.log('Loading bin data for binId:', binId);
-      setLoading(true);
-      
-      const binResult = await classroomService.getAttachmentBin(binId);
-      console.log('Bin result:', binResult);
-      
-      if (binResult.data) {
-        setBin(binResult.data);
-      } else if (binResult.error) {
-        console.error('Error loading bin:', binResult.error);
-        Alert.alert('Error', 'Failed to load assignment details');
+      if (!binId) {
+        console.error('No binId provided');
+        Alert.alert('Error', 'No assignment ID provided');
         setLoading(false);
         return;
       }
 
-      if (user?.user_id) {
-        console.log('Loading submission for user:', user.user_id);
-        const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
-        console.log('Submission result:', submissionResult);
-        
-        if (submissionResult.data) {
-          setSubmission(submissionResult.data);
-          // Load the linked consultation when one has been booked
-          const status = submissionResult.data?.review_status;
-          if (
-            (status === 'consultation_requested' || status === 'for_consultation') &&
-            binResult.data?.teacher_id
-          ) {
-            try {
-              const consultResult = await consultationService.getStudentConsultationForTeacher(
-                user.user_id,
-                binResult.data.teacher_id
-              );
-              if (consultResult.data) setConsultationRequest(consultResult.data);
-            } catch (consultError) {
-              console.warn('Failed to load consultation request:', consultError);
-              // Don't fail the whole screen if consultation loading fails
-            }
-          }
-        } else if (submissionResult.error) {
-          console.warn('No submission found or error:', submissionResult.error);
-          // This is expected for new assignments, don't show error
+      try {
+        console.log('Loading bin data for binId:', binId);
+        setLoading(true);
+
+        const binResult = await classroomService.getAttachmentBin(binId);
+        console.log('Bin result:', binResult);
+
+        if (binResult.data) {
+          setBin(binResult.data);
+          console.log('Bin loaded successfully:', binResult.data.title);
+        } else if (binResult.error) {
+          console.error('Error loading bin:', binResult.error);
+          Alert.alert('Error', `Failed to load assignment: ${binResult.error}`);
+          setLoading(false);
+          return;
+        } else {
+          console.error('No bin data and no error - unexpected result');
+          Alert.alert('Error', 'Assignment not found');
+          setLoading(false);
+          return;
         }
+
+        if (user?.user_id) {
+          console.log('Loading submission for user:', user.user_id);
+          const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
+          console.log('Submission result:', submissionResult);
+
+          if (submissionResult.data) {
+            setSubmission(submissionResult.data);
+            console.log('Submission loaded:', submissionResult.data.file_name);
+            // Load the linked consultation when one has been booked
+            const status = submissionResult.data?.review_status;
+            if (
+              (status === 'consultation_requested' || status === 'for_consultation') &&
+              binResult.data?.teacher_id
+            ) {
+              try {
+                const consultResult = await consultationService.getStudentConsultationForTeacher(
+                  user.user_id,
+                  binResult.data.teacher_id
+                );
+                if (consultResult.data) setConsultationRequest(consultResult.data);
+              } catch (consultError) {
+                console.warn('Failed to load consultation request:', consultError);
+                // Don't fail the whole screen if consultation loading fails
+              }
+            }
+          } else if (submissionResult.error) {
+            console.warn('No submission found or error:', submissionResult.error);
+            // This is expected for new assignments, don't show error
+          } else {
+            console.log('No submission found - student hasn\'t submitted yet');
+          }
+        } else {
+          console.error('No user ID available');
+          Alert.alert('Error', 'User not authenticated');
+          setLoading(false);
+          return;
+        }
+      } catch (error: any) {
+        console.error('Unexpected error loading bin data:', error);
+        Alert.alert('Error', `Unexpected error: ${error.message || error}`);
+      } finally {
+        console.log('Setting loading to false');
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading bin data:', error);
-      Alert.alert('Error', 'Failed to load assignment. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   const handleChooseFile = async () => {
     setShowAttachMenu(prev => !prev);

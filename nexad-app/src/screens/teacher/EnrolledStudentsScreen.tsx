@@ -63,19 +63,26 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
 
   const loadMembers = async () => {
     try {
+      console.log('Loading members for classroom:', classroomId);
       const result = await classroomService.getClassroomMembers(classroomId);
+      
+      console.log('Service result:', result);
       
       if (result.data) {
         // Filter to show only students (not teachers)
         const students = result.data.filter(member => !member.is_teacher);
+        console.log('Students found:', students.length);
         setMembers(students);
       } else if (result.error) {
-        console.error('Error loading members:', result.error);
-        Alert.alert('Error', 'Failed to load enrolled students');
+        console.error('Service error:', result.error);
+        Alert.alert('Error', `Failed to load enrolled students: ${result.error}`);
+      } else {
+        console.log('No data and no error - unexpected result');
+        Alert.alert('Error', 'Unexpected response from server');
       }
     } catch (err) {
-      console.error("Error loading members:", err);
-      Alert.alert('Error', 'Failed to load enrolled students');
+      console.error("Unexpected error loading members:", err);
+      Alert.alert('Error', `Unexpected error: ${err}`);
     } finally {
       setLoading(false);
       setRefreshing(false);

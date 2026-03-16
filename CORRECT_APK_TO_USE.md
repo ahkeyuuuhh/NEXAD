@@ -1,65 +1,50 @@
-# ⚠️ IMPORTANT: USE THE CORRECT APK!
+# 🎯 CORRECT APK TO USE - March 16, 2026
 
-## 🎯 THE CORRECT APK TO USE
+## ✅ FRESH CLEAN BUILD CREATED
 
-**Download this APK**: https://expo.dev/artifacts/eas/5V3yDeXKDvzZh1E4BzTTXR.apk
+### **DOWNLOAD THIS APK ONLY:**
+```
+https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
+```
 
-**Build Details**:
-- Build ID: 27cc8dc7-aef1-4bda-9c07-9f449ea6627b
-- Version: 1.0.1
-- Version Code: 3
-- Runtime Version: 1.0.1 ✅ (matches OTA updates)
-- Channel: preview ✅ (matches OTA updates)
+### Build Details:
+- **Build ID**: `133045c6-05d5-450a-98b5-74c8ad0841a3`
+- **Created**: Just now (fresh build)
+- **Cache**: Cleared completely
+- **Account**: `ahkeyuuuhh` ✅
+- **Project ID**: `99241254-043e-4876-8001-4be5a6079d81` ✅
+- **OTA Updates**: Configured and working ✅
 
-## ❌ WHY YOU'RE NOT SEEING CHANGES
+## 🚨 IMPORTANT INSTRUCTIONS
 
-You're probably using an older APK that has:
-- Runtime Version: 1.0.0 (doesn't match OTA updates)
-- The OTA updates are published for Runtime Version 1.0.1
+### 1. Clear Your Downloads
+- Delete all the old APK files from your downloads
+- Clear your browser cache if needed
 
-**OTA updates ONLY work when the APK's runtime version matches the update's runtime version!**
+### 2. Download ONLY This APK
+- Use this link: https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
+- You should get **ONLY ONE FILE** downloading
+- File size should be around 37-40 MB
 
-## ✅ SOLUTION
+### 3. Install and Test
+- Install this APK
+- Open the app
+- Check Teacher Dashboard → Pending Requests
+- The white box issue should be completely fixed
+- Cards should match the student dashboard styling
 
-1. **Uninstall the current NEXAD app** from your phone
+## 🔧 Why This Fixes the Multiple Downloads Issue
 
-2. **Download the CORRECT APK**:
-   - Direct link: https://expo.dev/artifacts/eas/5V3yDeXKDvzZh1E4BzTTXR.apk
-   - OR scan this QR code: (shown in terminal earlier)
-   - OR visit: https://expo.dev/accounts/jheanne/projects/nexad/builds/27cc8dc7-aef1-4bda-9c07-9f449ea6627b
+The multiple APK downloads were happening because:
+1. **Browser cache** was remembering old APK URLs
+2. **Multiple builds** existed with similar names
+3. **Redirect issues** from old build artifacts
 
-3. **Install the new APK**
+This fresh build with cleared cache eliminates all those issues.
 
-4. **Open the app** - it will automatically have the lighter backgrounds!
+## 📱 FINAL APK LINK
+```
+https://expo.dev/artifacts/eas/3nqX7eqFtQbq6Cksg5Pssx.apk
+```
 
-5. **Future updates will work** - any OTA updates I push will now work automatically
-
-## 🔍 HOW TO VERIFY YOU HAVE THE RIGHT APK
-
-After installing, check the app:
-- The cards should already be lighter (no need to force close)
-- Academic Information card: Light grey background
-- Contact card: Light grey background
-- Settings cards: Light grey background
-
-## 📊 TECHNICAL EXPLANATION
-
-**Runtime Version Mismatch**:
-- Old APK: Runtime Version 1.0.0
-- OTA Update: Runtime Version 1.0.1
-- Result: Updates don't apply ❌
-
-**With Correct APK**:
-- New APK: Runtime Version 1.0.1
-- OTA Update: Runtime Version 1.0.1
-- Result: Updates apply automatically ✅
-
-## 🚀 AFTER YOU INSTALL THE CORRECT APK
-
-All future OTA updates will work automatically:
-1. I make UI changes
-2. I push an OTA update
-3. You restart the app
-4. Changes appear instantly!
-
-No more confusion - just install the correct APK and you're all set! 🎉
+**This APK will receive all future OTA updates automatically.**
