@@ -956,10 +956,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
   useFocusEffect(useCallback(() => { loadProfile(); }, [loadProfile]));
 
   const handleSave = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Required', 'First name and last name are required.');
-      return;
-    }
+    // Names are not editable, so no validation needed for them
     if (!user?.user_id) return;
 
     setSaving(true);
@@ -1080,23 +1077,11 @@ export default function AccountSettingsScreen({ navigation }: any) {
           <View style={styles.formGroup}>
             <View style={styles.formRow}>
               <Text style={styles.rowLabel}>First name</Text>
-              <TextInput
-                style={styles.rowInput}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First name"
-                placeholderTextColor={C.ink5}
-              />
+              <Text style={styles.rowValue}>{firstName || 'Not set'}</Text>
             </View>
             <View style={styles.formRow}>
               <Text style={styles.rowLabel}>Last name</Text>
-              <TextInput
-                style={styles.rowInput}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last name"
-                placeholderTextColor={C.ink5}
-              />
+              <Text style={styles.rowValue}>{lastName || 'Not set'}</Text>
             </View>
             <View style={styles.formRow}>
               <Text style={styles.rowLabel}>Phone number</Text>
@@ -1358,6 +1343,7 @@ const styles = StyleSheet.create({
   lastRow: { borderBottomWidth: 0 },
   rowLabel: { fontSize: 14, color: C.ink2, fontWeight: '600' as const, flexShrink: 0, marginRight: S.sm }, // Darker and bolder
   rowInput: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md, backgroundColor: 'transparent' }, // Transparent background
+  rowValue: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink1, paddingVertical: S.md, backgroundColor: 'transparent' }, // Non-editable value
   rowValueDisabled: { flex: 1, textAlign: 'right' as const, fontSize: 14, color: C.ink3, backgroundColor: 'transparent' }, // Transparent background
 
   // Menu rows (icon + label + switch) - completely flat

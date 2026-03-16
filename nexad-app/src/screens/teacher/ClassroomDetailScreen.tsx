@@ -417,43 +417,77 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       {/* Content */}
       {activeTab === 'People' ? (
         <FlatList
-          data={members.filter(m => !m.is_teacher)}
+          data={members}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
-            <Text style={styles.peopleSectionTitle}>Students ({members.filter(m => !m.is_teacher).length})</Text>
-          }
-          renderItem={({ item }) => (
-            <View style={styles.personCard}>
-              {item.profile_photo_url ? (
-                <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
-              ) : (
-                <View style={styles.personAvatar}>
-                  <Text style={styles.personAvatarText}>
-                    {item.first_name?.charAt(0) || item.email?.charAt(0) || 'S'}
-                  </Text>
-                </View>
+            <>
+              {members.filter(m => m.is_teacher).length > 0 && (
+                <>
+                  <Text style={styles.peopleSectionTitle}>Teacher ({members.filter(m => m.is_teacher).length})</Text>
+                  {members.filter(m => m.is_teacher).map((item) => (
+                    <View key={item.id} style={styles.personCard}>
+                      {item.profile_photo_url ? (
+                        <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
+                      ) : (
+                        <View style={styles.personAvatar}>
+                          <Text style={styles.personAvatarText}>
+                            {item.first_name?.charAt(0) || item.email?.charAt(0) || 'T'}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.personInfo}>
+                        <Text style={styles.personName}>
+                          {item.first_name && item.last_name 
+                            ? `${item.first_name} ${item.last_name}`
+                            : item.email || 'Teacher'}
+                        </Text>
+                        <Text style={styles.personStudentId}>Teacher</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <Text style={[styles.peopleSectionTitle, { marginTop: 24 }]}>Students ({members.filter(m => !m.is_teacher).length})</Text>
+                </>
               )}
-              <View style={styles.personInfo}>
-                <Text style={styles.personName}>
-                  {item.first_name && item.last_name 
-                    ? `${item.first_name} ${item.last_name}`
-                    : item.email || 'Student'}
-                </Text>
-                {item.student_id && (
-                  <Text style={styles.personStudentId}>ID: {item.student_id}</Text>
+              {members.filter(m => m.is_teacher).length === 0 && (
+                <Text style={styles.peopleSectionTitle}>Students ({members.filter(m => !m.is_teacher).length})</Text>
+              )}
+            </>
+          }
+          renderItem={({ item }) => {
+            if (item.is_teacher) return null; // Teachers already shown in header
+            return (
+              <View style={styles.personCard}>
+                {item.profile_photo_url ? (
+                  <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
+                ) : (
+                  <View style={styles.personAvatar}>
+                    <Text style={styles.personAvatarText}>
+                      {item.first_name?.charAt(0) || item.email?.charAt(0) || 'S'}
+                    </Text>
+                  </View>
                 )}
+                <View style={styles.personInfo}>
+                  <Text style={styles.personName}>
+                    {item.first_name && item.last_name 
+                      ? `${item.first_name} ${item.last_name}`
+                      : item.email || 'Student'}
+                  </Text>
+                  {item.student_id && (
+                    <Text style={styles.personStudentId}>ID: {item.student_id}</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.unenrollBtn}
+                  onPress={() => handleUnenrollStudent(item)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="remove-circle-outline" size={22} color="#FF3B30" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.unenrollBtn}
-                onPress={() => handleUnenrollStudent(item)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="remove-circle-outline" size={22} color="#FF3B30" />
-              </TouchableOpacity>
-            </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Ionicons name="people-outline" size={60} color="#DADCE0" />

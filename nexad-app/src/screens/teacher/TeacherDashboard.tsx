@@ -724,6 +724,26 @@ export default function TeacherDashboard({ navigation, route }: any) {
           </View>
         </View>
 
+        {/* Classroom Shortcut */}
+        <View style={styles.quickActionsSection}>
+          <TouchableOpacity 
+            style={styles.classroomShortcut} 
+            onPress={() => navigation.navigate('ClassroomHub')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.classroomShortcutContent}>
+              <View style={styles.classroomShortcutIcon}>
+                <Ionicons name="school" size={22} color="#202124" />
+              </View>
+              <View style={styles.classroomShortcutText}>
+                <Text style={styles.classroomShortcutTitle}>My Classrooms</Text>
+                <Text style={styles.classroomShortcutSubtitle}>Manage your classes</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(32, 33, 36, 0.5)" />
+          </TouchableOpacity>
+        </View>
+
         {/* Pending Requests */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -749,26 +769,24 @@ export default function TeacherDashboard({ navigation, route }: any) {
                 style={styles.requestCard}
                 onPress={() => navigation.navigate('RequestApproval', { request })}
               >
-                <View style={styles.requestCardHeader}>
-                  <View style={styles.requestAvatar}>
-                    {request.studentPhotoUrl
-                      ? <Image source={{ uri: request.studentPhotoUrl }} style={styles.requestAvatarImg} />
-                      : <Text style={styles.requestAvatarText}>
-                          {request.studentName?.[0] || 'S'}
-                        </Text>
-                    }
-                  </View>
-                  <View style={styles.requestInfo}>
-                    <Text style={styles.requestName}>
-                      {request.studentName}
-                    </Text>
-                    <Text style={styles.requestSubject} numberOfLines={2}>
-                      {request.subject_line || 'No subject provided'}
-                    </Text>
-                    <Text style={styles.requestDate}>
-                      {formatPreferredDateRange(request)}
-                    </Text>
-                  </View>
+                <View style={styles.requestAvatar}>
+                  {request.studentPhotoUrl
+                    ? <Image source={{ uri: request.studentPhotoUrl }} style={styles.requestAvatarImg} />
+                    : <Text style={styles.requestAvatarText}>
+                        {request.studentName?.[0] || 'S'}
+                      </Text>
+                  }
+                </View>
+                <View style={styles.requestInfo}>
+                  <Text style={styles.requestName}>
+                    {request.studentName}
+                  </Text>
+                  <Text style={styles.requestSubject} numberOfLines={2}>
+                    {request.subject_line || 'No subject provided'}
+                  </Text>
+                  <Text style={styles.requestDate}>
+                    {formatPreferredDateRange(request)}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))
@@ -1118,6 +1136,32 @@ const styles = StyleSheet.create({
   statNumber:     { ...T.h1, color: C.ink1, marginBottom: 2 },
   statLabel:      { ...T.small, color: C.ink3 },
 
+  // ─── Classroom Shortcut ───────────────────────────────
+  quickActionsSection: { marginHorizontal: S.xl, marginTop: S.xl },
+  classroomShortcut: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: R.xl,
+    padding: S.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+  },
+  classroomShortcutContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  classroomShortcutIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: S.md,
+  },
+  classroomShortcutText: { flex: 1 },
+  classroomShortcutTitle: { fontSize: 15, fontWeight: '600' as const, color: '#202124', marginBottom: 2 },
+  classroomShortcutSubtitle: { fontSize: 12, color: 'rgba(32, 33, 36, 0.7)' },
+
   // ─── Calendar ─────────────────────────────────────────
   // Week strip styles
   weekCard:           { borderRadius: R.xl, paddingVertical: S.lg, paddingHorizontal: S.md, overflow: 'hidden' as const, backgroundColor: '#1E1E1E', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#000000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.55, shadowRadius: 22, elevation: 14 },
@@ -1150,22 +1194,23 @@ const styles = StyleSheet.create({
 
   // ─── Request Cards ────────────────────────────────────
   requestCard: {
-    backgroundColor: C.surface,
+    flexDirection: 'row', // Add flexDirection since we removed the wrapper
+    alignItems: 'center', // Center items vertically
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Light translucent white - matches student interface
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: C.borderLight,
+    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
     ...shadow.soft,
   },
-  requestCardHeader: { flexDirection: 'row' },
-  requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
-  requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink2 },
+  requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
+  requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
   requestAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   requestInfo:       { flex: 1 },
-  requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4 },
-  requestSubject:    { ...T.small, color: C.ink3, marginBottom: 4 },
-  requestDate:       { ...T.tiny },
+  requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4, fontWeight: '700' as const },
+  requestSubject:    { ...T.small, color: C.ink2, marginBottom: 4, fontWeight: '500' as const },
+  requestDate:       { ...T.tiny, color: C.ink3 },
 
   // ─── Message Cards ────────────────────────────────────
   messageCard: {

@@ -233,13 +233,13 @@ export default function ClassroomHubScreen({ navigation }: any) {
         <View style={styles.cardDivider} />
         <View style={styles.cardBody}>
           <View style={styles.cardMeta}>
-            <Ionicons name="people-outline" size={16} color="#5F6368" />
+            <Ionicons name="people-outline" size={16} color="rgba(255, 255, 255, 0.9)" />
             <Text style={styles.cardMetaText}>
               {item.memberCount} {item.memberCount === 1 ? "student" : "students"}
             </Text>
           </View>
           <View style={styles.codeChip}>
-            <Ionicons name="key-outline" size={13} color="#5F6368" />
+            <Ionicons name="key-outline" size={13} color="#FFFFFF" />
             <Text style={styles.codeText}>{item.invite_code}</Text>
           </View>
         </View>
@@ -407,15 +407,16 @@ const styles = StyleSheet.create({
   cardBody: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: 'transparent',
   },
   cardMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  cardMetaText: { fontSize: 13, color: "#5F6368" },
+  cardMetaText: { fontSize: 13, color: "rgba(255, 255, 255, 0.9)" },
   codeChip: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: "#F8F9FA", borderWidth: 1, borderColor: "#E8EAED",
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)',
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4,
   },
-  codeText: { fontSize: 12, color: "#5F6368", fontWeight: "600" as const, letterSpacing: 0.5 },
+  codeText: { fontSize: 12, color: "#FFFFFF", fontWeight: "600" as const, letterSpacing: 0.5 },
 
   emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 18, fontWeight: "600" as const, color: "#5F6368", marginTop: 20 },

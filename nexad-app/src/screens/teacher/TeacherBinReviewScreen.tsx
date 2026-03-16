@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { classroomService } from '../../services/classroomService';
 import { documentService } from '../../services/documentService';
@@ -340,7 +341,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={C.ink1} />
@@ -374,7 +375,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
         isImage={fileViewer.isImage}
         onClose={() => setFileViewer(v => ({ ...v, visible: false }))}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
