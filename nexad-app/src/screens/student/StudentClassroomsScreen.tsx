@@ -378,8 +378,11 @@ export default function StudentClassroomsScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#202124" />
-        <Text style={styles.loadingText}>Loading classrooms...</Text>
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -578,7 +581,8 @@ export default function StudentClassroomsScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F4F4' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  loadingGif: { width: 200, height: 200 },
   loadingText: { marginTop: 12, fontSize: 14, color: '#5F6368' },
 
   // App Bar

@@ -237,7 +237,11 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.ink2} />
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       ) : (
         <FlatList
@@ -293,6 +297,7 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingGif: { width: 200, height: 200 },
 
   header: {
     flexDirection: "row",

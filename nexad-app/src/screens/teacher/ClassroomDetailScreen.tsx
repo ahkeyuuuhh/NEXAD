@@ -398,7 +398,11 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.ink2} />
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -502,7 +506,8 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#F8F9FA' },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: 'transparent' },
+  loadingGif: { width: 200, height: 200 },
 
   // Banner Header
   banner: { paddingBottom: 24 },
