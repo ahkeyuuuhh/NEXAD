@@ -1196,18 +1196,18 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Light translucent white - matches student interface
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Even lighter translucent background
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
   requestAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
-  requestInfo:       { flex: 1, backgroundColor: 'transparent' },
+  requestInfo:       { flex: 1 },
   requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4, fontWeight: '700' as const },
   requestSubject:    { ...T.small, color: C.ink2, marginBottom: 4, fontWeight: '500' as const },
   requestDate:       { ...T.tiny, color: C.ink3 },
