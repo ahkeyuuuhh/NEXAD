@@ -763,36 +763,32 @@ export default function TeacherDashboard({ navigation, route }: any) {
             </View>
           ) : (
             dashboardData.pendingRequests.slice(0, 4).map((request, index) => (
-              <View 
+              <TouchableOpacity 
                 key={request.id} 
                 style={styles.requestCard}
+                onPress={() => navigation.navigate('RequestApproval', { request })}
+                activeOpacity={0.7}
               >
-                <TouchableOpacity 
-                  style={styles.requestTouchable}
-                  onPress={() => navigation.navigate('RequestApproval', { request })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.requestAvatar}>
-                    {request.studentPhotoUrl
-                      ? <Image source={{ uri: request.studentPhotoUrl }} style={styles.requestAvatarImg} />
-                      : <Text style={styles.requestAvatarText}>
-                          {request.studentName?.[0] || 'S'}
-                        </Text>
-                    }
-                  </View>
-                  <View style={styles.requestInfo}>
-                    <Text style={styles.requestName}>
-                      {request.studentName}
-                    </Text>
-                    <Text style={styles.requestSubject} numberOfLines={2}>
-                      {request.subject_line || 'No subject provided'}
-                    </Text>
-                    <Text style={styles.requestDate}>
-                      {formatPreferredDateRange(request)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
+                <View style={styles.requestAvatar}>
+                  {request.studentPhotoUrl
+                    ? <Image source={{ uri: request.studentPhotoUrl }} style={styles.requestAvatarImg} />
+                    : <Text style={styles.requestAvatarText}>
+                        {request.studentName?.[0] || 'S'}
+                      </Text>
+                  }
+                </View>
+                <View style={styles.requestInfo}>
+                  <Text style={styles.requestName}>
+                    {request.studentName}
+                  </Text>
+                  <Text style={styles.requestSubject} numberOfLines={2}>
+                    {request.subject_line || 'No subject provided'}
+                  </Text>
+                  <Text style={styles.requestDate}>
+                    {formatPreferredDateRange(request)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -1198,17 +1194,19 @@ const styles = StyleSheet.create({
 
   // ─── Request Cards ────────────────────────────────────
   requestCard: {
-    backgroundColor: 'transparent',
-    marginBottom: S.md,
-  },
-  requestTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Match student dashboard exactly
     padding: S.lg,
     borderRadius: R.xl,
+    marginBottom: S.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
   },
-  requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
+  requestTouchable: {
+    // Remove this style since we're going back to TouchableOpacity directly
+  },
+  requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
   requestAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
   requestInfo:       { flex: 1, backgroundColor: 'transparent' },
