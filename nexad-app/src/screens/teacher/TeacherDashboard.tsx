@@ -1195,11 +1195,11 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent', // Make completely transparent to match dashboard
+    backgroundColor: '#F4F4F4', // Match dashboard background exactly
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
-    borderWidth: 0, // Remove border completely
+    borderWidth: 0,
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
