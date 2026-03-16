@@ -547,6 +547,7 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
         visible={showDetailModal}
         transparent
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={styles.modalOverlay}>

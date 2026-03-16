@@ -421,6 +421,7 @@ export default function NotificationsScreen({ navigation }: any) {
       <Modal
         visible={showDetailModal}
         animationType="slide"
+        presentationStyle="pageSheet"
         transparent={true}
         onRequestClose={closeDetailModal}
       >

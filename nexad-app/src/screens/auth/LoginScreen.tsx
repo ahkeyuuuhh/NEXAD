@@ -149,6 +149,7 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
         visible={!!roleErrorMsg}
         transparent
         animationType="fade"
+        presentationStyle="pageSheet"
         onRequestClose={() => setRoleErrorMsg('')}
       >
         <View style={styles.roleModalOverlay}>

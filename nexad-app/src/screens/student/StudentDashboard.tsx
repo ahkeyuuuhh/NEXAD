@@ -591,7 +591,7 @@ export default function StudentDashboard({ navigation, route }: any) {
       </ScrollView>
 
       {/* Burger Menu Drawer */}
-      <Modal visible={showSideMenu} transparent animationType="none" onRequestClose={closeMenu}>
+      <Modal visible={showSideMenu} transparent animationType="none" presentationStyle="pageSheet" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
           <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
@@ -679,7 +679,7 @@ export default function StudentDashboard({ navigation, route }: any) {
       </Modal>
 
       {/* PROFILE MODAL */}
-      <Modal visible={showProfileMenu} transparent animationType="fade" onRequestClose={() => setShowProfileMenu(false)}>
+      <Modal visible={showProfileMenu} transparent animationType="fade" presentationStyle="pageSheet" onRequestClose={() => setShowProfileMenu(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
           <View style={styles.profileMenu}>
             <View style={styles.profileMenuHeader}>
@@ -716,7 +716,7 @@ export default function StudentDashboard({ navigation, route }: any) {
 
 
       {/* CONSULTATION DETAILS MODAL */}
-      <Modal visible={showDetailsModal} transparent animationType="slide" onRequestClose={() => setShowDetailsModal(false)}>
+      <Modal visible={showDetailsModal} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDetailsModal(false)}>
         <View style={styles.detailsModalOverlay}>
           <View style={styles.detailsModalContent}>
             {selectedConsultation && (() => {

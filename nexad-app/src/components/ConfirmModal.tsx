@@ -34,6 +34,7 @@ export default function ConfirmModal({ visible, title, message, buttons, onClose
       visible={visible}
       transparent
       animationType="fade"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
       statusBarTranslucent
     >

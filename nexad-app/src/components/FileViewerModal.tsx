@@ -67,6 +67,7 @@ export default function FileViewerModal({ visible, url, fileName, isImage, onClo
       visible={visible}
       transparent
       animationType="fade"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
       statusBarTranslucent
     >

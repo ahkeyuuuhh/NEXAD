@@ -275,7 +275,7 @@ function SelectField({
         <Ionicons name="chevron-down" size={16} color={C.ink4} />
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+      <Modal visible={open} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={sfStyles.overlay} activeOpacity={1} onPress={close} />
           <View style={sfStyles.sheet}>
@@ -468,7 +468,7 @@ function TagInput({
         <Text style={tagStyles.browseBtnText}>Select Specialty</Text>
       </TouchableOpacity>
 
-      <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => { setShowPicker(false); setShowOther(false); }}>
+      <Modal visible={showPicker} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowPicker(false); setShowOther(false); }}>
         <View style={{ flex: 1 }}>
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }}
@@ -774,7 +774,7 @@ function HSelectRow({
           <Ionicons name="chevron-forward" size={16} color={C.ink4} />
         </View>
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+      <Modal visible={open} transparent animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
         <View style={{ flex: 1 }}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} activeOpacity={1} onPress={close} />
           <View style={hsStyles.sheet}>

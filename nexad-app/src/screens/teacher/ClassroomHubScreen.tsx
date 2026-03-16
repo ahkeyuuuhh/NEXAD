@@ -300,7 +300,7 @@ export default function ClassroomHubScreen({ navigation }: any) {
       </TouchableOpacity>
 
       {/* Burger Menu Drawer */}
-      <Modal visible={showMenu} transparent animationType="none" onRequestClose={closeMenu}>
+      <Modal visible={showMenu} transparent animationType="none" presentationStyle="pageSheet" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
           <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />

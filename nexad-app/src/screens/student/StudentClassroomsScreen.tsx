@@ -427,7 +427,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
       </TouchableOpacity>
 
       {/* Join Modal */}
-      <Modal visible={showJoinModal} transparent animationType="fade" onRequestClose={() => setShowJoinModal(false)}>
+      <Modal visible={showJoinModal} transparent animationType="fade" presentationStyle="pageSheet" onRequestClose={() => setShowJoinModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -486,7 +486,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
       </Modal>
 
       {/* Burger Menu Drawer */}
-      <Modal visible={showMenu} transparent animationType="none" onRequestClose={closeMenu}>
+      <Modal visible={showMenu} transparent animationType="none" presentationStyle="pageSheet" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
           <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />

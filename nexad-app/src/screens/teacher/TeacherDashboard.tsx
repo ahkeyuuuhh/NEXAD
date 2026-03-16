@@ -855,7 +855,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
       </ScrollView>
 
       {/* Burger Menu Drawer */}
-      <Modal visible={showSideMenu} transparent animationType="none" onRequestClose={closeMenu}>
+      <Modal visible={showSideMenu} transparent animationType="none" presentationStyle="pageSheet" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
           <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
@@ -950,7 +950,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
       </Modal>
 
       {/* Profile Menu Modal */}
-      <Modal visible={showProfileMenu} transparent animationType="fade" onRequestClose={() => setShowProfileMenu(false)}>
+      <Modal visible={showProfileMenu} transparent animationType="fade" presentationStyle="pageSheet" onRequestClose={() => setShowProfileMenu(false)}>
         <TouchableOpacity style={styles.profileOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
           <View style={styles.profileMenu}>
             <View style={styles.profileMenuHeader}>
@@ -991,6 +991,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
         visible={showDetailModal}
         transparent
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowDetailModal(false)}
       >
         <View style={styles.modalOverlay2}>
@@ -1194,14 +1195,14 @@ const styles = StyleSheet.create({
 
   // ─── Request Cards ────────────────────────────────────
   requestCard: {
-    flexDirection: 'row', // Add flexDirection since we removed the wrapper
-    alignItems: 'center', // Center items vertically
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Light translucent white - matches student interface
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent', // Remove white background
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
+    borderColor: 'rgba(0, 0, 0, 0.08)',
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },

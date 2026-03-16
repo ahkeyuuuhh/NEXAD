@@ -733,6 +733,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showHeaderMenu}
         transparent
         animationType="fade"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowHeaderMenu(false)}
       >
         <TouchableOpacity
@@ -861,6 +862,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showMessageActions}
         transparent
         animationType="fade"
+        presentationStyle="pageSheet"
         onRequestClose={() => { setShowMessageActions(false); setSelectedMessage(null); }}
       >
         <TouchableOpacity
@@ -930,6 +932,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showBrief}
         transparent
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowBrief(false)}
       >
         <View style={styles.modalOverlay}>
@@ -1012,6 +1015,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showFiles}
         transparent
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowFiles(false)}
       >
         <View style={styles.modalOverlay}>
@@ -1063,6 +1067,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showAttachMenu}
         transparent
         animationType="fade"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowAttachMenu(false)}
       >
         <TouchableOpacity 
@@ -1088,6 +1093,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={showFilePreview}
         transparent
         animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => { setShowFilePreview(false); setSelectedFile(null); }}
       >
         <View style={styles.modalOverlay}>
@@ -1155,6 +1161,7 @@ export default function ChatScreen({ navigation, route }: any) {
         visible={!!viewingImageUrl}
         transparent
         animationType="fade"
+        presentationStyle="pageSheet"
         onRequestClose={() => setViewingImageUrl(null)}
       >
         <View style={styles.imageViewerOverlay}>

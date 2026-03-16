@@ -564,6 +564,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
       <Modal
         visible={showPlagiarismModal}
         animationType="slide"
+        presentationStyle="pageSheet"
         transparent={false}
         onRequestClose={() => setShowPlagiarismModal(false)}
       >

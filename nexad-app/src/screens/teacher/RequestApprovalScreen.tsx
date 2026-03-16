@@ -960,6 +960,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             visible={showStartTimePicker}
             transparent={true}
             animationType="slide"
+            presentationStyle="pageSheet"
             onRequestClose={() => setShowStartTimePicker(false)}
           >
             <View style={styles.modalOverlay}>
@@ -1025,6 +1026,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
             visible={showEndTimePicker}
             transparent={true}
             animationType="slide"
+            presentationStyle="pageSheet"
             onRequestClose={() => setShowEndTimePicker(false)}
           >
             <View style={styles.modalOverlay}>

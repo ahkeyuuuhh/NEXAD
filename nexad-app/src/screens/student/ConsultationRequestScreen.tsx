@@ -802,6 +802,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
           visible={showAIAssistant}
           animationType="slide"
           presentationStyle="pageSheet"
+          presentationStyle="pageSheet"
           onRequestClose={() => setShowAIAssistant(false)}
         >
           <SafeAreaView style={styles.modalContainer}>
@@ -866,6 +867,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
         <Modal
           visible={showPlagiarismModal}
           animationType="slide"
+          presentationStyle="pageSheet"
           presentationStyle="pageSheet"
           onRequestClose={() => setShowPlagiarismModal(false)}
         >
@@ -980,6 +982,7 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
           visible={showAnalyzePrompt}
           transparent
           animationType="fade"
+          presentationStyle="pageSheet"
           onRequestClose={() => setShowAnalyzePrompt(false)}
         >
           <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: S.lg }}>
