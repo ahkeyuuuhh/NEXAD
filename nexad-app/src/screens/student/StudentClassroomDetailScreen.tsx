@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
-  Alert,
   Image,
   ScrollView,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { conversationService } from '../../services/conversationService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { Alert } from '../../utils/Alert';
 
 type Tab = 'Classwork' | 'People';
 const TABS: Tab[] = ['Classwork', 'People'];

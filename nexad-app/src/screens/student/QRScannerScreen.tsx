@@ -8,10 +8,10 @@ import {
   Animated,
   Easing,
   Platform,
-  Alert,
 } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from '../../utils/Alert';
 
 export default function QRScannerScreen({ navigation, route }: any) {
   const { onCodeScanned } = route.params as { onCodeScanned: (code: string) => void };

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ConsultationRequest } from '../../types';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
+import { Alert } from '../../utils/Alert';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;

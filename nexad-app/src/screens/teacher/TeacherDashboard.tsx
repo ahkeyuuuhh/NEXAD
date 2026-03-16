@@ -405,8 +405,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
             await authContext.signOut();
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 

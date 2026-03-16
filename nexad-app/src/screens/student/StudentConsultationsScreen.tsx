@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -17,6 +16,7 @@ import { profileService } from '../../services/profileService';
 import type { ConsultationRequest } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { C, T, S, R, shadow } from '../../config/theme';
+import { Alert } from '../../utils/Alert';
 
 interface ConsultationWithTeacher extends ConsultationRequest {
   teacherName: string;

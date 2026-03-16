@@ -221,8 +221,7 @@ export default function StudentDashboard({ navigation, route }: any) {
             await authContext.signOut();
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 

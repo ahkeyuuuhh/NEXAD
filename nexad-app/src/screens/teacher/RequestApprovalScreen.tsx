@@ -1146,7 +1146,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#F4F4F4', // Match dashboard background
   },
   header: {
     flexDirection: 'row',

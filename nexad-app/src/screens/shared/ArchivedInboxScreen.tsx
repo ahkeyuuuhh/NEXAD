@@ -9,7 +9,6 @@ import {
   RefreshControl,
   StatusBar,
   Image,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +19,7 @@ import { conversationService } from '../../services/conversationService';
 import { supabase } from '../../config/supabase';
 import { C, S, R } from '../../config/theme';
 import type { Conversation } from '../../types';
+import { Alert } from '../../utils/Alert';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
