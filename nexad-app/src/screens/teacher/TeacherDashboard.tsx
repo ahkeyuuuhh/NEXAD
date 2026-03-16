@@ -855,7 +855,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
       </ScrollView>
 
       {/* Burger Menu Drawer */}
-      <Modal visible={showSideMenu} transparent animationType="slide" onRequestClose={closeMenu}>
+      <Modal visible={showSideMenu} transparent animationType="none" onRequestClose={closeMenu}>
         <View style={styles.drawerOverlay}>
           <Animated.View style={[styles.drawerBackdrop, { opacity: backdropAnim }]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeMenu} />
@@ -950,7 +950,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
       </Modal>
 
       {/* Profile Menu Modal */}
-      <Modal visible={showProfileMenu} transparent animationType="slide" onRequestClose={() => setShowProfileMenu(false)}>
+      <Modal visible={showProfileMenu} transparent animationType="fade" onRequestClose={() => setShowProfileMenu(false)}>
         <TouchableOpacity style={styles.profileOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
           <View style={styles.profileMenu}>
             <View style={styles.profileMenuHeader}>
@@ -1237,9 +1237,9 @@ const styles = StyleSheet.create({
   emptyStateText: { ...T.body, color: C.ink4 },
 
   // ─── Burger Drawer ────────────────────────────────────
-  drawerOverlay:    { flex: 1, justifyContent: 'flex-end' },
+  drawerOverlay:    { flex: 1 },
   drawerBackdrop:   { ...StyleSheet.absoluteFillObject, backgroundColor: C.scrim },
-  drawer:           { backgroundColor: C.surface, paddingTop: S.xl, paddingBottom: 32, borderTopLeftRadius: 28, borderTopRightRadius: 28, ...shadow.lift },
+  drawer:           { position: 'absolute', top: 0, bottom: 0, right: 0, width: 300, backgroundColor: C.surface, paddingTop: 60, paddingBottom: 32, borderTopLeftRadius: R.xl, borderBottomLeftRadius: R.xl, ...shadow.lift },
   drawerHeader:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: S.xl, paddingBottom: S.lg },
   drawerAvatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, borderWidth: 1, borderColor: C.borderLight },
   drawerAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
@@ -1256,8 +1256,8 @@ const styles = StyleSheet.create({
   drawerSectionTitle: { fontSize: 11, fontWeight: '600', color: C.ink3, letterSpacing: 0.5 },
 
   // ─── Profile Menu ─────────────────────────────────────
-  profileOverlay:        { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-end' },
-  profileMenu:           { backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: S.xl, ...shadow.lift },
+  profileOverlay:        { flex: 1, backgroundColor: C.scrim, justifyContent: 'flex-start', alignItems: 'flex-start', paddingTop: 72, paddingLeft: S.xl },
+  profileMenu:           { backgroundColor: C.surface, borderRadius: R.xl, width: 280, padding: S.xl, ...shadow.lift },
   profileMenuHeader:     { flexDirection: 'row', alignItems: 'center', paddingBottom: S.lg },
   profileMenuAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: S.md, overflow: 'hidden' },
   profileMenuAvatarText: { color: C.ink1, fontSize: 20, fontWeight: '600' as const },
