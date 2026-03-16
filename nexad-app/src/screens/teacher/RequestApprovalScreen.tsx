@@ -543,7 +543,7 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Request Details - Updated</Text>
+        <Text style={styles.headerTitle}>Request Details</Text>
         <View style={styles.placeholder} />
       </View>
 
