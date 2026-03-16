@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
   TextInput,
@@ -27,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { C, S, R } from '../../config/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadAsync, FileSystemUploadType, copyAsync, deleteAsync, cacheDirectory } from 'expo-file-system/legacy';
+import { Alert } from '../../utils/Alert';
 
 const BANNER_COLORS = [
   '#202124', '#3C4043', '#5F6368', '#37474F',

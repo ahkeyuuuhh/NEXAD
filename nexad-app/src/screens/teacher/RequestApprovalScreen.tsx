@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Platform,
   Modal,
   LayoutAnimation,
@@ -30,6 +29,7 @@ import type { ConsultationRequest } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { C, T, S, R, F, shadow } from '../../config/theme';
 import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
+import { Alert } from '../../utils/Alert';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;
@@ -1499,9 +1499,8 @@ const styles = StyleSheet.create({
   },
   textInput: {
     backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.ink1,
-    borderRadius: 10,
+    borderWidth: 0,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 16,
@@ -1509,9 +1508,8 @@ const styles = StyleSheet.create({
   },
   pickerButton: {
     backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.ink1,
-    borderRadius: 10,
+    borderWidth: 0,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -1547,7 +1545,7 @@ const styles = StyleSheet.create({
   },
   approveButton: {
     backgroundColor: C.action,
-    borderRadius: 12,
+    borderRadius: 25,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1564,9 +1562,8 @@ const styles = StyleSheet.create({
   },
   declineButton: {
     backgroundColor: C.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.ink1,
+    borderRadius: 25,
+    borderWidth: 0,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',

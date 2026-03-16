@@ -10,7 +10,6 @@ import {
   Keyboard,
   Platform,
   ActivityIndicator,
-  Alert,
   StatusBar,
   Modal,
   ScrollView,
@@ -28,6 +27,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { conversationService } from '../../services/conversationService';
 import { aiService } from '../../services/aiService';
 import { supabase } from '../../config/supabase';
+import { Alert } from '../../utils/Alert';
 import { C, S, R } from '../../config/theme';
 import type { ConversationMessage, ConversationType } from '../../types';
 import * as WebBrowser from 'expo-web-browser';

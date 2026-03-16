@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Modal,
   Image,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { profileService } from '../../services/profileService';
 import { Ionicons } from '@expo/vector-icons';
 import type { ConsultationRequest } from '../../types';
 import { C, F, T, S, R, shadow } from '../../config/theme';
+import { Alert } from '../../utils/Alert';
 
 interface ConsultationWithStudent extends ConsultationRequest {
   studentName: string;

@@ -8,7 +8,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Modal,
   Animated,
   Dimensions,
@@ -31,6 +30,7 @@ import type { ConsultationRequest } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 import { FloatingTabBar } from '../../components/FloatingTabBar'; // kept for future use
+import { Alert } from '../../utils/Alert';
 
 // Dashboard data limits
 const CONSULTATION_LIMIT = 5;
@@ -1196,21 +1196,21 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Even lighter translucent background
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Match student dashboard exactly
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: 'rgba(0, 0, 0, 0.04)', // Match student dashboard exactly
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
   requestAvatarImg:  { width: 48, height: 48, borderRadius: 24 },
-  requestInfo:       { flex: 1 },
-  requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4, fontWeight: '700' as const },
-  requestSubject:    { ...T.small, color: C.ink2, marginBottom: 4, fontWeight: '500' as const },
-  requestDate:       { ...T.tiny, color: C.ink3 },
+  requestInfo:       { flex: 1, backgroundColor: 'transparent' },
+  requestName:       { ...T.label, color: C.ink1, fontSize: 14, marginBottom: 4, fontWeight: '700' as const, backgroundColor: 'transparent' },
+  requestSubject:    { ...T.small, color: C.ink2, marginBottom: 4, fontWeight: '500' as const, backgroundColor: 'transparent' },
+  requestDate:       { ...T.tiny, color: C.ink3, backgroundColor: 'transparent' },
 
   // ─── Message Cards ────────────────────────────────────
   messageCard: {

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   StatusBar,
   Modal,
@@ -23,6 +22,7 @@ import { supabase } from "../../config/supabase";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { C, S, R } from "../../config/theme";
 import { useRealtimeNotifications } from "../../hooks/useRealtimeNotifications";
+import { Alert } from "../../utils/Alert";
 
 // Monochromatic fallback palette matching app aesthetic
 const BANNER_COLORS = [
