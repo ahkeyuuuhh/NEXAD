@@ -1196,12 +1196,12 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Light translucent white - matches student interface
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderColor: 'rgba(0, 0, 0, 0.04)', // Very subtle border
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
