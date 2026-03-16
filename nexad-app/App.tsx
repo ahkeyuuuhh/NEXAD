@@ -73,6 +73,7 @@ import InboxScreen from './src/screens/shared/InboxScreen';
 import ChatScreen from './src/screens/shared/ChatScreen';
 import ArchivedInboxScreen from './src/screens/shared/ArchivedInboxScreen';
 import NotificationToast from './src/components/NotificationToast';
+import { AlertContainer } from './src/utils/Alert';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -623,6 +624,7 @@ export default function App() {
           <Navigation />
         </AuthProvider>
         <NotificationToast />
+        <AlertContainer />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

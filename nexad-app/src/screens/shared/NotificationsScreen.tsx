@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Modal,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -18,6 +17,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import type { AppNotification } from '../../hooks/useRealtimeNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
+import { Alert } from '../../utils/Alert';
 
 export default function NotificationsScreen({ navigation }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);

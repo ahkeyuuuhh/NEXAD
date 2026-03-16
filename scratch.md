@@ -1,4 +1,6 @@
 FIXES NEEDED: 
-    Classroom Hub:
-        [] When I am trying to open an attachment bin posted, the page is only white, and when I am trying to get back the APK is not working anymore, meaning there's something wronng with my classroom. 
+    REQUEST DETAILS | TEACHER'S INTERFACE: 
+        [] The background of the whole page must be the same as the background of the dashboard so it would be seamless 
+        [] Remove the black border on the forms and make the buttons more pill-shaped. 
+    
     
