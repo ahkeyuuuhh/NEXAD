@@ -231,7 +231,7 @@ export default function CreateClassroomScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 14,

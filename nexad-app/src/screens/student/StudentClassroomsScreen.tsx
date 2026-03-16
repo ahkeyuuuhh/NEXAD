@@ -513,10 +513,11 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => closeMenu()}>
-              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>My Classes</Text>
-            </TouchableOpacity>
+
+            {/* Consultation Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CONSULTATIONS</Text>
+            </View>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('FindTeacher'); }}>
               <Ionicons name="search-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Find a Teacher</Text>
@@ -525,9 +526,43 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Consultations</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
+              <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Consultation History</Text>
+            </TouchableOpacity>
+
+            {/* Classes Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CLASSES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => closeMenu()}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
+            </TouchableOpacity>
+
+            {/* Messages Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>MESSAGES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
+              <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Messages</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Notifications'); }}>
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Notifications</Text>
+            </TouchableOpacity>
+
+            <View style={styles.drawerDivider} />
+
+            {/* Profile & Settings Section */}
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentProfile', { userId: user?.user_id, isOwnProfile: true }); }}>
+              <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AccountSettings'); }}>
+              <Ionicons name="settings-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Settings</Text>
             </TouchableOpacity>
             <View style={styles.drawerDivider} />
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); handleSignOut(); }}>
@@ -542,8 +577,8 @@ export default function StudentClassroomsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F4F4' },
   loadingText: { marginTop: 12, fontSize: 14, color: '#5F6368' },
 
   // App Bar
@@ -574,7 +609,7 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     marginBottom: 8,
     overflow: 'hidden',
@@ -685,6 +720,8 @@ const styles = StyleSheet.create({
   drawerRole: { fontSize: 12, color: '#5F6368', marginTop: 2 },
   drawerClose: { padding: 4 },
   drawerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E8EAED', marginVertical: 8 },
+  drawerSectionHeader: { paddingHorizontal: 20, paddingVertical: 8, paddingTop: 16 },
+  drawerSectionTitle: { fontSize: 11, fontWeight: '600' as const, color: C.ink3, letterSpacing: 0.5, textTransform: 'uppercase' as const },
   drawerItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
   drawerItemIcon: { marginRight: 14 },
   drawerItemText: { fontSize: 15, color: '#202124' },

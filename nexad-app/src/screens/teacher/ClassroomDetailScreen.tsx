@@ -19,7 +19,7 @@ import { supabase } from "../../config/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { C, shadow } from "../../config/theme";
 
-type Tab = "Classwork" | "People";
+type Tab = "All" | "Announcements" | "Bins";
 
 const getBannerColor = (coverColor: string | null | undefined) => {
   // Use the classroom's cover_color if set, otherwise default to black
@@ -35,7 +35,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("Classwork");
+  const [activeTab, setActiveTab] = useState<Tab>("All");
 
   useFocusEffect(
     useCallback(() => {
@@ -274,7 +274,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   };
 
   // ── Tab content ──────────────────────────────────────────────────────────
-  const tabs: Tab[] = ["Classwork", "People"];
+  const tabs: Tab[] = ["All", "Announcements", "Bins"];
 
   const renderAnnouncement = ({ item }: { item: any }) => (
     <View style={styles.activityCard}>
@@ -346,8 +346,13 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
     | { type: "bin"; data: any };
 
   const getListData = (): ListItem[] => {
-    if (activeTab === "People") return [];
-    // Classwork shows both announcements and bins
+    if (activeTab === "Announcements") {
+      return announcements.map((d): ListItem => ({ type: "announcement", data: d }));
+    }
+    if (activeTab === "Bins") {
+      return attachmentBins.map((d): ListItem => ({ type: "bin", data: d }));
+    }
+    // "All" shows both announcements and bins
     return [
       ...announcements.map((d): ListItem => ({ type: "announcement", data: d })),
       ...attachmentBins.map((d): ListItem => ({ type: "bin", data: d })),
@@ -401,127 +406,48 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabBar}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabBar}
+        style={styles.tabBarContainer}
+      >
         {tabs.map((tab) => (
-          <View key={tab} style={styles.tabWrapper}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Content */}
-      {activeTab === 'People' ? (
-        <FlatList
-          data={members}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListHeaderComponent={
-            <>
-              {members.filter(m => m.is_teacher).length > 0 && (
-                <>
-                  <Text style={styles.peopleSectionTitle}>Teacher ({members.filter(m => m.is_teacher).length})</Text>
-                  {members.filter(m => m.is_teacher).map((item) => (
-                    <View key={item.id} style={styles.personCard}>
-                      {item.profile_photo_url ? (
-                        <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
-                      ) : (
-                        <View style={styles.personAvatar}>
-                          <Text style={styles.personAvatarText}>
-                            {item.first_name?.charAt(0) || item.email?.charAt(0) || 'T'}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.personInfo}>
-                        <Text style={styles.personName}>
-                          {item.first_name && item.last_name 
-                            ? `${item.first_name} ${item.last_name}`
-                            : item.email || 'Teacher'}
-                        </Text>
-                        <Text style={styles.personStudentId}>Teacher</Text>
-                      </View>
-                    </View>
-                  ))}
-                  <Text style={[styles.peopleSectionTitle, { marginTop: 24 }]}>Students ({members.filter(m => !m.is_teacher).length})</Text>
-                </>
-              )}
-              {members.filter(m => m.is_teacher).length === 0 && (
-                <Text style={styles.peopleSectionTitle}>Students ({members.filter(m => !m.is_teacher).length})</Text>
-              )}
-            </>
-          }
-          renderItem={({ item }) => {
-            if (item.is_teacher) return null; // Teachers already shown in header
-            return (
-              <View style={styles.personCard}>
-                {item.profile_photo_url ? (
-                  <Image source={{ uri: item.profile_photo_url }} style={styles.personAvatarImage} />
-                ) : (
-                  <View style={styles.personAvatar}>
-                    <Text style={styles.personAvatarText}>
-                      {item.first_name?.charAt(0) || item.email?.charAt(0) || 'S'}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.personInfo}>
-                  <Text style={styles.personName}>
-                    {item.first_name && item.last_name 
-                      ? `${item.first_name} ${item.last_name}`
-                      : item.email || 'Student'}
-                  </Text>
-                  {item.student_id && (
-                    <Text style={styles.personStudentId}>ID: {item.student_id}</Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={styles.unenrollBtn}
-                  onPress={() => handleUnenrollStudent(item)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="remove-circle-outline" size={22} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Ionicons name="people-outline" size={60} color="#DADCE0" />
-              <Text style={styles.emptyTitle}>No students yet</Text>
-              <Text style={styles.emptyText}>Students will appear here when they join</Text>
-            </View>
-          }
-        />
-      ) : (
-        <FlatList
-          data={listData}
-          keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderItem={({ item }) =>
-            item.type === "announcement"
-              ? renderAnnouncement({ item: item.data })
-              : renderBin({ item: item.data })
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Ionicons
-                name="clipboard-outline"
-                size={60}
-                color="#DADCE0"
-              />
-              <Text style={styles.emptyTitle}>Nothing here yet</Text>
-              <Text style={styles.emptyText}>
-                Tap + to add content
-              </Text>
-            </View>
-          }
-        />
-      )}
+      <FlatList
+        data={listData}
+        keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        renderItem={({ item }) =>
+          item.type === "announcement"
+            ? renderAnnouncement({ item: item.data })
+            : renderBin({ item: item.data })
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Ionicons
+              name="clipboard-outline"
+              size={60}
+              color="#DADCE0"
+            />
+            <Text style={styles.emptyTitle}>Nothing here yet</Text>
+            <Text style={styles.emptyText}>
+              Tap + to add content
+            </Text>
+          </View>
+        }
+      />
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={handleFabMenu} activeOpacity={0.85}>
@@ -556,21 +482,22 @@ const styles = StyleSheet.create({
   },
   inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tabs - Pill shaped
-  tabBar: { 
-    flexDirection: "row", 
-    backgroundColor: C.bg, 
-    paddingHorizontal: 16, 
+  // Tabs - Pill shaped carousel
+  tabBarContainer: { 
+    backgroundColor: C.bg,
     paddingVertical: 12,
+  },
+  tabBar: { 
+    paddingHorizontal: 16,
     gap: 8,
   },
-  tabWrapper: { flex: 1 },
   tab: { 
     paddingVertical: 10, 
     paddingHorizontal: 16,
     alignItems: "center",
     backgroundColor: '#E8E8E8',
     borderRadius: 999,
+    minWidth: 60,
   },
   tabActive: { backgroundColor: '#202124' },
   tabText: { fontSize: 14, fontWeight: "600" as const, color: "#5F6368" },
@@ -582,18 +509,18 @@ const styles = StyleSheet.create({
 
   // Activity Cards
   activityCard: {
-    flexDirection: 'row', backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 12,
+    flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12,
     borderWidth: 1, borderColor: '#DADCE0',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
   activityIconWrap: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F3F4',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent',
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  activityContent: { flex: 1 },
-  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6 },
-  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8 },
-  activityDate: { fontSize: 12, color: '#9AA0A6' },
+  activityContent: { flex: 1, backgroundColor: 'transparent' },
+  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6, backgroundColor: 'transparent' },
+  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 8, backgroundColor: 'transparent' },
+  activityDate: { fontSize: 12, color: '#9AA0A6', backgroundColor: 'transparent' },
   cardEllipsisBtn: { padding: 4 },
 
   pinnedBadge: {
@@ -602,9 +529,9 @@ const styles = StyleSheet.create({
   },
   pinnedText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
-  binMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  binMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, backgroundColor: 'transparent' },
   statusBadge: {
-    paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#E8F0FE', borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4, backgroundColor: 'rgba(25, 103, 210, 0.15)', borderRadius: 12,
   },
   statusBadgeText: { fontSize: 12, color: '#1967D2', fontWeight: '600' },
 
@@ -615,7 +542,7 @@ const styles = StyleSheet.create({
   },
   personCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: 12, padding: 16, marginBottom: 8,
     borderWidth: 1, borderColor: '#DADCE0',
   },
   personAvatar: {

@@ -233,13 +233,13 @@ export default function ClassroomHubScreen({ navigation }: any) {
         <View style={styles.cardDivider} />
         <View style={styles.cardBody}>
           <View style={styles.cardMeta}>
-            <Ionicons name="people-outline" size={16} color="rgba(255, 255, 255, 0.9)" />
+            <Ionicons name="people-outline" size={16} color="#5F6368" />
             <Text style={styles.cardMetaText}>
               {item.memberCount} {item.memberCount === 1 ? "student" : "students"}
             </Text>
           </View>
           <View style={styles.codeChip}>
-            <Ionicons name="key-outline" size={13} color="#FFFFFF" />
+            <Ionicons name="key-outline" size={13} color="#5F6368" />
             <Text style={styles.codeText}>{item.invite_code}</Text>
           </View>
         </View>
@@ -330,21 +330,54 @@ export default function ClassroomHubScreen({ navigation }: any) {
               <Ionicons name="home-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); }}>
-              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>My Classes</Text>
+
+            {/* Consultation Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CONSULTATIONS</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherConsultations'); }}>
+              <Ionicons name="calendar-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Consultations</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("AllRequests"); }}>
               <Ionicons name="document-text-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Requests</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("TeacherConsultations"); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('ConsultationHistory'); }}>
+              <Ionicons name="time-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Consultation History</Text>
+            </TouchableOpacity>
+
+            {/* Classes Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>CLASSES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); }}>
+              <Ionicons name="book-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Classes</Text>
+            </TouchableOpacity>
+
+            {/* Messages Section */}
+            <View style={styles.drawerSectionHeader}>
+              <Text style={styles.drawerSectionTitle}>MESSAGES</Text>
+            </View>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('Inbox'); }}>
               <Ionicons name="chatbubble-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
-              <Text style={styles.drawerItemText}>Consultations</Text>
+              <Text style={styles.drawerItemText}>Messages</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate("Notifications"); }}>
               <Ionicons name="notifications-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>Notifications</Text>
+            </TouchableOpacity>
+
+            {/* Profile & Settings Section */}
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('TeacherProfile', { userId: displayName, isOwnProfile: true }); }}>
+              <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>My Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('AccountSettings'); }}>
+              <Ionicons name="settings-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
+              <Text style={styles.drawerItemText}>Settings</Text>
             </TouchableOpacity>
 
             <View style={styles.drawerDivider} />
@@ -361,8 +394,8 @@ export default function ClassroomHubScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#F4F4F4' },
   loadingText: { marginTop: 12, fontSize: 14, color: "#5F6368" },
 
   appBar: {
@@ -386,7 +419,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 12, paddingBottom: 120 },
 
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 8, marginBottom: 12,
+    backgroundColor: '#FFFFFF', borderRadius: 8, marginBottom: 12,
     overflow: "hidden", elevation: 2, shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4,
   },
@@ -407,16 +440,16 @@ const styles = StyleSheet.create({
   cardBody: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
   },
   cardMeta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  cardMetaText: { fontSize: 13, color: "rgba(255, 255, 255, 0.9)" },
+  cardMetaText: { fontSize: 13, color: "#5F6368" },
   codeChip: {
     flexDirection: "row", alignItems: "center", gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: '#F1F3F4', borderWidth: 1, borderColor: '#E8EAED',
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4,
   },
-  codeText: { fontSize: 12, color: "#FFFFFF", fontWeight: "600" as const, letterSpacing: 0.5 },
+  codeText: { fontSize: 12, color: "#5F6368", fontWeight: "600" as const, letterSpacing: 0.5 },
 
   emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 18, fontWeight: "600" as const, color: "#5F6368", marginTop: 20 },
@@ -460,6 +493,8 @@ const styles = StyleSheet.create({
   drawerRole: { fontSize: 12, color: "#5F6368", marginTop: 2 },
   drawerClose: { padding: 4 },
   drawerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E8EAED", marginVertical: 6 },
+  drawerSectionHeader: { paddingHorizontal: 20, paddingVertical: 8, paddingTop: 16 },
+  drawerSectionTitle: { fontSize: 11, fontWeight: '600' as const, color: C.ink3, letterSpacing: 0.5, textTransform: 'uppercase' as const },
   drawerItem: {
     flexDirection: "row", alignItems: "center",
     paddingHorizontal: 20, paddingVertical: 14,

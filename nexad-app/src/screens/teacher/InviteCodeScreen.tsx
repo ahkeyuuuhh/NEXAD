@@ -133,20 +133,7 @@ export default function InviteCodeScreen({ navigation, route }: any) {
           {classroomName}
         </Animated.Text>
 
-        {/* Code card */}
-        <Animated.View style={[styles.codeCard, { opacity: fadeCard, transform: [{ translateY: slideCard }] }]}>
-          <Ionicons name="key-outline" size={36} color="#202124" style={{ marginBottom: 12 }} />
-          <Text style={styles.codeLabel}>Invite Code</Text>
-          <Animated.Text style={[styles.codeText, { transform: [{ scale: pulseCode }] }]}>
-            {inviteCode}
-          </Animated.Text>
-          <TouchableOpacity style={styles.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
-            <Ionicons name="copy-outline" size={16} color="#5F6368" />
-            <Text style={styles.copyText}>Tap to copy</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* QR Code card */}
+        {/* Combined QR and Code card */}
         <Animated.View style={[styles.qrCard, { opacity: fadeCard, transform: [{ translateY: slideCard }] }]}>
           <Text style={styles.qrLabel}>QR Code</Text>
           <Image
@@ -155,6 +142,18 @@ export default function InviteCodeScreen({ navigation, route }: any) {
             resizeMode="contain"
           />
           <Text style={styles.qrHint}>Students can scan this to join</Text>
+          
+          {/* Invite code section below QR */}
+          <View style={styles.codeSection}>
+            <Text style={styles.codeLabel}>Invite Code</Text>
+            <Animated.Text style={[styles.codeText, { transform: [{ scale: pulseCode }] }]}>
+              {inviteCode}
+            </Animated.Text>
+            <TouchableOpacity style={styles.copyBtn} onPress={handleCopy} activeOpacity={0.75}>
+              <Ionicons name="copy-outline" size={16} color="#5F6368" />
+              <Text style={styles.copyText}>Tap to copy</Text>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         <Text style={styles.hint}>
@@ -186,7 +185,7 @@ export default function InviteCodeScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
 
   header: {
     flexDirection: "row",
@@ -232,10 +231,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
-  codeCard: {
+  // QR code section
+  qrCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
-    padding: 32,
+    padding: 24,
     alignItems: "center",
     width: "100%",
     elevation: 3,
@@ -245,6 +245,34 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     marginBottom: 20,
   },
+  qrLabel: {
+    fontSize: 13,
+    color: "#9AA0A6",
+    fontWeight: "500",
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  qrImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+  },
+  qrHint: {
+    fontSize: 12,
+    color: "#9AA0A6",
+    marginTop: 12,
+    marginBottom: 24,
+    textAlign: "center",
+  },
+
+  // Code section within QR card
+  codeSection: {
+    alignItems: "center",
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F3F4",
+    width: "100%",
+  },
   codeLabel: {
     fontSize: 13,
     color: "#9AA0A6",
@@ -253,7 +281,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   codeText: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: "800",
     color: "#202124",
     letterSpacing: 4,
@@ -300,39 +328,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
-  },
-
-  // QR code section
-  qrCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
-    alignItems: "center",
-    width: "100%",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    marginBottom: 20,
-  },
-  qrLabel: {
-    fontSize: 13,
-    color: "#9AA0A6",
-    fontWeight: "500",
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-  qrImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-  },
-  qrHint: {
-    fontSize: 12,
-    color: "#9AA0A6",
-    marginTop: 12,
-    textAlign: "center",
   },
 
   // Button row

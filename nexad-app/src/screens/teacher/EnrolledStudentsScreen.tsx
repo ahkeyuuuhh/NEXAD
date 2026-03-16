@@ -64,9 +64,18 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
   const loadMembers = async () => {
     try {
       const result = await classroomService.getClassroomMembers(classroomId);
-      if (result.data) setMembers(result.data);
+      
+      if (result.data) {
+        // Filter to show only students (not teachers)
+        const students = result.data.filter(member => !member.is_teacher);
+        setMembers(students);
+      } else if (result.error) {
+        console.error('Error loading members:', result.error);
+        Alert.alert('Error', 'Failed to load enrolled students');
+      }
     } catch (err) {
       console.error("Error loading members:", err);
+      Alert.alert('Error', 'Failed to load enrolled students');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -275,13 +284,13 @@ export default function EnrolledStudentsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
 
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: 'transparent',
+    backgroundColor: '#F4F4F4',
     paddingHorizontal: 8,
     paddingVertical: 14,
     paddingTop: 52,

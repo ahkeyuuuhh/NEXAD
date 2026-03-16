@@ -67,12 +67,33 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   );
 
   const loadBinData = async () => {
+    if (!binId) {
+      console.error('No binId provided');
+      setLoading(false);
+      return;
+    }
+    
     try {
+      console.log('Loading bin data for binId:', binId);
+      setLoading(true);
+      
       const binResult = await classroomService.getAttachmentBin(binId);
-      if (binResult.data) setBin(binResult.data);
+      console.log('Bin result:', binResult);
+      
+      if (binResult.data) {
+        setBin(binResult.data);
+      } else if (binResult.error) {
+        console.error('Error loading bin:', binResult.error);
+        Alert.alert('Error', 'Failed to load assignment details');
+        setLoading(false);
+        return;
+      }
 
       if (user?.user_id) {
+        console.log('Loading submission for user:', user.user_id);
         const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
+        console.log('Submission result:', submissionResult);
+        
         if (submissionResult.data) {
           setSubmission(submissionResult.data);
           // Load the linked consultation when one has been booked
@@ -81,16 +102,25 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
             (status === 'consultation_requested' || status === 'for_consultation') &&
             binResult.data?.teacher_id
           ) {
-            const consultResult = await consultationService.getStudentConsultationForTeacher(
-              user.user_id,
-              binResult.data.teacher_id
-            );
-            if (consultResult.data) setConsultationRequest(consultResult.data);
+            try {
+              const consultResult = await consultationService.getStudentConsultationForTeacher(
+                user.user_id,
+                binResult.data.teacher_id
+              );
+              if (consultResult.data) setConsultationRequest(consultResult.data);
+            } catch (consultError) {
+              console.warn('Failed to load consultation request:', consultError);
+              // Don't fail the whole screen if consultation loading fails
+            }
           }
+        } else if (submissionResult.error) {
+          console.warn('No submission found or error:', submissionResult.error);
+          // This is expected for new assignments, don't show error
         }
       }
     } catch (error) {
       console.error('Error loading bin data:', error);
+      Alert.alert('Error', 'Failed to load assignment. Please try again.');
     } finally {
       setLoading(false);
     }

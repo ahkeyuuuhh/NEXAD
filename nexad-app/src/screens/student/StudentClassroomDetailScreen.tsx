@@ -21,8 +21,8 @@ import { C, S, R, shadow } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { Alert } from '../../utils/Alert';
 
-type Tab = 'Classwork' | 'People';
-const TABS: Tab[] = ['Classwork', 'People'];
+type Tab = 'All' | 'Announcements' | 'Bins';
+const TABS: Tab[] = ['All', 'Announcements', 'Bins'];
 type ListItem = { type: 'announcement'; data: any } | { type: 'bin'; data: any };
 
 const getBannerColor = (coverColor: string | null | undefined) => {
@@ -39,7 +39,7 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const [attachmentBins, setAttachmentBins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('Classwork');
+  const [activeTab, setActiveTab] = useState<Tab>('All');
   const [members, setMembers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -90,9 +90,13 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   };
 
   const getListData = (): ListItem[] => {
-    if (activeTab === 'People')
-      return [];
-    // Classwork shows both announcements and bins
+    if (activeTab === 'Announcements') {
+      return announcements.map((d) => ({ type: 'announcement' as const, data: d }));
+    }
+    if (activeTab === 'Bins') {
+      return attachmentBins.map((d) => ({ type: 'bin' as const, data: d }));
+    }
+    // 'All' shows both announcements and bins
     return [
       ...announcements.map((d) => ({ type: 'announcement' as const, data: d })),
       ...attachmentBins.map((d) => ({ type: 'bin' as const, data: d })),
@@ -263,13 +267,15 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <Ionicons
-        name={activeTab === 'Classwork' ? 'clipboard-outline' : 'reader-outline'}
+        name={activeTab === 'Announcements' ? 'megaphone-outline' : activeTab === 'Bins' ? 'clipboard-outline' : 'reader-outline'}
         size={56}
         color="#DADCE0"
       />
       <Text style={styles.emptyTitle}>Nothing here yet</Text>
       <Text style={styles.emptyText}>
-        {activeTab === 'Classwork' ? 'No assignments posted' : 'No activity to show'}
+        {activeTab === 'Announcements' ? 'No announcements posted' : 
+         activeTab === 'Bins' ? 'No assignments posted' : 
+         'No content to show'}
       </Text>
     </View>
   );
@@ -320,80 +326,33 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
       </View>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabBar}
+        style={styles.tabBarContainer}
+      >
         {TABS.map((tab) => (
-          <View key={tab} style={styles.tabWrapper}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+          </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Content */}
-      {activeTab === 'People' ? (
-        <ScrollView
-          style={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          <View style={styles.peopleSection}>
-            <Text style={styles.peopleSectionTitle}>Teacher</Text>
-            <View style={styles.personCard}>
-              {teacherProfile?.profile_photo_url ? (
-                <Image source={{ uri: teacherProfile.profile_photo_url }} style={styles.personAvatarImage} />
-              ) : (
-                <View style={styles.personAvatar}>
-                  <Text style={styles.personAvatarText}>
-                    {teacherProfile?.first_name?.charAt(0) || 'T'}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.personName}>
-                {teacherProfile?.first_name && teacherProfile?.last_name
-                  ? `${teacherProfile.first_name} ${teacherProfile.last_name}`
-                  : teacherProfile?.email || 'Instructor'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.peopleSection}>
-            <Text style={styles.peopleSectionTitle}>Students ({studentMembers.length})</Text>
-            {studentMembers.map((member) => (
-              <View key={member.id} style={styles.personCard}>
-                {member.profile_photo_url ? (
-                  <Image source={{ uri: member.profile_photo_url }} style={styles.personAvatarImage} />
-                ) : (
-                  <View style={styles.personAvatar}>
-                    <Text style={styles.personAvatarText}>
-                      {member.first_name?.charAt(0) || member.email?.charAt(0) || 'S'}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.personName}>
-                  {member.first_name && member.last_name
-                    ? `${member.first_name} ${member.last_name}`
-                    : member.email || 'Student'}
-                </Text>
-              </View>
-            ))}
-            {studentMembers.length === 0 && (
-              <Text style={styles.upcomingEmpty}>No students yet</Text>
-            )}
-          </View>
-        </ScrollView>
-      ) : (
-        <FlatList
-          style={styles.feed}
-          data={getListData()}
-          keyExtractor={(item, i) => `${item.type}-${item.data?.id ?? i}`}
-          renderItem={renderItem}
-          ListEmptyComponent={renderEmpty}
-          contentContainerStyle={styles.feedContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        />
-      )}
+      <FlatList
+        style={styles.feed}
+        data={getListData()}
+        keyExtractor={(item, i) => `${item.type}-${item.data?.id ?? i}`}
+        renderItem={renderItem}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={styles.feedContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      />
     </View>
   );
 }
@@ -423,21 +382,22 @@ const styles = StyleSheet.create({
   },
   inviteCodeText: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 1 },
 
-  // Tab Bar - Pill shaped
-  tabBar: { 
-    flexDirection: 'row', 
-    backgroundColor: C.bg, 
-    paddingHorizontal: 16, 
+  // Tab Bar - Pill shaped carousel
+  tabBarContainer: { 
+    backgroundColor: C.bg,
     paddingVertical: 12,
+  },
+  tabBar: { 
+    paddingHorizontal: 16,
     gap: 8,
   },
-  tabWrapper: { flex: 1 },
   tab: { 
     paddingVertical: 10, 
     paddingHorizontal: 16,
     alignItems: 'center',
     backgroundColor: '#E8E8E8',
     borderRadius: 999,
+    minWidth: 60,
   },
   tabActive: { backgroundColor: '#202124' },
   tabText: { fontSize: 14, color: '#5F6368', fontWeight: '600' },
@@ -452,22 +412,22 @@ const styles = StyleSheet.create({
 
   // Activity Cards
   activityCard: {
-    flexDirection: 'row', backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 12,
+    flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12,
     borderWidth: 1, borderColor: '#DADCE0',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
   activityIconWrap: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F3F4',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: 'transparent',
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  activityContent: { flex: 1 },
-  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6 },
-  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 10 },
-  activityFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  activityDate: { fontSize: 12, color: '#9AA0A6' },
+  activityContent: { flex: 1, backgroundColor: 'transparent' },
+  activityTitle: { fontSize: 15, fontWeight: '600', color: '#202124', marginBottom: 6, backgroundColor: 'transparent' },
+  activityBody: { fontSize: 14, color: '#5F6368', lineHeight: 20, marginBottom: 10, backgroundColor: 'transparent' },
+  activityFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'transparent' },
+  activityDate: { fontSize: 12, color: '#9AA0A6', backgroundColor: 'transparent' },
   commentBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#F8F9FA', borderRadius: 16,
+    paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'transparent', borderRadius: 16,
   },
   commentBtnText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
 
@@ -479,7 +439,7 @@ const styles = StyleSheet.create({
 
   dueBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#F1F3F4', borderRadius: 12,
+    paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(0, 0, 0, 0.1)', borderRadius: 12,
   },
   dueBadgeOverdue: { backgroundColor: '#FCE8E6' },
   dueText: { fontSize: 12, color: '#5F6368', fontWeight: '500' },
@@ -493,7 +453,7 @@ const styles = StyleSheet.create({
   },
   personCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 12, padding: 16, marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: 12, padding: 16, marginBottom: 8,
     borderWidth: 1, borderColor: '#DADCE0',
   },
   personAvatar: {
