@@ -2,7 +2,7 @@
   "expo": {
     "name": "NEXAD",
     "slug": "nexad",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/appIcon.jpg",
     "userInterfaceStyle": "automatic",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.university.nexad",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
