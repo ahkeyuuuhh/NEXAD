@@ -1195,12 +1195,11 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Match student dashboard exactly
+    backgroundColor: 'transparent', // Make completely transparent to match dashboard
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)', // Match student dashboard exactly
+    borderWidth: 0, // Remove border completely
     ...shadow.soft,
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
