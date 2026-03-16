@@ -77,9 +77,13 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 
     const allMembers  = membersRes.data || [];
     const assignedTo: string[] | null = binData?.assigned_to ?? null;
+    
+    // Filter out teachers from the members list - only show students
+    const studentsOnly = allMembers.filter((m: any) => !m.is_teacher);
+    
     const filtered = assignedTo && assignedTo.length > 0
-      ? allMembers.filter((m: any) => assignedTo.includes(m.id))
-      : allMembers;
+      ? studentsOnly.filter((m: any) => assignedTo.includes(m.id))
+      : studentsOnly;
 
     setMembers(filtered);
     if (subsRes.data) setSubmissions(subsRes.data);
@@ -186,23 +190,36 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
         )}
       </View>
 
-      <View style={styles.statsCard}>
-        <Text style={styles.statsHeading}>Summary</Text>
-        <View style={styles.statsRow}>
-          {[
-            { label: 'Assigned',  val: members.length },
-            { label: 'Submitted', val: submittedMembers.length },
-            { label: 'Missing',   val: missingMembers.length },
-            { label: 'Pending',   val: statPending },
-            { label: 'Approved',  val: statApproved },
-          ].map((item, idx) => (
-            <View key={item.label} style={[styles.statBox, idx > 0 && styles.statBoxBorder]}>
-              <Text style={styles.statNum}>{item.val}</Text>
-              <Text style={styles.statLbl}>{item.label}</Text>
-            </View>
-          ))}
+      <TouchableOpacity 
+        style={styles.statsCard}
+        onPress={() => setExpandedId(expandedId === 'summary' ? null : 'summary')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.statsHeader}>
+          <Text style={styles.statsHeading}>Summary</Text>
+          <Ionicons 
+            name={expandedId === 'summary' ? 'chevron-up' : 'chevron-down'} 
+            size={16} 
+            color={C.ink3} 
+          />
         </View>
-      </View>
+        {expandedId === 'summary' && (
+          <View style={styles.statsRow}>
+            {[
+              { label: 'Assigned',  val: members.length },
+              { label: 'Submitted', val: submittedMembers.length },
+              { label: 'Missing',   val: missingMembers.length },
+              { label: 'Pending',   val: statPending },
+              { label: 'Approved',  val: statApproved },
+            ].map((item, idx) => (
+              <View key={item.label} style={[styles.statBox, idx > 0 && styles.statBoxBorder]}>
+                <Text style={styles.statNum}>{item.val}</Text>
+                <Text style={styles.statLbl}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -392,13 +409,22 @@ const styles = StyleSheet.create({
   headerTitle: { ...T.h2, flex: 1 },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+    backgroundColor: 'transparent',
+    paddingHorizontal: S.lg,
+    paddingVertical: S.md,
+    gap: S.sm,
   },
-  tab:           { flex: 1, paddingVertical: S.md + 2, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive:     { borderBottomColor: C.ink1 },
-  tabText:       { ...T.label, color: C.ink4 },
-  tabTextActive: { ...T.label, color: C.ink1 },
+  tab: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    borderRadius: 999,
+    minWidth: 80,
+  },
+  tabActive: { backgroundColor: '#202124' },
+  tabText: { fontSize: 14, fontWeight: "600" as const, color: "#5F6368" },
+  tabTextActive: { color: "#FFFFFF", fontWeight: "600" as const },
   detailCard: {
     backgroundColor: C.surface, marginHorizontal: S.lg, marginTop: S.lg,
     borderRadius: R.lg, padding: S.xl,
@@ -411,11 +437,16 @@ const styles = StyleSheet.create({
   detailDeadlineText: { ...T.small, color: C.ink3 },
   statsCard: {
     backgroundColor: C.surface, marginHorizontal: S.lg, marginTop: S.md,
-    borderRadius: R.lg, padding: S.xl,
+    borderRadius: R.lg, padding: S.lg,
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.borderLight, ...shadow.card,
   },
-  statsHeading:  { ...T.label, color: C.ink3, marginBottom: S.md, textTransform: 'uppercase', letterSpacing: 0.8 },
-  statsRow:      { flexDirection: 'row' },
+  statsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statsHeading:  { ...T.label, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.8 },
+  statsRow:      { flexDirection: 'row', marginTop: S.md },
   statBox:       { flex: 1, alignItems: 'center', paddingVertical: S.xs },
   statBoxBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: C.borderLight },
   statNum:       { ...T.h2, fontSize: 20 },

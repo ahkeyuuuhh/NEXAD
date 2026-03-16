@@ -267,9 +267,19 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
         style={styles.activityCard}
         activeOpacity={0.7}
         onPress={() => {
-          console.log('Navigating to AttachmentBinSubmission with binId:', bin.id);
+          console.log('=== ATTACHMENT BIN NAVIGATION DEBUG ===');
+          console.log('Bin object:', bin);
+          console.log('Bin ID:', bin.id);
+          console.log('Navigation object:', navigation);
+          
           if (bin.id) {
-            navigation.navigate('AttachmentBinSubmission', { binId: bin.id });
+            console.log('Navigating to AttachmentBinSubmission with binId:', bin.id);
+            try {
+              navigation.navigate('AttachmentBinSubmission', { binId: bin.id });
+              console.log('Navigation call completed successfully');
+            } catch (error) {
+              console.error('Navigation error:', error);
+            }
           } else {
             console.error('No bin.id available for navigation');
           }

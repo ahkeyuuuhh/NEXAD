@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  StatusBar,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,10 +30,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 };
 
 export default function AttachmentBinSubmissionScreen({ navigation, route }: any) {
+  console.log('=== ATTACHMENT BIN SUBMISSION SCREEN LOADED ===');
+  console.log('Route object:', route);
+  console.log('Route params:', route.params);
+  
   const { binId } = route.params || {};
   const { user } = useAuth();
 
-  console.log('AttachmentBinSubmissionScreen received binId:', binId);
+  console.log('Extracted binId:', binId);
+  console.log('User:', user?.user_id);
 
   const [bin, setBin] = useState<any>(null);
   const [submission, setSubmission] = useState<any>(null);
@@ -43,6 +49,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   // Plagiarism check states
   const [showPlagiarismModal, setShowPlagiarismModal] = useState(false);
   const [plagiarismResults, setPlagiarismResults] = useState<Array<{
@@ -68,81 +75,76 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
     }, [binId])
   );
 
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.log('Loading timeout reached, stopping loading');
+        setLoadingTimeout(true);
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
   const loadBinData = async () => {
-      if (!binId) {
-        console.error('No binId provided');
-        Alert.alert('Error', 'No assignment ID provided');
+    if (!binId) {
+      console.error('No binId provided');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      console.log('Loading bin data for binId:', binId);
+      setLoading(true);
+      
+      const binResult = await classroomService.getAttachmentBin(binId);
+      console.log('Bin result:', binResult);
+      
+      if (binResult.data) {
+        setBin(binResult.data);
+      } else if (binResult.error) {
+        console.error('Error loading bin:', binResult.error);
         setLoading(false);
         return;
       }
 
-      try {
-        console.log('Loading bin data for binId:', binId);
-        setLoading(true);
-
-        const binResult = await classroomService.getAttachmentBin(binId);
-        console.log('Bin result:', binResult);
-
-        if (binResult.data) {
-          setBin(binResult.data);
-          console.log('Bin loaded successfully:', binResult.data.title);
-        } else if (binResult.error) {
-          console.error('Error loading bin:', binResult.error);
-          Alert.alert('Error', `Failed to load assignment: ${binResult.error}`);
-          setLoading(false);
-          return;
-        } else {
-          console.error('No bin data and no error - unexpected result');
-          Alert.alert('Error', 'Assignment not found');
-          setLoading(false);
-          return;
-        }
-
-        if (user?.user_id) {
-          console.log('Loading submission for user:', user.user_id);
-          const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
-          console.log('Submission result:', submissionResult);
-
-          if (submissionResult.data) {
-            setSubmission(submissionResult.data);
-            console.log('Submission loaded:', submissionResult.data.file_name);
-            // Load the linked consultation when one has been booked
-            const status = submissionResult.data?.review_status;
-            if (
-              (status === 'consultation_requested' || status === 'for_consultation') &&
-              binResult.data?.teacher_id
-            ) {
-              try {
-                const consultResult = await consultationService.getStudentConsultationForTeacher(
-                  user.user_id,
-                  binResult.data.teacher_id
-                );
-                if (consultResult.data) setConsultationRequest(consultResult.data);
-              } catch (consultError) {
-                console.warn('Failed to load consultation request:', consultError);
-                // Don't fail the whole screen if consultation loading fails
-              }
+      if (user?.user_id) {
+        console.log('Loading submission for user:', user.user_id);
+        const submissionResult = await classroomService.getStudentBinSubmission(binId, user.user_id);
+        console.log('Submission result:', submissionResult);
+        
+        if (submissionResult.data) {
+          setSubmission(submissionResult.data);
+          // Load the linked consultation when one has been booked
+          const status = submissionResult.data?.review_status;
+          if (
+            (status === 'consultation_requested' || status === 'for_consultation') &&
+            binResult.data?.teacher_id
+          ) {
+            try {
+              const consultResult = await consultationService.getStudentConsultationForTeacher(
+                user.user_id,
+                binResult.data.teacher_id
+              );
+              if (consultResult.data) setConsultationRequest(consultResult.data);
+            } catch (consultError) {
+              console.warn('Failed to load consultation request:', consultError);
+              // Don't fail the whole screen if consultation loading fails
             }
-          } else if (submissionResult.error) {
-            console.warn('No submission found or error:', submissionResult.error);
-            // This is expected for new assignments, don't show error
-          } else {
-            console.log('No submission found - student hasn\'t submitted yet');
           }
-        } else {
-          console.error('No user ID available');
-          Alert.alert('Error', 'User not authenticated');
-          setLoading(false);
-          return;
+        } else if (submissionResult.error) {
+          console.warn('No submission found or error:', submissionResult.error);
+          // This is expected for new assignments, don't show error
         }
-      } catch (error: any) {
-        console.error('Unexpected error loading bin data:', error);
-        Alert.alert('Error', `Unexpected error: ${error.message || error}`);
-      } finally {
-        console.log('Setting loading to false');
-        setLoading(false);
       }
-    };
+    } catch (error: any) {
+      console.error('Error loading bin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChooseFile = async () => {
     setShowAttachMenu(prev => !prev);
@@ -364,10 +366,60 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
     });
   };
 
+  if (loadingTimeout) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Loading timeout</Text>
+        <Text style={{ marginTop: 8, color: C.ink4, textAlign: 'center', fontSize: 12 }}>
+          The assignment took too long to load
+        </Text>
+        <Text style={{ marginTop: 4, color: C.ink4, textAlign: 'center', fontSize: 12 }}>
+          BinId: {binId}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 20, padding: 12, backgroundColor: '#1967D2', borderRadius: 8 }}
+          onPress={() => {
+            setLoadingTimeout(false);
+            setLoading(true);
+            loadBinData();
+          }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={{ marginTop: 12, padding: 12, backgroundColor: '#5F6368', borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={C.ink2} />
+        <Text style={{ marginTop: 16, color: C.ink3, textAlign: 'center' }}>
+          Loading assignment...
+        </Text>
+        <Text style={{ marginTop: 8, color: C.ink4, textAlign: 'center', fontSize: 12 }}>
+          BinId: {binId || 'Not provided'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (!binId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>No assignment ID provided</Text>
+        <TouchableOpacity 
+          style={{ marginTop: 20, padding: 12, backgroundColor: '#1967D2', borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -375,7 +427,16 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   if (!bin) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Attachment bin not found</Text>
+        <Text style={styles.errorText}>Assignment not found</Text>
+        <Text style={{ marginTop: 8, color: C.ink4, textAlign: 'center', fontSize: 12 }}>
+          BinId: {binId}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 20, padding: 12, backgroundColor: '#1967D2', borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'white', textAlign: 'center' }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -391,7 +452,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" />
       
       {/* Header */}
       <View style={styles.header}>
@@ -407,7 +468,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
         <View style={styles.assignmentCard}>
           <View style={styles.assignmentHeader}>
             <View style={styles.assignmentIconWrap}>
-              <Ionicons name="clipboard" size={24} color="#1967D2" />
+              <Ionicons name="clipboard" size={24} color="#202124" />
             </View>
             <View style={styles.assignmentInfo}>
               <Text style={styles.assignmentTitle}>{bin.title}</Text>
@@ -437,7 +498,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
             <View style={styles.submissionCard}>
               <View style={styles.submissionHeader}>
                 <View style={styles.submissionIconWrap}>
-                  <Ionicons name="document-text" size={20} color="#5F6368" />
+                  <Ionicons name="document-text" size={20} color="#202124" />
                 </View>
                 <View style={styles.submissionInfo}>
                   <Text style={styles.submissionFileName}>{submission.file_name}</Text>
@@ -454,7 +515,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
                   onPress={handleViewSubmission}
                   style={styles.viewButton}
                 >
-                  <Ionicons name="eye-outline" size={18} color="#1967D2" />
+                  <Ionicons name="eye-outline" size={18} color="#202124" />
                 </TouchableOpacity>
               </View>
               
@@ -532,7 +593,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
               {selectedFile ? (
                 <View style={styles.selectedFileCard}>
                   <View style={styles.selectedFileHeader}>
-                    <Ionicons name="document-text" size={20} color="#5F6368" />
+                    <Ionicons name="document-text" size={20} color="#202124" />
                     <View style={styles.selectedFileInfo}>
                       <Text style={styles.selectedFileName}>{selectedFile.name}</Text>
                       <Text style={styles.selectedFileSize}>
@@ -549,14 +610,14 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
                       style={styles.analyzeButton}
                       onPress={() => performPlagiarismCheck(selectedFile)}
                     >
-                      <Ionicons name="shield-checkmark-outline" size={16} color="#1967D2" />
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#202124" />
                       <Text style={styles.analyzeButtonText}>Check academic integrity</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ) : (
                 <TouchableOpacity style={styles.addFileButton} onPress={handleChooseFile}>
-                  <Ionicons name="add" size={24} color="#1967D2" />
+                  <Ionicons name="add" size={24} color="#202124" />
                   <Text style={styles.addFileText}>Add or create</Text>
                 </TouchableOpacity>
               )}
@@ -564,7 +625,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
               {showAttachMenu && (
                 <View style={styles.attachMenu}>
                   <TouchableOpacity style={styles.attachOption} onPress={pickDocumentAttachment}>
-                    <Ionicons name="document-text-outline" size={20} color="#5F6368" />
+                    <Ionicons name="document-text-outline" size={20} color="#202124" />
                     <Text style={styles.attachOptionText}>Upload file</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.attachOption} onPress={pickImageAttachment}>
@@ -724,9 +785,9 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F8F9FA' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
+  screen: { flex: 1, backgroundColor: 'transparent' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   errorText: { fontSize: 16, color: C.ink4 },
 
   // Header
@@ -737,7 +798,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: '#E8EAED',
   },
@@ -1002,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   analyzeButtonText: {
     fontSize: 12,
-    color: '#1967D2',
+    color: '#202124',
     fontWeight: '500',
   },
 
@@ -1021,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   addFileText: {
     fontSize: 14,
-    color: '#1967D2',
+    color: '#202124',
     fontWeight: '500',
   },
 
