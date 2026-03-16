@@ -996,6 +996,9 @@ export default function TeacherDashboard({ navigation, route }: any) {
       >
         <View style={styles.modalOverlay2}>
           <View style={styles.modalContent2}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: 'red', textAlign: 'center', padding: 10 }}>
+              ✅ BUILD v1.0.6 - FIXES APPLIED
+            </Text>
             {selectedConsultation && (() => {
               const isMissed = checkIfMissed(selectedConsultation);
               const status = getStatusDisplay(selectedConsultation);
@@ -1197,13 +1200,13 @@ const styles = StyleSheet.create({
   requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent', // Remove white background
+    backgroundColor: 'transparent', // COMPLETELY TRANSPARENT - NO BACKGROUND AT ALL
     borderRadius: R.xl,
     padding: S.lg,
     marginBottom: S.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
-    ...shadow.soft,
+    borderWidth: 2, // Make border thicker so it's visible
+    borderColor: '#FF0000', // RED BORDER TO VERIFY THIS IS THE NEW BUILD
+    // Removed shadow to make it completely flat
   },
   requestAvatar:     { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 0, 0, 0.08)', justifyContent: 'center', alignItems: 'center', marginRight: S.lg },
   requestAvatarText: { fontSize: 20, fontWeight: '600' as const, color: C.ink1 },
