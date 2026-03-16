@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Image,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { documentService } from '../../services/documentService';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 import FileViewerModal, { isImageFile } from '../../components/FileViewerModal';
+import { Alert } from '../../utils/Alert';
 
 const STATUS_CONFIG: Record<string, { label: string; icon: string; bg: string; fg: string }> = {
   pending_review:         { label: 'Pending Review',    icon: 'time-outline',        bg: C.surfaceAlt, fg: C.ink3 },
