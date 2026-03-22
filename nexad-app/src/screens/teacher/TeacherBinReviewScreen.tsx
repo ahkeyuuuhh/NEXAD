@@ -163,7 +163,11 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={C.ink1} />
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -263,15 +267,15 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 
               {sub.review_status === 'pending_review' ? (
                 <View style={styles.actions}>
-                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
+                  <TouchableOpacity style={styles.approveBtn} disabled={updatingId === sub.id}
                     onPress={() => confirmStatus(sub, 'approved', 'Approved')}>
-                    <Ionicons name="checkmark-circle-outline" size={15} color={C.ink2} />
-                    <Text style={styles.actionBtnText}>Approve</Text>
+                    <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
+                    <Text style={styles.approveBtnText}>Approve</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} disabled={updatingId === sub.id}
+                  <TouchableOpacity style={styles.reviseBtn} disabled={updatingId === sub.id}
                     onPress={() => confirmStatus(sub, 'revised', 'Revision Needed')}>
-                    <Ionicons name="pencil-outline" size={15} color={C.ink2} />
-                    <Text style={styles.actionBtnText}>Revise</Text>
+                    <Ionicons name="pencil-outline" size={15} color="#FFFFFF" />
+                    <Text style={styles.reviseBtnText}>Revise</Text>
                   </TouchableOpacity>
 
                 </View>
@@ -399,6 +403,7 @@ export default function TeacherBinReviewScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingGif: { width: 200, height: 200 },
   header: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'transparent',
@@ -481,6 +486,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: C.border, backgroundColor: C.surfaceAlt,
   },
   actionBtnText: { ...T.label, color: C.ink2 },
+  // New separate styles for approve and revise buttons
+  approveBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: 12, borderRadius: R.md,
+    backgroundColor: '#000000', // Black background
+  },
+  approveBtnText: { ...T.label, color: '#FFFFFF' }, // White text for readability
+  reviseBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, paddingVertical: 12, borderRadius: R.md,
+    backgroundColor: '#424242', // Dark gray background
+  },
+  reviseBtnText: { ...T.label, color: '#FFFFFF' }, // White text for readability
   settledBar:       { flexDirection: 'row', alignItems: 'center', borderRadius: R.md, padding: S.md, gap: S.sm, marginBottom: S.sm },
   settledBarLeft:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   settledBarStatus: { fontSize: 13, fontWeight: '600' as const, letterSpacing: 0.2 },

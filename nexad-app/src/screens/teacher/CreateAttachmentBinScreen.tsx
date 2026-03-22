@@ -6,13 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { classroomService } from '../../services/classroomService';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from '../../utils/Alert';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 

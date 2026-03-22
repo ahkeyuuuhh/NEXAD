@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Image,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import type { AppNotification } from '../../hooks/useRealtimeNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, T, S, R, shared, shadow } from '../../config/theme';
 import { Alert } from '../../utils/Alert';
+import { MotionScreen } from '../../components/MotionWrapper';
 
 export default function NotificationsScreen({ navigation }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -155,6 +157,21 @@ export default function NotificationsScreen({ navigation }: any) {
             return rid
               ? { label: 'Open Chat →', screen: 'Chat', params: { conversationId: rid, title: 'Chat', type: 'INQUIRY' } }
               : { label: 'Open Inbox →', screen: 'Inbox', params: {} };
+          case 'classroom_announcement':
+            // Check if it's a private comment notification (Teacher Reply)
+            if (notification.title === 'Teacher Reply' && rid) {
+              // Parse combined binId:studentId format
+              const [binId] = rid.split(':');
+              // Navigate directly to private comments for this bin
+              return { label: 'View Comments →', screen: 'BinComments', params: { 
+                binId: binId, 
+                studentId: userId, 
+                binTitle: 'Assignment', 
+                studentName: 'You', 
+                role: 'student' 
+              }};
+            }
+            return null;
           default:
             return null;
         }
@@ -170,14 +187,70 @@ export default function NotificationsScreen({ navigation }: any) {
             ? { label: 'Review Submission →', screen: 'TeacherBinReview', params: { binId: rid } }
             : null;
         case 'new_message':
+          // Check if it's a comment notification based on related_id format
+          if (rid && rid.includes(':')) {
+            // Format: binId:studentId for bin comments or announcementId for announcement comments
+            if (rid.includes('bin:')) {
+              // Bin comment: "bin:binId:studentId"
+              const [, binId, actualStudentId] = rid.split(':');
+              // Extract student info from the message to get proper navigation params
+              const messageMatch = notification.message.match(/^(.+?) sent a comment on "(.+?)"$/) || 
+                                  notification.message.match(/^(.+?): (.+)$/);
+              const studentName = messageMatch ? messageMatch[1] : 'Student';
+              const binTitle = messageMatch && messageMatch[2] ? messageMatch[2] : 'Assignment';
+              
+              return { label: 'View Comments →', screen: 'BinComments', params: { 
+                binId: binId, 
+                studentId: actualStudentId || userId,
+                binTitle: binTitle, 
+                studentName: studentName, 
+                role: 'teacher',
+                teacherId: userId
+              }};
+            } else if (rid.includes('announcement:')) {
+              // Announcement comment: "announcement:announcementId"
+              const [, announcementId] = rid.split(':');
+              // Extract announcement title from message if possible
+              const titleMatch = notification.message.match(/on "(.+?)"/);
+              const announcementTitle = titleMatch ? titleMatch[1] : 'Announcement';
+              return { label: 'View Comments →', screen: 'AnnouncementComments', params: { 
+                announcementId: announcementId,
+                announcementTitle: announcementTitle,
+                classroomId: '', // Will be resolved in the screen
+                role: 'teacher'
+              }};
+            }
+          }
           return rid
             ? { label: 'Open Chat →', screen: 'Chat', params: { conversationId: rid, title: 'Chat', type: 'INQUIRY' } }
             : { label: 'Open Inbox →', screen: 'Inbox', params: {} };
+        case 'classroom_announcement':
+          // Check if it's a private comment notification (New Private Comment)
+          if (notification.title === 'New Private Comment' && rid) {
+            // Parse combined binId:studentId format
+            const [binId, actualStudentId] = rid.split(':');
+            // Extract student info from the message to get proper navigation params
+            // Message format: "{studentName} sent a comment on "{binTitle}""
+            const messageMatch = notification.message.match(/^(.+?) sent a comment on "(.+?)"$/);
+            const studentName = messageMatch ? messageMatch[1] : 'Student';
+            const binTitle = messageMatch ? messageMatch[2] : 'Assignment';
+            
+            // Navigate directly to private comments for this bin
+            return { label: 'View Comments →', screen: 'BinComments', params: { 
+              binId: binId, 
+              studentId: actualStudentId || userId, // Use extracted student ID
+              binTitle: binTitle, 
+              studentName: studentName, 
+              role: 'teacher',
+              teacherId: userId
+            }};
+          }
+          return null;
         default:
           return null;
       }
     },
-    [userRole]
+    [userRole, userId]
   );
 
   const handleNotificationPress = useCallback((notification: AppNotification) => {
@@ -276,8 +349,11 @@ export default function NotificationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={C.ink2} />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       </SafeAreaView>
     );
@@ -286,8 +362,9 @@ export default function NotificationsScreen({ navigation }: any) {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
+    <MotionScreen>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={isSelectMode ? handleCancelSelect : () => navigation.goBack()}
@@ -466,6 +543,7 @@ export default function NotificationsScreen({ navigation }: any) {
         </View>
       </Modal>
     </SafeAreaView>
+    </MotionScreen>
   );
 }
 
@@ -479,6 +557,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingGif: { width: 200, height: 200 },
   loadingText: {
     marginTop: S.md,
     fontSize: 16,

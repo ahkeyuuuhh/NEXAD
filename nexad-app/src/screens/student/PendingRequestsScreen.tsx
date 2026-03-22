@@ -118,8 +118,11 @@ export default function PendingRequestsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={C.action} />
-          <Text style={styles.loadingText}>Loading pending requests...</Text>
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       </SafeAreaView>
     );
@@ -224,6 +227,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingGif: { width: 200, height: 200 },
   loadingText: {
     marginTop: S.md,
     fontSize: 16,

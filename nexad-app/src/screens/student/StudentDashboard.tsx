@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { MotionScreen } from '../../components/MotionWrapper';
 import { consultationService } from '../../services/consultationService';
 import { conversationService } from '../../services/conversationService';
 import { profileService, StudentProfile } from '../../services/profileService';
@@ -279,8 +280,9 @@ export default function StudentDashboard({ navigation, route }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+    <MotionScreen>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
       
       {/* TOP BAR */}
       <View style={styles.topBar}>
@@ -660,7 +662,7 @@ export default function StudentDashboard({ navigation, route }: any) {
             <View style={styles.drawerDivider} />
             
             {/* Profile & Settings Section */}
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentProfile'); }}>
+            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate('StudentProfile', { userId: currentUser?.user_id, isOwnProfile: true }); }}>
               <Ionicons name="person-circle-outline" size={20} color={C.ink2} style={styles.drawerItemIcon} />
               <Text style={styles.drawerItemText}>My Profile</Text>
             </TouchableOpacity>
@@ -695,7 +697,7 @@ export default function StudentDashboard({ navigation, route }: any) {
               </View>
             </View>
             <View style={styles.profileMenuDivider} />
-            <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); navigation.navigate('StudentProfile'); }}>
+            <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); navigation.navigate('StudentProfile', { userId: currentUser?.user_id, isOwnProfile: true }); }}>
               <Ionicons name="person-outline" size={18} color={C.ink2} style={{ marginRight: S.md }} />
               <Text style={styles.profileMenuItemText}>My Profile</Text>
             </TouchableOpacity>
@@ -848,6 +850,7 @@ export default function StudentDashboard({ navigation, route }: any) {
         </View>
       </Modal>
     </SafeAreaView>
+    </MotionScreen>
   );
 }
 

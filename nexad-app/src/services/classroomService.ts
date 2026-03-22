@@ -732,9 +732,141 @@ export const classroomService = {
         .single();
 
       if (error) throw error;
+
+      // Send notification to the other party
+      const recipientId = senderRole === 'teacher' ? studentId : 
+        // Get teacher ID from the bin
+        await this.getBinTeacherId(binId);
+
+      if (recipientId && recipientId !== senderId) {
+        // Get sender name
+        const senderProfile = await this.getUserProfile(senderId, senderRole);
+        const senderName = senderProfile ? 
+          `${senderProfile.first_name} ${senderProfile.last_name}` : 
+          (senderRole === 'teacher' ? 'Teacher' : 'Student');
+
+        // Get bin title for context
+        const binResult = await this.getAttachmentBin(binId);
+        const binTitle = binResult.data?.title || 'Assignment';
+
+        const { notificationService } = await import('./notificationService');
+        await notificationService.createNotification(
+          recipientId,
+          `💬 New comment on ${binTitle}`,
+          `${senderName}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+          'new_message',
+          undefined,
+          `bin:${binId}:${studentId}`
+        );
+      }
+
       return { data };
     } catch (error: any) {
       return { error: error.message || 'Failed to add comment' };
+    }
+  },
+
+  /**
+   * Get comments for an announcement
+   */
+  async getAnnouncementComments(announcementId: string): Promise<ApiResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('announcement_comments')
+        .select('*')
+        .eq('announcement_id', announcementId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return { data: data || [] };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to fetch announcement comments' };
+    }
+  },
+
+  /**
+   * Add a comment to an announcement
+   */
+  async addAnnouncementComment(
+    announcementId: string,
+    senderId: string,
+    senderRole: 'teacher' | 'student',
+    message: string
+  ): Promise<ApiResponse<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('announcement_comments')
+        .insert({
+          announcement_id: announcementId,
+          sender_id: senderId,
+          sender_role: senderRole,
+          message: message.trim(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notifications to all classroom members except the sender
+      const announcementResult = await supabase
+        .from('announcements')
+        .select('classroom_id, title, teacher_id')
+        .eq('id', announcementId)
+        .single();
+
+      if (announcementResult.data) {
+        const { classroom_id, title: announcementTitle, teacher_id } = announcementResult.data;
+        
+        // Get all classroom members
+        const membersResult = await this.getClassroomMembers(classroom_id);
+        if (membersResult.data) {
+          const senderProfile = await this.getUserProfile(senderId, senderRole);
+          const senderName = senderProfile ? 
+            `${senderProfile.first_name} ${senderProfile.last_name}` : 
+            (senderRole === 'teacher' ? 'Teacher' : 'Student');
+
+          const { notificationService } = await import('./notificationService');
+          
+          // Notify all members except the sender
+          const recipientIds = membersResult.data
+            .map(member => member.id)
+            .filter(id => id !== senderId);
+
+          await Promise.all(
+            recipientIds.map(recipientId =>
+              notificationService.createNotification(
+                recipientId,
+                `💬 New comment on "${announcementTitle}"`,
+                `${senderName}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+                'new_message',
+                undefined,
+                `announcement:${announcementId}`
+              ).catch(() => {})
+            )
+          );
+        }
+      }
+
+      return { data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to add announcement comment' };
+    }
+  },
+
+  /**
+   * Delete a comment (only by the comment author)
+   */
+  async deleteComment(commentId: string, tableName: 'bin_comments' | 'announcement_comments'): Promise<ApiResponse<null>> {
+    try {
+      const { error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq('id', commentId);
+
+      if (error) throw error;
+      return { data: null };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to delete comment' };
     }
   },
 
@@ -883,6 +1015,43 @@ export const classroomService = {
       return { data: submissions };
     } catch (error: any) {
       return { error: error.message || 'Failed to fetch student submissions' };
+    }
+  },
+
+  /**
+   * Helper: Get teacher ID for a bin
+   */
+  async getBinTeacherId(binId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('attachment_bins')
+        .select('teacher_id')
+        .eq('id', binId)
+        .single();
+
+      if (error || !data) return null;
+      return data.teacher_id;
+    } catch (error) {
+      return null;
+    }
+  },
+
+  /**
+   * Helper: Get user profile (student or teacher)
+   */
+  async getUserProfile(userId: string, role: 'teacher' | 'student'): Promise<any> {
+    try {
+      const table = role === 'teacher' ? 'teacher_profiles' : 'student_profiles';
+      const { data, error } = await supabase
+        .from(table)
+        .select('first_name, last_name')
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) return null;
+      return data;
+    } catch (error) {
+      return null;
     }
   },
 };

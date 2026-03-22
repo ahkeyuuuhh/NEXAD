@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   StatusBar,
   ScrollView,
@@ -18,6 +17,7 @@ import { classroomService } from "../../services/classroomService";
 import { supabase } from "../../config/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { C, shadow } from "../../config/theme";
+import { Alert } from "../../utils/Alert";
 
 type Tab = "All" | "Announcements" | "Bins";
 
@@ -277,7 +277,16 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
   const tabs: Tab[] = ["All", "Announcements", "Bins"];
 
   const renderAnnouncement = ({ item }: { item: any }) => (
-    <View style={styles.activityCard}>
+    <TouchableOpacity 
+      style={styles.activityCard}
+      onPress={() => navigation.navigate('AnnouncementComments', {
+        announcementId: item.id,
+        announcementTitle: item.title,
+        classroomId,
+        role: 'teacher'
+      })}
+      activeOpacity={0.85}
+    >
       <View style={styles.activityIconWrap}>
         <Ionicons name="megaphone" size={20} color="#202124" />
       </View>
@@ -294,12 +303,15 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
       </View>
       <TouchableOpacity
         style={styles.cardEllipsisBtn}
-        onPress={() => handleAnnouncementMenu(item)}
+        onPress={(e) => {
+          e.stopPropagation();
+          handleAnnouncementMenu(item);
+        }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="ellipsis-vertical" size={18} color="#5F6368" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderBin = ({ item }: { item: any }) => (
@@ -505,7 +517,7 @@ export default function ClassroomDetailScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F4F4F4' },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: 'transparent' },
   loadingGif: { width: 200, height: 200 },
 
@@ -532,7 +544,7 @@ const styles = StyleSheet.create({
 
   // Tab Bar - Responsive carousel-style tabs
   tabBarContainer: { 
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F4F4F4',
     paddingVertical: 12,
     maxHeight: 60,
   },
@@ -555,7 +567,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#FFFFFF", fontWeight: "600" as const },
 
   // List content
-  scrollContent: { flex: 1, backgroundColor: '#F8F9FA' },
+  scrollContent: { flex: 1, backgroundColor: '#F4F4F4' },
   listContent: { padding: 16, paddingBottom: 100 },
 
   // Activity Cards

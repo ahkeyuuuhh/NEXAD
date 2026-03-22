@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // react-native-calendars not used — replaced with custom week strip
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import { MotionScreen } from '../../components/MotionWrapper';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { conversationService } from '../../services/conversationService';
@@ -474,8 +475,9 @@ export default function TeacherDashboard({ navigation, route }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+    <MotionScreen>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -1092,6 +1094,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
         </View>
       </Modal>
     </SafeAreaView>
+    </MotionScreen>
   );
 }
 

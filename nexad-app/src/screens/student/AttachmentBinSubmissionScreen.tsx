@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,6 +18,7 @@ import { consultationService } from '../../services/consultationService';
 import { notificationService } from '../../services/notificationService';
 import { cloudmersiveService } from '../../services/cloudmersiveService';
 import { Ionicons } from '@expo/vector-icons';
+import { Alert } from '../../utils/Alert';
 import { C, F, T, S, R, shadow } from '../../config/theme';
 import FileViewerModal, { isImageFile as isImageFileHelper } from '../../components/FileViewerModal';
 
@@ -399,13 +400,11 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={C.ink2} />
-        <Text style={{ marginTop: 16, color: C.ink3, textAlign: 'center' }}>
-          Loading assignment...
-        </Text>
-        <Text style={{ marginTop: 8, color: C.ink4, textAlign: 'center', fontSize: 12 }}>
-          BinId: {binId || 'Not provided'}
-        </Text>
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -618,7 +617,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
               ) : (
                 <TouchableOpacity style={styles.addFileButton} onPress={handleChooseFile}>
                   <Ionicons name="add" size={24} color="#202124" />
-                  <Text style={styles.addFileText}>Add or create</Text>
+                  <Text style={styles.addFileText}>Add file</Text>
                 </TouchableOpacity>
               )}
 
@@ -630,7 +629,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.attachOption} onPress={pickImageAttachment}>
                     <Ionicons name="camera-outline" size={20} color="#5F6368" />
-                    <Text style={styles.attachOptionText}>Use camera</Text>
+                    <Text style={styles.attachOptionText}>Submit a Photo</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -787,6 +786,7 @@ export default function AttachmentBinSubmissionScreen({ navigation, route }: any
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  loadingGif: { width: 200, height: 200 }, // Added loading GIF style
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   errorText: { fontSize: 16, color: C.ink4 },
 
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 8,
+    borderRadius: 16, // Increased border-radius
     padding: 16,
     borderWidth: 1,
     borderColor: '#DADCE0',
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 8,
+    borderRadius: 16, // Increased border-radius
     padding: 16,
     borderWidth: 1,
     borderColor: '#DADCE0',
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
   // Submission Card
   submissionCard: {
     backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    borderRadius: 12, // Increased border-radius
     padding: 12,
     marginBottom: 12,
   },
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
   },
   selectedFileCard: {
     backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    borderRadius: 12, // Increased border-radius
     padding: 12,
     marginBottom: 12,
   },
@@ -1071,25 +1071,24 @@ const styles = StyleSheet.create({
   addFileButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#DADCE0',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    borderRadius: 25, // Pill-shaped
+    backgroundColor: '#000000', // Black background
     marginBottom: 12,
   },
   addFileText: {
     fontSize: 14,
-    color: '#202124',
+    color: '#FFFFFF', // White text for readability
     fontWeight: '500',
   },
 
   // Attach Menu
   attachMenu: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+    borderRadius: 12, // Increased border-radius
     borderWidth: 1,
     borderColor: '#DADCE0',
     marginBottom: 12,
@@ -1101,8 +1100,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F4',
   },
   attachOptionText: {
     fontSize: 14,
@@ -1115,9 +1112,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#1967D2',
+    backgroundColor: '#000000', // Black background
     paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    borderRadius: 25, // Pill-shaped
     marginTop: 8,
   },
   turnInButtonDisabled: {

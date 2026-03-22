@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -28,6 +27,7 @@ import { documentService } from '../../services/documentService';
 import { classroomService } from '../../services/classroomService';
 import { cloudmersiveService } from '../../services/cloudmersiveService';
 import type { ConsultationTopic, UrgencyLevel, TimeSlot, UploadedDocument } from '../../types';
+import { Alert } from '../../utils/Alert';
 
 const REASON_PRESETS = [
   'Academic Support',
@@ -561,7 +561,12 @@ export default function ConsultationRequestScreen({ navigation, route }: any) {
 
               {showPresetDropdown && (
                 <View style={styles.dropdown}>
-                  <ScrollView style={styles.dropdownScroll}>
+                  <ScrollView 
+                    style={styles.dropdownScroll}
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                    keyboardShouldPersistTaps="handled"
+                  >
                     {REASON_PRESETS.map((preset, index) => (
                       <TouchableOpacity
                         key={index}
@@ -1188,12 +1193,13 @@ const styles = StyleSheet.create({
     marginTop: S.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: C.borderLight,
-    maxHeight: 200,
+    maxHeight: 250,
     overflow: 'hidden',
     ...shadow.card,
   },
   dropdownScroll: {
-    maxHeight: 200,
+    maxHeight: 250,
+    flexGrow: 0,
   },
   dropdownOption: {
     paddingVertical: S.md,

@@ -51,7 +51,11 @@ export default function TeacherProfileScreen({ navigation, route }: any) {
   if (loading) {
     return (
       <View style={styles.loaderWrap}>
-        <ActivityIndicator size="large" color={C.ink1} />
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -273,6 +277,7 @@ export default function TeacherProfileScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
   loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
+  loadingGif: { width: 200, height: 200 },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: S.xl },
   errorText: { ...T.h3, color: C.ink3, marginTop: S.lg, marginBottom: S.xl },
   backBtn: {
@@ -341,7 +346,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: S.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Lighter translucent white like account settings
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Lighter translucent white
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
@@ -357,7 +362,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: S.lg, marginBottom: S.lg },
   sectionTitle: { ...T.cap, marginBottom: S.sm },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)', // Lighter translucent white like account settings
+    backgroundColor: 'rgba(255, 255, 255, 0.4)', // Lighter translucent white
     borderRadius: R.lg,
     borderTopLeftRadius: R.xl, // Top border radius
     borderTopRightRadius: R.xl, // Top border radius
@@ -411,7 +416,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000000', // Black background
-    borderRadius: R.xl,
+    borderRadius: R.full, // Pill-shaped
     paddingVertical: S.lg,
     borderWidth: 1.5,
     borderColor: '#000000',

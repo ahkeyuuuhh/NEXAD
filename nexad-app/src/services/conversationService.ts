@@ -48,11 +48,12 @@ export const conversationService = {
       const unreadMap: Record<string, number> = {};
       myParts.forEach((p: any) => { unreadMap[p.conversation_id] = p.unread_count || 0; });
 
-      // Step 2: Get conversations
+      // Step 2: Get conversations (exclude announcement threads from inbox)
       const { data: convs, error: e2 } = await supabase
         .from('conversations')
         .select('id, type, title, consultation_request_id, announcement_id, last_message_at, last_message_preview, created_at')
         .in('id', convIds)
+        .is('announcement_id', null) // Exclude announcement comment threads from inbox
         .order('last_message_at', { ascending: false });
       if (e2) throw e2;
 

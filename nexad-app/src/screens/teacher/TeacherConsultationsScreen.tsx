@@ -271,8 +271,11 @@ export default function TeacherConsultationsScreen({ navigation }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={C.ink2} />
-          <Text style={styles.loadingText}>Loading consultations...</Text>
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       </SafeAreaView>
     );
@@ -670,6 +673,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingGif: { width: 200, height: 200 },
   loadingText: {
     marginTop: 12,
     color: C.ink3,

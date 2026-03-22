@@ -137,7 +137,11 @@ export default function FindTeacherScreen({ navigation }: any) {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={C.action} />
+            <Image 
+              source={require('../../../assets/NEXAD GIF.gif')} 
+              style={styles.loadingGif}
+              resizeMode="contain"
+            />
           </View>
         ) : filteredTeachers.length === 0 ? (
           <View style={styles.emptyState}>
@@ -272,6 +276,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 40,
   },
+  loadingGif: { width: 200, height: 200 },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

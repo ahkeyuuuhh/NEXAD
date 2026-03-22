@@ -20,15 +20,14 @@ import { supabase } from '../../config/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { C, F, S, R, shadow } from '../../config/theme';
 import { Alert } from '../../utils/Alert';
+import { MotionScreen } from '../../components/MotionWrapper';
 
-export default function BinCommentsScreen({ navigation, route }: any) {
-  const { binId, studentId, binTitle, studentName, role, teacherId } = route.params as {
-    binId: string;
-    studentId: string;
-    binTitle: string;
-    studentName: string;
+export default function AnnouncementCommentsScreen({ navigation, route }: any) {
+  const { announcementId, announcementTitle, classroomId, role } = route.params as {
+    announcementId: string;
+    announcementTitle: string;
+    classroomId: string;
     role: 'teacher' | 'student';
-    teacherId?: string;
   };
 
   const { user } = useAuth();
@@ -44,9 +43,6 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   useEffect(() => {
     loadComments();
 
-    // keyboardDidShow gives height from physical screen bottom.
-    // We use it directly as paddingBottom (replacing the bottom inset).
-    // keyboardDidHide resets to 0 so we fall back to insets.bottom.
     const showSub = Keyboard.addListener(
       Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
       (e) => {
@@ -62,7 +58,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   }, []);
 
   const loadComments = async () => {
-    const result = await classroomService.getBinComments(binId, studentId);
+    const result = await classroomService.getAnnouncementComments(announcementId);
     if (result.data) {
       setComments(result.data);
       // Fetch sender profiles
@@ -94,9 +90,8 @@ export default function BinCommentsScreen({ navigation, route }: any) {
     setSending(true);
     setMessage('');
 
-    const result = await classroomService.addBinComment(
-      binId,
-      studentId,
+    const result = await classroomService.addAnnouncementComment(
+      announcementId,
       user.user_id,
       role,
       trimmed
@@ -131,28 +126,6 @@ export default function BinCommentsScreen({ navigation, route }: any) {
       }
       
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-      // Notify the teacher when a student sends a private comment
-      if (role === 'student' && teacherId) {
-        notificationService.createNotification(
-          teacherId,
-          'New Private Comment',
-          `${studentName} sent a comment on "${binTitle}"`,
-          'classroom_announcement',
-          undefined,
-          `${binId}:${user.user_id}` // Include both binId and studentId for navigation
-        ).catch(() => {});
-      }
-      // Notify the student when a teacher replies to private comment
-      if (role === 'teacher' && studentId) {
-        notificationService.createNotification(
-          studentId,
-          'Teacher Reply',
-          `Your teacher replied to your comment on "${binTitle}"`,
-          'classroom_announcement',
-          undefined,
-          `${binId}:${studentId}` // Include both binId and studentId for navigation
-        ).catch(() => {});
-      }
     }
     setSending(false);
   };
@@ -167,7 +140,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const result = await classroomService.deleteComment(commentId, 'bin_comments');
+            const result = await classroomService.deleteComment(commentId, 'announcement_comments');
             if (result.error) {
               Alert.alert('Error', result.error);
             } else {
@@ -185,7 +158,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
     const senderProfile = senderProfiles[item.sender_id];
     const senderName = senderProfile
       ? `${senderProfile.first_name} ${senderProfile.last_name}`
-      : (isTeacher ? 'Teacher' : studentName);
+      : (isTeacher ? 'Teacher' : 'Student');
     const initials = senderProfile
       ? ((senderProfile.first_name?.[0] || '') + (senderProfile.last_name?.[0] || '')).toUpperCase()
       : (isTeacher ? 'T' : 'S');
@@ -233,11 +206,9 @@ export default function BinCommentsScreen({ navigation, route }: any) {
   };
 
   return (
-    // edges=["top"] only: SafeAreaView handles status bar (keeps header unchanged),
-    // but does NOT absorb bottom inset — so the view extends to physical screen
-    // bottom and keyboardOffset (measured from physical bottom) maps 1:1.
-    <SafeAreaView
-      edges={["top"]}
+    <MotionScreen>
+      <SafeAreaView
+        edges={["top"]}
       style={[styles.container, { paddingBottom: keyboardOffset > 0 ? keyboardOffset : insets.bottom }]}
     >
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -248,10 +219,8 @@ export default function BinCommentsScreen({ navigation, route }: any) {
           <Ionicons name="chevron-back" size={22} color={C.ink1} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{binTitle}</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {role === 'teacher' ? studentName : 'Comments'}
-          </Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{announcementTitle}</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>Comments</Text>
         </View>
       </View>
 
@@ -309,6 +278,7 @@ export default function BinCommentsScreen({ navigation, route }: any) {
         </View>
       </View>
     </SafeAreaView>
+    </MotionScreen>
   );
 }
 
@@ -343,7 +313,7 @@ const styles = StyleSheet.create({
   listContent: { paddingVertical: S.sm, flexGrow: 1 },
   emptyText: { fontSize: 14, fontWeight: '400' as const, color: C.ink4, textAlign: 'center', marginTop: S.md },
 
-  // ── Comment thread styles (Google Classroom / Facebook style) ─────────────
+  // Comment styles
   commentItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',

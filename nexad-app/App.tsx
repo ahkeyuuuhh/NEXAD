@@ -19,6 +19,7 @@ import { getQueryParams } from 'expo-auth-session/build/QueryParams';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { DEV_CONFIG } from './src/config/devMode';
 import { supabase } from './src/config/supabase';
+import { AnimatePresence } from './src/components/MotionWrapper';
 
 // This MUST be called at the top level of the file that the redirect lands on
 WebBrowser.maybeCompleteAuthSession();
@@ -69,6 +70,7 @@ import TeacherSetupScreen from './src/screens/auth/TeacherSetupScreen';
 
 // Shared
 import BinCommentsScreen from './src/screens/shared/BinCommentsScreen';
+import AnnouncementCommentsScreen from './src/screens/shared/AnnouncementCommentsScreen';
 import InboxScreen from './src/screens/shared/InboxScreen';
 import ChatScreen from './src/screens/shared/ChatScreen';
 import ArchivedInboxScreen from './src/screens/shared/ArchivedInboxScreen';
@@ -95,19 +97,19 @@ function HomeScreen() {
 
 const Stack = createStackNavigator();
 
-// ─── Shared transition configs ───────────────────────────────────────────────
-// Smooth horizontal slide transition (iOS-style)
+// ─── Enhanced transition configs (preserving original auth transitions) ──────
+// Smooth horizontal slide transition (iOS-style) - Enhanced
 const slideTransition = {
   cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 250, easing: Easing.out(Easing.ease) } },
-    close: { animation: 'timing' as const, config: { duration: 200, easing: Easing.in(Easing.ease) } },
+    open:  { animation: 'timing' as const, config: { duration: 300, easing: Easing.out(Easing.poly(2)) } },
+    close: { animation: 'timing' as const, config: { duration: 250, easing: Easing.in(Easing.poly(2)) } },
   },
   gestureEnabled: true,
   gestureDirection: 'horizontal' as const,
 };
 
-// Fade + slide transition for special screens
+// Original fade + slide transition for auth screens (RESTORED)
 const fadeSlideTransition = {
   cardStyleInterpolator: ({ current, layouts }: any) => {
     const translateX = current.progress.interpolate({
@@ -130,12 +132,99 @@ const fadeSlideTransition = {
   gestureDirection: 'horizontal' as const,
 };
 
-// Modal transition (vertical slide from bottom)
-const modalTransition = {
-  cardStyleInterpolator: CardStyleInterpolators.forVerticalIOS,
+// Enhanced fade + slide transition - No overlapping, preserves backgrounds
+const enhancedFadeSlideTransition = {
+  cardStyleInterpolator: ({ current, next, layouts }: any) => {
+    const translateX = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [layouts.screen.width * 0.1, 0],
+      extrapolate: 'clamp',
+    });
+    
+    const opacity = current.progress.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0, 0.9, 1],
+      extrapolate: 'clamp',
+    });
+
+    // Scale effect for depth
+    const scale = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.96, 1],
+      extrapolate: 'clamp',
+    });
+
+    return {
+      cardStyle: { 
+        transform: [{ translateX }, { scale }], 
+        opacity,
+      },
+    };
+  },
   transitionSpec: {
-    open:  { animation: 'timing' as const, config: { duration: 280, easing: Easing.out(Easing.ease) } },
-    close: { animation: 'timing' as const, config: { duration: 220, easing: Easing.in(Easing.ease) } },
+    open:  { animation: 'timing' as const, config: { duration: 350, easing: Easing.out(Easing.poly(3)) } },
+    close: { animation: 'timing' as const, config: { duration: 280, easing: Easing.in(Easing.poly(2)) } },
+  },
+  gestureEnabled: true,
+  gestureDirection: 'horizontal' as const,
+};
+
+// Clean slide transition - No overlapping, preserves backgrounds
+const cleanSlideTransition = {
+  cardStyleInterpolator: ({ current, next, layouts }: any) => {
+    const translateX = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [layouts.screen.width, 0],
+      extrapolate: 'clamp',
+    });
+
+    // Ensure previous screen is properly hidden during transition
+    const opacity = current.progress.interpolate({
+      inputRange: [0, 0.01, 1],
+      outputRange: [0, 1, 1],
+      extrapolate: 'clamp',
+    });
+
+    return {
+      cardStyle: { 
+        transform: [{ translateX }],
+        opacity,
+      },
+    };
+  },
+  transitionSpec: {
+    open:  { animation: 'timing' as const, config: { duration: 320, easing: Easing.out(Easing.poly(2)) } },
+    close: { animation: 'timing' as const, config: { duration: 260, easing: Easing.in(Easing.poly(2)) } },
+  },
+  gestureEnabled: true,
+  gestureDirection: 'horizontal' as const,
+};
+
+// Modal transition (vertical slide from bottom) - Enhanced, preserves backgrounds
+const enhancedModalTransition = {
+  cardStyleInterpolator: ({ current, layouts }: any) => {
+    const translateY = current.progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [layouts.screen.height, 0],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = current.progress.interpolate({
+      inputRange: [0, 0.3, 1],
+      outputRange: [0, 0.9, 1],
+      extrapolate: 'clamp',
+    });
+
+    return {
+      cardStyle: { 
+        transform: [{ translateY }], 
+        opacity,
+      },
+    };
+  },
+  transitionSpec: {
+    open:  { animation: 'timing' as const, config: { duration: 400, easing: Easing.out(Easing.poly(3)) } },
+    close: { animation: 'timing' as const, config: { duration: 300, easing: Easing.in(Easing.poly(2)) } },
   },
   gestureEnabled: true,
   gestureDirection: 'vertical' as const,
@@ -172,7 +261,7 @@ function AppStack() {
     : 'Home';
   
   return (
-    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, cardStyle: { backgroundColor: 'transparent' }, ...slideTransition }}>
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false, cardStyle: { backgroundColor: 'transparent' }, ...cleanSlideTransition }}>
       <Stack.Screen 
         name="StudentDashboard" 
         component={StudentDashboard} 
@@ -242,58 +331,58 @@ function AppStack() {
       <Stack.Screen 
         name="ClassroomHub" 
         component={ClassroomHubScreen} 
-        options={{ headerShown: false, ...fadeSlideTransition }} 
+        options={{ headerShown: false, ...enhancedFadeSlideTransition }} 
       />
       <Stack.Screen 
         name="CreateClassroom" 
         component={CreateClassroomScreen} 
-        options={{ headerShown: false, ...modalTransition }} 
+        options={{ headerShown: false, ...enhancedModalTransition }} 
       />
       <Stack.Screen 
         name="ClassroomDetail" 
         component={ClassroomDetailScreen} 
-        options={{ headerShown: false, ...fadeSlideTransition }} 
+        options={{ headerShown: false, ...enhancedFadeSlideTransition }} 
       />
       <Stack.Screen 
         name="CreateAnnouncement" 
         component={CreateAnnouncementScreen} 
-        options={{ headerShown: false, ...modalTransition }} 
+        options={{ headerShown: false, ...enhancedModalTransition }} 
       />
       <Stack.Screen 
         name="CreateAttachmentBin" 
         component={CreateAttachmentBinScreen} 
-        options={{ headerShown: false, ...modalTransition }} 
+        options={{ headerShown: false, ...enhancedModalTransition }} 
       />
       {/* Classroom Hub - Student Routes */}
       <Stack.Screen 
         name="StudentClassrooms" 
         component={StudentClassroomsScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...enhancedFadeSlideTransition }} 
       />
       <Stack.Screen 
         name="QRScanner" 
         component={QRScannerScreen} 
-        options={{ headerShown: false, presentation: 'fullScreenModal' }} 
+        options={{ headerShown: false, presentation: 'modal', ...enhancedModalTransition }} 
       />
       <Stack.Screen 
         name="StudentClassroomDetail" 
         component={StudentClassroomDetailScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
       />
       <Stack.Screen 
         name="AttachmentBinSubmission" 
         component={AttachmentBinSubmissionScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
       />
       <Stack.Screen 
         name="TeacherBinReview" 
         component={TeacherBinReviewScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
       />
       <Stack.Screen 
         name="EnrolledStudents" 
         component={EnrolledStudentsScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
       />
       <Stack.Screen 
         name="InviteCode" 
@@ -308,7 +397,12 @@ function AppStack() {
       <Stack.Screen 
         name="BinComments" 
         component={BinCommentsScreen} 
-        options={{ headerShown: false }} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
+      />
+      <Stack.Screen 
+        name="AnnouncementComments" 
+        component={AnnouncementCommentsScreen} 
+        options={{ headerShown: false, ...cleanSlideTransition }} 
       />
       {/* Profile & Settings */}
       <Stack.Screen
@@ -524,7 +618,9 @@ function Navigation() {
 
   return (
     <NavigationContainer linking={linking}>
-      {user ? <AppStack /> : <AuthStack />}
+      <AnimatePresence>
+        {user ? <AppStack /> : <AuthStack />}
+      </AnimatePresence>
     </NavigationContainer>
   );
 }
@@ -596,26 +692,29 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
-      {/* Global silvery radial-glow background — grey corners with bright white center */}
+      {/* Premium radial gradient background - bright white center to gray edges */}
       <View style={StyleSheet.absoluteFill}>
-        {/* Base medium cool grey — this is the corner/edge colour */}
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#C2C5CE' }]} />
-        {/* Vertical white bloom through the centre */}
+        {/* Base light gray background */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#E5E7EB' }]} />
+        {/* Main radial gradient effect - bright white center fading to transparent */}
         <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.92)', 'rgba(255,255,255,0)']}
-          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
+          colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0.95)', 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0)']}
+          start={{ x: 0.5, y: 0.3 }} 
+          end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Horizontal white bloom through the centre */}
+        {/* Horizontal radial spread */}
         <LinearGradient
-          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.78)', 'rgba(255,255,255,0)']}
-          start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+          colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0.9)', 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']}
+          start={{ x: 0, y: 0.5 }} 
+          end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Slightly darken bottom to match reference (bottom corners slightly darker) */}
+        {/* Subtle top-to-bottom gradient for depth */}
         <LinearGradient
-          colors={['transparent', 'rgba(100,104,116,0.18)']}
-          start={{ x: 0.5, y: 0.6 }} end={{ x: 0.5, y: 1 }}
+          colors={['rgba(229,231,235,0.3)', 'transparent', 'rgba(156,163,175,0.2)']}
+          start={{ x: 0.5, y: 0 }} 
+          end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
       </View>

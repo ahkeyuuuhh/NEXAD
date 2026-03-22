@@ -352,9 +352,7 @@ export default function StudentClassroomsScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
             <View style={styles.bannerBottom}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{initial}</Text>
-              </View>
+              {/* Circle icon with initials removed */}
             </View>
           </View>
           <View style={styles.cardDivider} />

@@ -783,7 +783,11 @@ export default function ChatScreen({ navigation, route }: any) {
         {/* Message list */}
         {loading ? (
           <View style={styles.centred}>
-            <ActivityIndicator size="large" color={C.ink3} />
+            <Image 
+              source={require('../../../assets/NEXAD GIF.gif')} 
+              style={styles.loadingGif}
+              resizeMode="contain"
+            />
           </View>
         ) : (
           <FlatList
@@ -1250,6 +1254,7 @@ const styles = StyleSheet.create({
   shortcutDivider: { width: S.sm },
 
   centred: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingGif: { width: 200, height: 200 },
   chatArea: { flex: 1 },
 
   messageList: { paddingHorizontal: S.md, paddingTop: S.md, paddingBottom: S.md },

@@ -10,6 +10,7 @@ import {
   Linking,
   RefreshControl,
   StatusBar,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -141,7 +142,11 @@ export default function StudentWorksScreen({ navigation, route }: any) {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.ink2} />
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       ) : (
         <ScrollView
@@ -261,6 +266,7 @@ export default function StudentWorksScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingGif: { width: 200, height: 200 },
 
   // Header
   header: {

@@ -1009,7 +1009,11 @@ export default function AccountSettingsScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loaderWrap}>
-        <ActivityIndicator size="large" color={C.ink1} />
+        <Image 
+          source={require('../../../assets/NEXAD GIF.gif')} 
+          style={styles.loadingGif}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -1244,6 +1248,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' }, // Same as dashboard
   loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  loadingGif: { width: 200, height: 200 },
 
   safeHeader: { backgroundColor: 'transparent', borderBottomWidth: 0 }, // Remove white background
   headerRow: {

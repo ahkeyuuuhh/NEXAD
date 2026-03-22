@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -196,8 +197,11 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={C.ink2} />
-          <Text style={styles.loadingText}>Loading consultations...</Text>
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       </SafeAreaView>
     );
@@ -451,6 +455,7 @@ export default function StudentConsultationsScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: 'transparent' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingGif: { width: 200, height: 200 },
   loadingText:      { ...T.body, color: C.ink4, marginTop: S.md },
 
   header: {

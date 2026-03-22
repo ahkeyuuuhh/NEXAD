@@ -185,7 +185,16 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
     if (item.type === 'announcement') {
       const ann = item.data;
       return (
-        <View style={styles.activityCard}>
+        <TouchableOpacity 
+          style={styles.activityCard}
+          onPress={() => navigation.navigate('AnnouncementComments', {
+            announcementId: ann.id,
+            announcementTitle: ann.title,
+            classroomId,
+            role: 'student'
+          })}
+          activeOpacity={0.85}
+        >
           <View style={styles.activityIconWrap}>
             <Ionicons name="megaphone" size={20} color="#202124" />
           </View>
@@ -205,30 +214,9 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
                   day: 'numeric',
                 })}
               </Text>
-              <TouchableOpacity
-                style={styles.commentBtn}
-                onPress={async () => {
-                  if (!user?.user_id || !classroom?.teacher_id) return;
-                  const result = await conversationService.getOrCreateAnnouncementThread(
-                    user.user_id,
-                    classroom.teacher_id,
-                    ann.id
-                  );
-                  if (result.data) {
-                    navigation.navigate('Chat', {
-                      conversationId: result.data,
-                      title: `Re: ${ann.title}`,
-                      type: 'ANNOUNCEMENT_THREAD',
-                    });
-                  }
-                }}
-              >
-                <Ionicons name="chatbubble-outline" size={14} color="#5F6368" />
-                <Text style={styles.commentBtnText}>Add comment</Text>
-              </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
 
@@ -410,7 +398,7 @@ export default function StudentClassroomDetailScreen({ navigation, route }: any)
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F8F9FA' },
+  screen: { flex: 1, backgroundColor: '#F4F4F4' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
   loadingGif: { width: 200, height: 200 },
 
@@ -437,7 +425,7 @@ const styles = StyleSheet.create({
 
   // Tab Bar - Responsive carousel-style tabs
   tabBarContainer: { 
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F4F4F4',
     paddingVertical: 12,
     maxHeight: 60,
   },
@@ -460,10 +448,10 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
 
   // Content Layout
-  scrollContent: { flex: 1, backgroundColor: '#F8F9FA' },
+  scrollContent: { flex: 1, backgroundColor: '#F4F4F4' },
 
   // Feed
-  feed: { flex: 1, backgroundColor: '#F8F9FA' },
+  feed: { flex: 1, backgroundColor: '#F4F4F4' },
   feedContent: { padding: 16, paddingBottom: 100 },
 
   // Activity Cards

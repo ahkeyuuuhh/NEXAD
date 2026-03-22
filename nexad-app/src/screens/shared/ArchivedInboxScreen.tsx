@@ -223,7 +223,11 @@ export default function ArchivedInboxScreen({ navigation }: any) {
 
       {loading ? (
         <View style={styles.centred}>
-          <ActivityIndicator size="large" color={C.ink3} />
+          <Image 
+            source={require('../../../assets/NEXAD GIF.gif')} 
+            style={styles.loadingGif}
+            resizeMode="contain"
+          />
         </View>
       ) : (
         <FlatList
@@ -265,6 +269,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.ink1 },
 
   centred: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingGif: { width: 200, height: 200 },
 
   list: { paddingVertical: S.sm, paddingBottom: 32 },
 

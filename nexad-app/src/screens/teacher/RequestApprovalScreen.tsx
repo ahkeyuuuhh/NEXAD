@@ -574,6 +574,17 @@ export default function RequestApprovalScreen({ navigation, route }: any) {
                     {request.subject_line}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.viewProfileBtn}
+                  onPress={() => navigation.navigate('StudentProfile', { 
+                    userId: request.student_id, 
+                    isOwnProfile: false 
+                  })}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="person-outline" size={14} color="#fff" />
+                  <Text style={styles.viewProfileText}>View Profile</Text>
+                </TouchableOpacity>
                 {request.urgency === 'urgent' && (
                   <View style={styles.gradientUrgentBadge}>
                     <Text style={styles.gradientUrgentText}>⚡ URGENT</Text>
@@ -1897,6 +1908,23 @@ const styles = StyleSheet.create({
   gradientAvatarImg: { width: 52, height: 52, borderRadius: 26 },
   gradientStudentInfo: {
     flex: 1,
+  },
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginLeft: 8,
+  },
+  viewProfileText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.3,
   },
   gradientStudentName: {
     fontSize: 17,
