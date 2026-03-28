@@ -1,377 +1,249 @@
-# 📋 Skill-Based Matching - Deployment Checklist
+# ✅ Virtual Consultation - Deployment Checklist
 
-## Pre-Deployment
-
-### ✅ Code Review
-- [x] lightcastService.ts created and tested
-- [x] useRecommendedTeachers.ts hook implemented
-- [x] FindTeacherScreen.tsx updated with UI
-- [x] No TypeScript errors
-- [x] No console errors
-- [x] Code follows project conventions
-
-### ✅ Documentation
-- [x] QUICK_START.md created
-- [x] SKILL_MATCHING_SUMMARY.md created
-- [x] SKILL_BASED_MATCHING_IMPLEMENTATION.md created
-- [x] DEPLOY_SKILL_MATCHING.md created
-- [x] TESTING_GUIDE.md created
-- [x] FEATURE_ARCHITECTURE.md created
-- [x] README_SKILL_MATCHING.md created
-- [x] .env.example created
-
-### ✅ Scripts
-- [x] deploy-skill-matching.sh created
-- [x] deploy-skill-matching.bat created
-- [x] Scripts tested and working
+Use this checklist to ensure everything is ready before building the APK.
 
 ---
 
-## Deployment Steps
+## Pre-Deployment Checklist
 
-### Step 1: Get Lightcast Credentials
-- [ ] Visit https://lightcast.io/open-skills/access
-- [ ] Fill out registration form
-- [ ] Verify your email address
-- [ ] Receive API credentials via email
-- [ ] Copy Client ID
-- [ ] Copy Client Secret
-- [ ] Save credentials securely
+### 1. Daily.co Setup
+- [ ] Created Daily.co account at https://www.daily.co/
+- [ ] Obtained API key from Developers → API Keys
+- [ ] Added API key to `nexad-app/.env`:
+      ```
+      EXPO_PUBLIC_DAILY_API_KEY=your_key_here
+      ```
+- [ ] Verified API key is not empty or placeholder
 
-**Time**: 2 minutes
+### 2. Database Setup
+- [ ] Opened Supabase Dashboard
+- [ ] Navigated to SQL Editor
+- [ ] Ran `database/create_virtual_consultations.sql`
+- [ ] Verified `virtual_consultations` table exists
+- [ ] Checked RLS policies are enabled
+- [ ] Tested `generate_invite_code()` function
+- [ ] Tested `join_consultation_by_code()` function
 
----
+### 3. Code Verification
+- [ ] All consultation screens created:
+      - [ ] `TeacherConsultationScreen.tsx`
+      - [ ] `StudentJoinConsultationScreen.tsx`
+      - [ ] `ConsultationQRScannerScreen.tsx`
+      - [ ] `VideoCallScreen.tsx`
+- [ ] All services created:
+      - [ ] `dailyService.ts`
+      - [ ] `consultationService.ts`
+- [ ] Navigation updated in `App.tsx`
+- [ ] Deep linking configured
+- [ ] No TypeScript errors (run `npm run tsc`)
 
-### Step 2: Configure Environment
-- [ ] Navigate to `nexad-app` directory
-- [ ] Copy `.env.example` to `.env`
-- [ ] Open `.env` in text editor
-- [ ] Paste `EXPO_PUBLIC_LIGHTCAST_CLIENT_ID`
-- [ ] Paste `EXPO_PUBLIC_LIGHTCAST_CLIENT_SECRET`
-- [ ] Save `.env` file
-- [ ] Verify credentials are correct
+### 4. App Configuration
+- [ ] `app.json` version is 1.0.8
+- [ ] `app.json` versionCode is 10
+- [ ] Camera permission added
+- [ ] Microphone permission added
+- [ ] Vision camera plugin configured
 
-**Time**: 1 minute
-
-**Command**:
-```bash
-cd nexad-app
-cp .env.example .env
-# Edit .env with your credentials
-```
-
----
-
-### Step 3: Test Locally (Optional but Recommended)
-- [ ] Start development server: `npm start`
-- [ ] Open app on device/simulator
-- [ ] Log in as student with department
-- [ ] Navigate to "Find Teachers"
-- [ ] Verify "Recommended for You" section appears
-- [ ] Check console for errors
-- [ ] Test search functionality
-- [ ] Test without department
-- [ ] Verify fallback works
-
-**Time**: 5 minutes
-
----
-
-### Step 4: Deploy OTA Update
-- [ ] Navigate to project root
-- [ ] Run deployment script
-- [ ] Select channel (preview for testing)
-- [ ] Wait for build to complete
-- [ ] Verify deployment success message
-- [ ] Note the deployment time
-
-**Time**: 2 minutes
-
-**Windows Command**:
-```cmd
-deploy-skill-matching.bat
-```
-
-**Mac/Linux Command**:
-```bash
-./deploy-skill-matching.sh
-```
+### 5. Dependencies
+- [ ] `@daily-co/react-native-daily-js` installed
+- [ ] `react-native-qrcode-svg` installed
+- [ ] `react-native-svg` installed
+- [ ] `react-native-vision-camera` installed
+- [ ] `vision-camera-code-scanner` installed
+- [ ] All dependencies in `package.json`
+- [ ] No dependency conflicts
 
 ---
 
-### Step 5: Verify Deployment
-- [ ] Open existing APK on device
-- [ ] Force close the app
-- [ ] Reopen the app
-- [ ] Wait 10-30 seconds for update download
-- [ ] Check console for "Downloaded new update"
-- [ ] App should reload automatically
-- [ ] Navigate to "Find Teachers"
-- [ ] Verify new feature is visible
+## Build Process Checklist
 
-**Time**: 2 minutes
+### 1. Pre-Build
+- [ ] Committed all changes to git
+- [ ] Backed up current working code
+- [ ] Closed all running development servers
+- [ ] Cleared Metro bundler cache
 
-**APK Link**: https://expo.dev/artifacts/eas/jy8mSzY1mcXU3dk5Xkxfb.apk
+### 2. Generate Native Code
+- [ ] Ran `npx expo prebuild --clean`
+- [ ] No errors during prebuild
+- [ ] Android folder generated
+- [ ] Permissions added to AndroidManifest.xml
 
----
-
-## Post-Deployment Testing
-
-### Test Case 1: Student with Department
-- [ ] Log in as student
-- [ ] Verify profile has department set
-- [ ] Navigate to "Find Teachers"
-- [ ] See "Recommended for You" section
-- [ ] See department name in subtitle
-- [ ] See 1-10 teacher cards
-- [ ] Cards show: photo, name, position, skills, match badge
-- [ ] Tap a card → navigates to teacher profile
-- [ ] Scroll carousel horizontally
-
-**Expected**: ✅ All checks pass
+### 3. Build APK
+- [ ] Logged into EAS: `eas login`
+- [ ] Ran `eas build --platform android --profile production`
+- [ ] Build started successfully
+- [ ] Monitoring build progress
+- [ ] Build completed without errors
+- [ ] Downloaded APK from provided link
 
 ---
 
-### Test Case 2: Student without Department
-- [ ] Log in as student
-- [ ] Verify profile has NO department
-- [ ] Navigate to "Find Teachers"
-- [ ] No "Recommended for You" section
-- [ ] See "All Teachers" list
-- [ ] All active teachers displayed
-- [ ] No errors or crashes
+## Post-Build Testing Checklist
 
-**Expected**: ✅ All checks pass
+### 1. Installation
+- [ ] APK downloaded successfully
+- [ ] APK installed on test device
+- [ ] App opens without crashes
+- [ ] No permission errors on startup
 
----
+### 2. Teacher Flow Testing
+- [ ] Can navigate to Virtual Consultation screen
+- [ ] Can create consultation
+- [ ] Invite code displays (6 characters)
+- [ ] QR code displays correctly
+- [ ] Can share invite code
+- [ ] Can start video call
+- [ ] Camera toggle works
+- [ ] Microphone toggle works
+- [ ] Can see participant count
+- [ ] Can leave call
+- [ ] Consultation marked as completed
 
-### Test Case 3: Search Functionality
-- [ ] Log in as student with department
-- [ ] Navigate to "Find Teachers"
-- [ ] See recommendations section
-- [ ] Type in search box
-- [ ] Recommendations section disappears
-- [ ] Search results appear
-- [ ] Clear search
-- [ ] Recommendations reappear
+### 3. Student Flow Testing
+- [ ] Can navigate to Join Consultation screen
+- [ ] Can enter invite code manually
+- [ ] Code validation works
+- [ ] Can tap "Scan QR Code"
+- [ ] Camera permission requested
+- [ ] Camera opens for scanning
+- [ ] QR code scanning works
+- [ ] Joins video call successfully
+- [ ] Camera toggle works
+- [ ] Microphone toggle works
+- [ ] Can leave call
 
-**Expected**: ✅ All checks pass
+### 4. Database Testing
+- [ ] Consultation record created in database
+- [ ] Status updates correctly (active → in_progress → completed)
+- [ ] Student info added when joining
+- [ ] Duration calculated correctly
+- [ ] Timestamps recorded properly
+- [ ] Room cleaned up after call
 
----
-
-### Test Case 4: Different Departments
-Test with each department:
-- [ ] College of Computer Studies
-- [ ] College of Engineering
-- [ ] College of Business
-- [ ] College of Arts and Sciences
-- [ ] College of Education
-- [ ] College of Nursing
-
-For each:
-- [ ] Recommendations are relevant
-- [ ] Skills match department
-- [ ] Teachers with same department appear first
-
-**Expected**: ✅ All checks pass
-
----
-
-### Test Case 5: Performance
-- [ ] Screen loads in <2 seconds
-- [ ] Smooth scrolling in carousel
-- [ ] No lag or stuttering
-- [ ] Search is responsive
-- [ ] No memory leaks
-- [ ] Battery usage normal
-
-**Expected**: ✅ All checks pass
+### 5. Error Handling Testing
+- [ ] Invalid code shows error
+- [ ] Expired code shows error
+- [ ] Camera permission denial handled
+- [ ] Network error handled gracefully
+- [ ] Daily.co connection error handled
 
 ---
 
-### Test Case 6: Error Handling
-- [ ] Test with invalid API credentials
-- [ ] Test with no internet connection
-- [ ] Test with empty teacher list
-- [ ] Test with no matching teachers
-- [ ] Verify fallback system works
-- [ ] No crashes on errors
+## Production Deployment Checklist
 
-**Expected**: ✅ All checks pass
+### 1. Final Verification
+- [ ] All features tested on multiple devices
+- [ ] No crashes or critical bugs
+- [ ] Performance is acceptable
+- [ ] UI matches NEXAD design
+- [ ] All text is correct (no typos)
 
----
+### 2. Documentation
+- [ ] Updated README with new feature
+- [ ] Created user guide for teachers
+- [ ] Created user guide for students
+- [ ] Documented troubleshooting steps
 
-## Monitoring
+### 3. Deployment
+- [ ] APK uploaded to distribution platform
+- [ ] Release notes prepared
+- [ ] Users notified of new feature
+- [ ] Support team briefed
 
-### Metrics to Track
-- [ ] Number of students seeing recommendations
-- [ ] Click-through rate on recommended teachers
-- [ ] Consultation bookings from recommendations
-- [ ] API response times
-- [ ] Error rates
-- [ ] User feedback
-
-### Console Logs to Monitor
-```
-✅ "Skills for [Department]: [...]"
-✅ "Found X recommended teachers for [Department]"
-✅ "Loading teachers from database..."
-✅ "Teachers loaded: X"
-```
-
-### Error Logs to Watch
-```
-❌ "Lightcast authentication error"
-❌ "Error loading recommended teachers"
-❌ "Supabase error"
-❌ "Failed to get skills for department"
-```
+### 4. Monitoring
+- [ ] Daily.co usage monitored
+- [ ] Database performance checked
+- [ ] User feedback collected
+- [ ] Error logs reviewed
 
 ---
 
 ## Rollback Plan
 
-### If Critical Issues Found
+If issues occur after deployment:
 
-#### Immediate Rollback
-- [ ] Navigate to `nexad-app` directory
-- [ ] Run: `git revert HEAD`
-- [ ] Run: `npm run update:preview` (or production)
-- [ ] Verify rollback deployed
-- [ ] Notify users if needed
+### Immediate Actions
+- [ ] Identify the issue
+- [ ] Assess severity
+- [ ] Decide: fix forward or rollback
 
-**Time**: 2 minutes
-
-#### Fix and Redeploy
-- [ ] Identify issue from logs
-- [ ] Fix code locally
-- [ ] Test thoroughly
-- [ ] Deploy again
-- [ ] Verify fix works
+### Rollback Steps
+- [ ] Distribute previous APK (1.0.7)
+- [ ] Notify users of temporary rollback
+- [ ] Fix issues in development
+- [ ] Re-test thoroughly
+- [ ] Deploy fixed version
 
 ---
 
 ## Success Criteria
 
-### Feature is Production-Ready When:
-- [x] All code implemented
-- [x] No TypeScript errors
-- [x] No console errors
-- [x] Documentation complete
-- [ ] API credentials obtained
-- [ ] Local testing passed
-- [ ] OTA update deployed
-- [ ] Device testing passed
-- [ ] Performance acceptable
-- [ ] No critical bugs
-- [ ] User feedback positive
+The deployment is successful when:
+
+- [ ] Teachers can create consultations
+- [ ] Students can join consultations
+- [ ] Video calls work reliably
+- [ ] No critical bugs reported
+- [ ] User feedback is positive
+- [ ] Daily.co usage within limits
+- [ ] Database performance is good
 
 ---
 
-## Communication
+## Support Resources
 
-### Notify Stakeholders
-- [ ] Feature deployed successfully
-- [ ] Share documentation links
-- [ ] Provide testing instructions
-- [ ] Set up feedback channel
-- [ ] Schedule review meeting
+### Documentation
+- `VIRTUAL_CONSULTATION_COMPLETE.md` - Full implementation guide
+- `VIRTUAL_CONSULTATION_SUMMARY.md` - Technical summary
+- `QUICK_START_CONSULTATION.md` - Quick start guide
+- `CONSULTATION_FLOW_DIAGRAM.md` - Visual flow diagrams
+- `ADD_CONSULTATION_BUTTONS.md` - Dashboard integration
 
-### User Communication (if needed)
-- [ ] Announce new feature
-- [ ] Explain benefits
-- [ ] Provide usage guide
-- [ ] Collect feedback
+### External Resources
+- Daily.co Docs: https://docs.daily.co/
+- Daily.co Dashboard: https://dashboard.daily.co/
+- Supabase Dashboard: https://app.supabase.com/
+- EAS Build Dashboard: https://expo.dev/
 
----
-
-## Documentation Handoff
-
-### Files to Review
-- [ ] QUICK_START.md - Quick deployment guide
-- [ ] SKILL_MATCHING_SUMMARY.md - Overview
-- [ ] SKILL_BASED_MATCHING_IMPLEMENTATION.md - Technical details
-- [ ] DEPLOY_SKILL_MATCHING.md - Deployment guide
-- [ ] TESTING_GUIDE.md - Testing procedures
-- [ ] FEATURE_ARCHITECTURE.md - Architecture diagrams
-- [ ] README_SKILL_MATCHING.md - Complete reference
-
-### Code Files
-- [ ] nexad-app/src/services/lightcastService.ts
-- [ ] nexad-app/src/hooks/useRecommendedTeachers.ts
-- [ ] nexad-app/src/screens/student/FindTeacherScreen.tsx
-- [ ] nexad-app/.env.example
-
----
-
-## Timeline
-
-| Task | Duration | Status |
-|------|----------|--------|
-| Get API credentials | 2 min | ⏳ Pending |
-| Configure environment | 1 min | ⏳ Pending |
-| Test locally | 5 min | ⏳ Optional |
-| Deploy OTA update | 2 min | ⏳ Pending |
-| Verify deployment | 2 min | ⏳ Pending |
-| Post-deployment testing | 10 min | ⏳ Pending |
-| **Total** | **22 min** | |
-
----
-
-## Final Checks
-
-### Before Going Live
-- [ ] All tests passed
-- [ ] Documentation reviewed
-- [ ] Stakeholders notified
-- [ ] Rollback plan ready
-- [ ] Monitoring set up
-- [ ] Support prepared
-
-### After Going Live
-- [ ] Monitor console logs
-- [ ] Track metrics
-- [ ] Collect user feedback
-- [ ] Address issues promptly
-- [ ] Document learnings
-
----
-
-## Sign-Off
-
-### Deployment Approved By:
-- [ ] Developer: _________________ Date: _______
-- [ ] QA: _________________ Date: _______
-- [ ] Product Owner: _________________ Date: _______
-
-### Deployment Completed:
-- Date: _______
-- Time: _______
-- Channel: [ ] Preview [ ] Production
-- Deployed By: _________________
+### Troubleshooting
+- Check Daily.co API key
+- Verify database migration
+- Review EAS build logs
+- Check device permissions
+- Test internet connection
 
 ---
 
 ## Notes
 
-Use this space for deployment notes, issues encountered, or special considerations:
-
-```
-_________________________________________________________________
-
-_________________________________________________________________
-
-_________________________________________________________________
-
-_________________________________________________________________
-```
+- **Build Time**: ~15-20 minutes
+- **Testing Time**: ~30 minutes
+- **Total Deployment**: ~1 hour
+- **Cost**: Free tier available (10,000 min/month)
 
 ---
 
-**Status**: Ready for Deployment ✅
+## Sign-Off
 
-**Next Action**: Get Lightcast API credentials and deploy!
+- [ ] Developer: Code complete and tested
+- [ ] QA: All tests passed
+- [ ] Product: Feature approved
+- [ ] DevOps: Build successful
+- [ ] Support: Documentation ready
 
-**Estimated Time to Production**: 22 minutes
+---
 
-🚀 Let's ship it!
+**Deployment Date**: _______________
+
+**Deployed By**: _______________
+
+**APK Version**: 1.0.8
+
+**Build Number**: 10
+
+**Status**: ⬜ Not Started | ⬜ In Progress | ⬜ Complete
+
+---
+
+Good luck with your deployment! 🚀

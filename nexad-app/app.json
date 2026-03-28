@@ -2,7 +2,7 @@
   "expo": {
     "name": "NEXAD",
     "slug": "nexad",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/appIcon.jpg",
     "userInterfaceStyle": "automatic",
@@ -28,17 +28,20 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.university.nexad",
-      "versionCode": 9,
+      "versionCode": 10,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "NOTIFICATIONS",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.READ_MEDIA_IMAGES",
@@ -80,8 +83,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow NEXAD to use the camera to scan QR codes.",
-          "microphonePermission": false
+          "cameraPermission": "Allow NEXAD to access camera for video consultations and QR scanning",
+          "microphonePermission": "Allow NEXAD to access microphone for video consultations"
         }
       ],
       [
@@ -99,7 +102,14 @@
           "color": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Allow NEXAD to access camera for video consultations and QR code scanning",
+          "enableCodeScanner": true
+        }
+      ]
     ],
     "owner": "ahkeyuuuhh",
     "extra": {
