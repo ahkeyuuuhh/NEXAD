@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { C, S, R, shadow } from '../../config/theme';
@@ -43,13 +44,11 @@ export default function StudentJoinConsultationScreen({ navigation }: any) {
         return;
       }
 
-      // Navigate to video call
-      navigation.navigate('VideoCall', {
-        roomUrl: result.data.roomUrl,
-        consultationId: result.data.consultationId,
-        userName: userName,
-        isHost: false,
-      });
+      // Navigate to video call in browser
+      await WebBrowser.openBrowserAsync(result.data.roomUrl);
+      
+      // Navigate back after opening browser
+      navigation.goBack();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to join consultation');
     } finally {
@@ -57,8 +56,13 @@ export default function StudentJoinConsultationScreen({ navigation }: any) {
     }
   };
 
+  // Remove QR scanning functionality
   const handleScanQR = () => {
-    navigation.navigate('ConsultationQRScanner');
+    Alert.alert(
+      'QR Scanning',
+      'QR code scanning will be available in the next update. For now, please enter the invite code manually.',
+      [{ text: 'OK' }]
+    );
   };
 
   return (

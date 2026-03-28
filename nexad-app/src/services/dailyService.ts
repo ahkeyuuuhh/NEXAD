@@ -1,6 +1,6 @@
 /**
- * Daily.co Video Consultation Service
- * Handles room creation and management for virtual consultations
+ * Daily.co Video Consultation Service (Web-based)
+ * Uses browser-based approach instead of native SDK
  */
 
 import { ApiResponse } from '../types';
@@ -127,44 +127,6 @@ class DailyService {
     } catch (error: any) {
       console.error('Error getting Daily.co room:', error);
       return { error: error.message || 'Failed to get consultation room' };
-    }
-  }
-
-  /**
-   * Generate a meeting token for a participant (optional, for added security)
-   */
-  async createMeetingToken(
-    roomName: string,
-    userName: string,
-    isOwner: boolean = false
-  ): Promise<ApiResponse<string>> {
-    try {
-      const response = await fetch(`${DAILY_API_URL}/meeting-tokens`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DAILY_API_KEY}`,
-        },
-        body: JSON.stringify({
-          properties: {
-            room_name: roomName,
-            user_name: userName,
-            is_owner: isOwner,
-            enable_recording: false,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to create token: ${response.statusText}`);
-      }
-
-      const { token } = await response.json();
-      return { data: token };
-    } catch (error: any) {
-      console.error('Error creating meeting token:', error);
-      return { error: error.message || 'Failed to create meeting token' };
     }
   }
 }

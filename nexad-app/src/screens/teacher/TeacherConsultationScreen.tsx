@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService, VirtualConsultation } from '../../services/consultationService';
@@ -81,15 +82,16 @@ export default function TeacherConsultationScreen({ navigation }: any) {
     }
   };
 
-  const handleStartCall = () => {
+  const handleStartCall = async () => {
     if (!activeConsultation) return;
 
-    navigation.navigate('VideoCall', {
-      roomUrl: activeConsultation.room_url,
-      consultationId: activeConsultation.id,
-      userName: activeConsultation.host_name,
-      isHost: true,
-    });
+    try {
+      // Open Daily.co room in browser
+      await WebBrowser.openBrowserAsync(activeConsultation.room_url);
+    } catch (error) {
+      console.error('Error opening video call:', error);
+      Alert.alert('Error', 'Failed to open video call');
+    }
   };
 
   const handleShareCode = async () => {

@@ -77,11 +77,9 @@ import ArchivedInboxScreen from './src/screens/shared/ArchivedInboxScreen';
 import NotificationToast from './src/components/NotificationToast';
 import { AlertContainer } from './src/utils/Alert';
 
-// Virtual Consultation Screens
+// Virtual Consultation Screens (Web-based)
 import TeacherConsultationScreen from './src/screens/teacher/TeacherConsultationScreen';
 import StudentJoinConsultationScreen from './src/screens/student/StudentJoinConsultationScreen';
-import ConsultationQRScannerScreen from './src/screens/ConsultationQRScannerScreen';
-import VideoCallScreen from './src/screens/VideoCallScreen';
 
 function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -447,7 +445,7 @@ function AppStack() {
         component={ArchivedInboxScreen} 
         options={{ headerShown: false }} 
       />
-      {/* Virtual Consultation */}
+      {/* Virtual Consultation (Web-based) */}
       <Stack.Screen 
         name="TeacherConsultation" 
         component={TeacherConsultationScreen} 
@@ -457,16 +455,6 @@ function AppStack() {
         name="StudentJoinConsultation" 
         component={StudentJoinConsultationScreen} 
         options={{ headerShown: false, ...cleanSlideTransition }} 
-      />
-      <Stack.Screen 
-        name="ConsultationQRScanner" 
-        component={ConsultationQRScannerScreen} 
-        options={{ headerShown: false, presentation: 'modal', ...enhancedModalTransition }} 
-      />
-      <Stack.Screen 
-        name="VideoCall" 
-        component={VideoCallScreen} 
-        options={{ headerShown: false, gestureEnabled: false }} 
       />
     </Stack.Navigator>
   );

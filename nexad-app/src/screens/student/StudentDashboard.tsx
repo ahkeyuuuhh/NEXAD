@@ -111,9 +111,18 @@ export default function StudentDashboard({ navigation, route }: any) {
     if (!userId) return;
     try {
       const [consultationsResult, conversationsResult, profileResult] = await Promise.all([
-        consultationService.getStudentRequests(userId, 1, 100),
-        conversationService.getConversations(userId),
-        profileService.getStudentProfile(userId),
+        consultationService.getStudentRequests(userId, 1, 100).catch(err => {
+          console.error('Error loading consultations:', err);
+          return { data: { data: [] } };
+        }),
+        conversationService.getConversations(userId).catch(err => {
+          console.error('Error loading conversations:', err);
+          return { data: [] };
+        }),
+        profileService.getStudentProfile(userId).catch(err => {
+          console.error('Error loading profile:', err);
+          return { data: null };
+        }),
       ]);
 
       // Filter consultations by status
@@ -181,7 +190,13 @@ export default function StudentDashboard({ navigation, route }: any) {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data.');
+      // Set empty data instead of showing error
+      setDashboardData({
+        upcomingConsultations: [],
+        pendingRequests: [],
+        conversations: [],
+        profile: null,
+      });
     }
   }, [userId]);
 
@@ -491,6 +506,19 @@ export default function StudentDashboard({ navigation, route }: any) {
               <Text style={styles.quickActionBoxSubtitle}>Connect with teachers</Text>
             </TouchableOpacity>
           </View>
+          
+          <TouchableOpacity style={styles.quickActionFullWidth} onPress={() => navigation.navigate('StudentJoinConsultation')}>
+            <View style={styles.quickActionFullWidthContent}>
+              <View style={styles.quickActionFullWidthIcon}>
+                <Ionicons name="videocam" size={22} color="#202124" />
+              </View>
+              <View style={styles.quickActionFullWidthText}>
+                <Text style={styles.quickActionFullWidthTitle}>Join Virtual Consultation</Text>
+                <Text style={styles.quickActionFullWidthSubtitle}>Enter invite code to join video call</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(32, 33, 36, 0.5)" />
+          </TouchableOpacity>
         </View>
 
         {/* PENDING REQUESTS */}
@@ -986,7 +1014,7 @@ const styles = StyleSheet.create({
 
   // ─── Quick Actions ────────────────────────────────────
   quickActionsSection: { marginHorizontal: S.xl, marginBottom: S.xl },
-  quickActionsGrid: { flexDirection: 'row', gap: S.sm },
+  quickActionsGrid: { flexDirection: 'row', gap: S.sm, marginBottom: S.sm },
   quickActionBox: {
     flex: 1,
     backgroundColor: 'rgba(32, 33, 36, 0.08)', // More translucent
@@ -1011,6 +1039,43 @@ const styles = StyleSheet.create({
     fontSize: 9, // Smaller subtitle
     textAlign: 'center',
     marginTop: 1,
+  },
+  quickActionFullWidth: {
+    backgroundColor: 'rgba(32, 33, 36, 0.08)',
+    borderRadius: R.lg,
+    padding: S.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  quickActionFullWidthContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  quickActionFullWidthIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: R.md,
+    backgroundColor: 'rgba(32, 33, 36, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: S.md,
+  },
+  quickActionFullWidthText: {
+    flex: 1,
+  },
+  quickActionFullWidthTitle: {
+    color: '#202124',
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  quickActionFullWidthSubtitle: {
+    color: 'rgba(32, 33, 36, 0.7)',
+    fontSize: 11,
   },
 
   // ─── CTA Card ─────────────────────────────────────────

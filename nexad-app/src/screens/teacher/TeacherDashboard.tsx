@@ -123,9 +123,18 @@ export default function TeacherDashboard({ navigation, route }: any) {
     if (!userId) return;
     try {
       const [pendingResult, conversationsResult, profileResult] = await Promise.all([
-        consultationService.getTeacherRequests(userId, 'pending', 1, CONSULTATION_LIMIT),
-        conversationService.getConversations(userId),
-        profileService.getTeacherProfile(userId),
+        consultationService.getTeacherRequests(userId, 'pending', 1, CONSULTATION_LIMIT).catch(err => {
+          console.error('Error loading consultation requests:', err);
+          return { data: { data: [] } };
+        }),
+        conversationService.getConversations(userId).catch(err => {
+          console.error('Error loading conversations:', err);
+          return { data: [] };
+        }),
+        profileService.getTeacherProfile(userId).catch(err => {
+          console.error('Error loading profile:', err);
+          return { data: null };
+        }),
       ]);
 
       // Load pending requests with student names
@@ -207,7 +216,14 @@ export default function TeacherDashboard({ navigation, route }: any) {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data.');
+      // Set empty data instead of showing error
+      setDashboardData({
+        pendingRequests: [],
+        conversations: [],
+        profile: null,
+        upcomingAppointments: [],
+      });
+      setMarkedDates({});
     }
   }, [userId]);
 
@@ -725,7 +741,7 @@ export default function TeacherDashboard({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Classroom Shortcut */}
+        {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
           <TouchableOpacity 
             style={styles.classroomShortcut} 
@@ -739,6 +755,23 @@ export default function TeacherDashboard({ navigation, route }: any) {
               <View style={styles.classroomShortcutText}>
                 <Text style={styles.classroomShortcutTitle}>My Classrooms</Text>
                 <Text style={styles.classroomShortcutSubtitle}>Manage your classes</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(32, 33, 36, 0.5)" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.classroomShortcut, { marginTop: S.sm }]} 
+            onPress={() => navigation.navigate('TeacherConsultation')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.classroomShortcutContent}>
+              <View style={styles.classroomShortcutIcon}>
+                <Ionicons name="videocam" size={22} color="#202124" />
+              </View>
+              <View style={styles.classroomShortcutText}>
+                <Text style={styles.classroomShortcutTitle}>Virtual Consultation</Text>
+                <Text style={styles.classroomShortcutSubtitle}>Start video consultation</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="rgba(32, 33, 36, 0.5)" />
