@@ -324,54 +324,94 @@ export const consultationService = {
     hostName: string
   ): Promise<ApiResponse<VirtualConsultation>> {
     try {
-      console.log('Creating consultation for:', hostName);
+      console.log('=== Creating consultation ===');
+      console.log('Host ID:', hostId);
+      console.log('Host Name:', hostName);
 
-      const roomResult = await dailyService.createRoom({
-        expiresInHours: 24,
-        maxParticipants: 2,
-        enableChat: true,
-        enableScreenshare: false,
-      });
+      // Generate a simple invite code locally
+      const generateSimpleCode = (): string => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+      };
 
-      if (roomResult.error || !roomResult.data) {
-        throw new Error(roomResult.error || 'Failed to create video room');
+      // Generate room ID and URL using Jitsi Meet (100% free, no API key needed)
+      const roomId = `nexad-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const roomUrl = `https://meet.jit.si/${roomId}`;
+      
+      console.log('✅ Jitsi Meet room created:', roomId);
+
+      // Generate invite code (with fallback)
+      console.log('Step 2: Generating invite code...');
+      let inviteCode: string;
+      
+      try {
+        const { data: codeData, error: codeError } = await supabase
+          .rpc('generate_invite_code');
+
+        if (codeError) {
+          console.warn('RPC generate_invite_code failed, using fallback:', codeError.message);
+          inviteCode = generateSimpleCode();
+        } else {
+          inviteCode = codeData as string;
+        }
+      } catch (rpcError) {
+        console.warn('RPC call failed, using fallback code generation');
+        inviteCode = generateSimpleCode();
       }
 
-      const room = roomResult.data;
+      console.log('Invite code generated:', inviteCode);
 
-      const { data: codeData, error: codeError } = await supabase
-        .rpc('generate_invite_code');
-
-      if (codeError) {
-        console.error('Error generating invite code:', codeError);
-        throw new Error('Failed to generate invite code');
-      }
-
-      const inviteCode = codeData as string;
+      // Insert consultation record
+      console.log('Step 3: Creating consultation record in database...');
+      const insertData = {
+        room_id: roomId,
+        room_url: roomUrl,
+        invite_code: inviteCode,
+        host_id: hostId,
+        host_name: hostName,
+        status: 'active' as const,
+      };
+      console.log('Insert data:', JSON.stringify(insertData, null, 2));
 
       const { data: consultation, error: dbError } = await supabase
         .from('virtual_consultations')
-        .insert({
-          room_id: room.name,
-          room_url: room.url,
-          invite_code: inviteCode,
-          host_id: hostId,
-          host_name: hostName,
-          status: 'active',
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (dbError) {
-        console.error('Error creating consultation record:', dbError);
-        await dailyService.deleteRoom(room.name);
-        throw new Error('Failed to create consultation record');
+        console.error('=== DATABASE ERROR ===');
+        console.error('Error code:', dbError.code);
+        console.error('Error message:', dbError.message);
+        console.error('Full error:', JSON.stringify(dbError, null, 2));
+        
+        let errorMessage = 'Database error: ';
+        if (dbError.code === '42501') {
+          errorMessage += 'Permission denied. Please run: ALTER TABLE virtual_consultations DISABLE ROW LEVEL SECURITY;';
+        } else if (dbError.code === '23505') {
+          errorMessage += 'Duplicate code. Please try again.';
+        } else if (dbError.code === '42P01') {
+          errorMessage += 'Table does not exist. Please run database setup.';
+        } else {
+          errorMessage += dbError.message || 'Unknown database error';
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      console.log('Consultation created successfully:', consultation.id);
+      console.log('✅ Consultation created successfully!');
+      console.log('Consultation ID:', consultation.id);
+      console.log('Invite code:', consultation.invite_code);
       return { data: consultation };
     } catch (error: any) {
-      console.error('Error in createConsultation:', error);
+      console.error('=== FINAL ERROR ===');
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
       return { error: error.message || 'Failed to create consultation' };
     }
   },
@@ -449,8 +489,6 @@ export const consultationService = {
         throw new Error('Failed to update consultation status');
       }
 
-      await dailyService.deleteRoom(consultation.room_id);
-
       console.log('Consultation ended successfully');
       return { data: true };
     } catch (error: any) {
@@ -513,16 +551,6 @@ export const consultationService = {
    */
   async cancelConsultation(consultationId: string): Promise<ApiResponse<boolean>> {
     try {
-      const { data: consultation, error: fetchError } = await supabase
-        .from('virtual_consultations')
-        .select('room_id')
-        .eq('id', consultationId)
-        .single();
-
-      if (fetchError || !consultation) {
-        throw new Error('Consultation not found');
-      }
-
       const { error: updateError } = await supabase
         .from('virtual_consultations')
         .update({ status: 'cancelled' })
@@ -531,8 +559,6 @@ export const consultationService = {
       if (updateError) {
         throw new Error('Failed to cancel consultation');
       }
-
-      await dailyService.deleteRoom(consultation.room_id);
 
       return { data: true };
     } catch (error: any) {

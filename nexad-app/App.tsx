@@ -675,19 +675,28 @@ export default function App() {
           return;
         }
 
-        console.log('🔵 Checking for updates...');
+        console.log('🔵 [UPDATE] Checking for updates...');
+        console.log('🔵 [UPDATE] Current runtime version:', Updates.runtimeVersion);
+        console.log('🔵 [UPDATE] Update channel:', Updates.channel);
+        
         const update = await Updates.checkForUpdateAsync();
+        console.log('🔵 [UPDATE] Check result:', JSON.stringify(update, null, 2));
         
         if (update.isAvailable) {
-          console.log('🟢 Update available! Fetching...');
-          await Updates.fetchUpdateAsync();
-          console.log('🟢 Update fetched! Reloading...');
-          await Updates.reloadAsync();
+          console.log('🟢 [UPDATE] Update available! Fetching...');
+          const fetchResult = await Updates.fetchUpdateAsync();
+          console.log('🟢 [UPDATE] Fetch result:', JSON.stringify(fetchResult, null, 2));
+          console.log('🟢 [UPDATE] Update fetched! Reloading in 1 second...');
+          setTimeout(async () => {
+            await Updates.reloadAsync();
+          }, 1000);
         } else {
-          console.log('🟡 No updates available');
+          console.log('🟡 [UPDATE] No updates available');
+          console.log('🟡 [UPDATE] App is up to date');
         }
       } catch (error: any) {
-        console.error('🔴 Update check failed:', error?.message);
+        console.error('🔴 [UPDATE] Update check failed:', error?.message);
+        console.error('🔴 [UPDATE] Error details:', JSON.stringify(error, null, 2));
       }
     }
 
