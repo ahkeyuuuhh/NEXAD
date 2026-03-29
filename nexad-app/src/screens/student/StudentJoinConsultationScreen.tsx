@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,26 +9,49 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
+import { Camera, CameraView } from 'expo-camera';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService } from '../../services/consultationService';
 import { C, S, R, shadow } from '../../config/theme';
 
-export default function StudentJoinConsultationScreen({ navigation }: any) {
+export default function StudentJoinConsultationScreen({ navigation, route }: any) {
   const { user } = useAuth();
   const [inviteCode, setInviteCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanning, setScanning] = useState(false);
 
-  const handleJoinByCode = async () => {
+  // Check for deep link parameter
+  useEffect(() => {
+    if (route.params?.code) {
+      setInviteCode(route.params.code);
+      handleJoinByCode(route.params.code);
+    }
+  }, [route.params?.code]);
+
+  const requestCameraPermission = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    setHasPermission(status === 'granted');
+    return status === 'granted';
+  };
+
+  const handleJoinByCode = async (code?: string) => {
     if (!user?.id) return;
 
-    const code = inviteCode.trim().toUpperCase();
-    if (code.length !== 6) {
-      Alert.alert('Invalid Code', 'Please enter a valid 6-character invite code.');
+    const joinCode = (code || inviteCode).trim().toUpperCase();
+    if (joinCode.length !== 6) {
+      Alert.alert(
+        'Invalid Code',
+        'Please enter a valid 6-character invite code.',
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
+      );
       return;
     }
 
@@ -37,33 +60,139 @@ export default function StudentJoinConsultationScreen({ navigation }: any) {
 
       const userName = `${user.first_name || 'Student'} ${user.last_name || ''}`.trim();
 
-      const result = await consultationService.joinConsultation(code, user.id, userName);
+      const result = await consultationService.joinConsultation(joinCode, user.id, userName);
 
       if (result.error || !result.data) {
-        Alert.alert('Error', result.error || 'Failed to join consultation');
+        Alert.alert(
+          'Error',
+          result.error || 'Failed to join consultation',
+          [{ text: 'OK', style: 'default' }],
+          { cancelable: true }
+        );
         return;
       }
 
-      // Navigate to video call in browser
-      await WebBrowser.openBrowserAsync(result.data.roomUrl);
+      // Open Jitsi Meet in the app (not browser)
+      const jitsiUrl = result.data.roomUrl;
       
-      // Navigate back after opening browser
-      navigation.goBack();
+      // Try to open with Jitsi Meet app first
+      const jitsiAppUrl = jitsiUrl.replace('https://meet.jit.si/', 'org.jitsi.meet://');
+      const canOpenApp = await Linking.canOpenURL(jitsiAppUrl);
+      
+      if (canOpenApp) {
+        // Open in Jitsi Meet app
+        await Linking.openURL(jitsiAppUrl);
+        Alert.alert(
+          'Joined!',
+          'Opening video consultation in Jitsi Meet app...',
+          [{ text: 'OK', style: 'default' }],
+          { cancelable: true }
+        );
+        navigation.goBack();
+      } else {
+        // Prompt to install Jitsi Meet app
+        Alert.alert(
+          'Install Jitsi Meet',
+          'For the best experience, please install the Jitsi Meet app. Would you like to install it now?',
+          [
+            {
+              text: 'Open in Browser',
+              style: 'cancel',
+              onPress: async () => {
+                await Linking.openURL(jitsiUrl);
+                navigation.goBack();
+              }
+            },
+            {
+              text: 'Install App',
+              style: 'default',
+              onPress: () => {
+                const storeUrl = Platform.OS === 'android'
+                  ? 'https://play.google.com/store/apps/details?id=org.jitsi.meet'
+                  : 'https://apps.apple.com/app/jitsi-meet/id1165103905';
+                Linking.openURL(storeUrl);
+              }
+            }
+          ],
+          { cancelable: true }
+        );
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to join consultation');
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to join consultation',
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
+      );
     } finally {
       setIsJoining(false);
     }
   };
 
-  // Remove QR scanning functionality
-  const handleScanQR = () => {
-    Alert.alert(
-      'QR Scanning',
-      'QR code scanning will be available in the next update. For now, please enter the invite code manually.',
-      [{ text: 'OK' }]
-    );
+  const handleScanQR = async () => {
+    const granted = hasPermission || await requestCameraPermission();
+    
+    if (!granted) {
+      Alert.alert(
+        'Camera Permission',
+        'Camera permission is required to scan QR codes.',
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    setScanning(true);
   };
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    setScanning(false);
+    
+    // Extract code from deep link
+    const match = data.match(/nexad:\/\/consultation\/join\/([A-Z0-9]{6})/i);
+    if (match) {
+      const code = match[1].toUpperCase();
+      setInviteCode(code);
+      handleJoinByCode(code);
+    } else {
+      Alert.alert(
+        'Invalid QR Code',
+        'This QR code is not a valid NEXAD consultation invite.',
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
+      );
+    }
+  };
+
+  if (scanning) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <View style={styles.scannerContainer}>
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            onBarcodeScanned={handleBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}
+          />
+          <View style={styles.scannerOverlay}>
+            <Text style={styles.scannerTitle}>Scan QR Code</Text>
+            <Text style={styles.scannerSubtitle}>
+              Point your camera at the QR code shown by your teacher
+            </Text>
+            <TouchableOpacity
+              style={styles.cancelScanButton}
+              onPress={() => setScanning(false)}
+            >
+              <Text style={styles.cancelScanText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -163,6 +292,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  scannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  scannerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: S.sm,
+  },
+  scannerSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    paddingHorizontal: S.xl * 2,
+    marginBottom: S.xl * 2,
+  },
+  cancelScanButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: S.xl,
+    paddingVertical: S.md,
+    borderRadius: R.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  cancelScanText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
   },
   header: {
     flexDirection: 'row',

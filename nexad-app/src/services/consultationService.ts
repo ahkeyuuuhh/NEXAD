@@ -1,11 +1,9 @@
 import { supabase } from '../config/supabase';
-import { dailyService } from './dailyService';
 import type {
   ConsultationRequest,
   ApiResponse,
   PaginatedResponse,
   ConsultationStatus,
-  TimeSlot,
 } from '../types';
 
 // Virtual Consultation interface
@@ -339,8 +337,9 @@ export const consultationService = {
       };
 
       // Generate room ID and URL using Jitsi Meet (100% free, no API key needed)
-      const roomId = `nexad-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const roomUrl = `https://meet.jit.si/${roomId}`;
+      const roomId = `nexad-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      // Add moderator parameter for teacher - they'll have full control
+      const roomUrl = `https://meet.jit.si/${roomId}#config.startWithVideoMuted=false&userInfo.displayName=${encodeURIComponent(hostName)}&config.prejoinPageEnabled=false`;
       
       console.log('✅ Jitsi Meet room created:', roomId);
 
@@ -456,9 +455,9 @@ export const consultationService = {
   },
 
   /**
-   * End a consultation
+   * End a consultation and automatically create a new one
    */
-  async endConsultation(consultationId: string): Promise<ApiResponse<boolean>> {
+  async endConsultation(consultationId: string, hostId: string, hostName: string): Promise<ApiResponse<VirtualConsultation>> {
     try {
       console.log('Ending consultation:', consultationId);
 
@@ -489,8 +488,17 @@ export const consultationService = {
         throw new Error('Failed to update consultation status');
       }
 
-      console.log('Consultation ended successfully');
-      return { data: true };
+      console.log('Consultation ended successfully, creating new one...');
+      
+      // Automatically create a new consultation
+      const newConsultation = await this.createConsultation(hostId, hostName);
+      
+      if (newConsultation.error || !newConsultation.data) {
+        console.error('Failed to create new consultation:', newConsultation.error);
+        return { error: 'Consultation ended but failed to create new one' };
+      }
+
+      return { data: newConsultation.data };
     } catch (error: any) {
       console.error('Error ending consultation:', error);
       return { error: error.message || 'Failed to end consultation' };

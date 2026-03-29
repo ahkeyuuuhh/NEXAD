@@ -9,11 +9,12 @@ import {
   Alert,
   StatusBar,
   Share,
+  Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationService, VirtualConsultation } from '../../services/consultationService';
@@ -90,7 +91,8 @@ export default function TeacherConsultationScreen({ navigation }: any) {
       Alert.alert(
         'Success!',
         'Consultation room created! Share the invite code or QR code with your student.',
-        [{ text: 'OK' }]
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
       );
     } catch (error: any) {
       console.error('🔴 [SCREEN] Exception:', error);
@@ -107,11 +109,50 @@ export default function TeacherConsultationScreen({ navigation }: any) {
     if (!activeConsultation) return;
 
     try {
-      // Open Daily.co room in browser
-      await WebBrowser.openBrowserAsync(activeConsultation.room_url);
+      const jitsiUrl = activeConsultation.room_url;
+      
+      // Try to open with Jitsi Meet app first
+      const jitsiAppUrl = jitsiUrl.replace('https://meet.jit.si/', 'org.jitsi.meet://');
+      const canOpenApp = await Linking.canOpenURL(jitsiAppUrl);
+      
+      if (canOpenApp) {
+        // Open in Jitsi Meet app
+        await Linking.openURL(jitsiAppUrl);
+      } else {
+        // Prompt to install Jitsi Meet app
+        Alert.alert(
+          'Install Jitsi Meet',
+          'For the best experience, please install the Jitsi Meet app. Would you like to install it now?',
+          [
+            {
+              text: 'Open in Browser',
+              style: 'cancel',
+              onPress: async () => {
+                await Linking.openURL(jitsiUrl);
+              }
+            },
+            {
+              text: 'Install App',
+              style: 'default',
+              onPress: () => {
+                const storeUrl = Platform.OS === 'android'
+                  ? 'https://play.google.com/store/apps/details?id=org.jitsi.meet'
+                  : 'https://apps.apple.com/app/jitsi-meet/id1165103905';
+                Linking.openURL(storeUrl);
+              }
+            }
+          ],
+          { cancelable: true }
+        );
+      }
     } catch (error) {
       console.error('Error opening video call:', error);
-      Alert.alert('Error', 'Failed to open video call');
+      Alert.alert(
+        'Error',
+        'Failed to open video call',
+        [{ text: 'OK', style: 'default' }],
+        { cancelable: true }
+      );
     }
   };
 
@@ -129,32 +170,54 @@ export default function TeacherConsultationScreen({ navigation }: any) {
   };
 
   const handleCancelConsultation = () => {
-    if (!activeConsultation) return;
+    if (!activeConsultation || !user?.id) return;
 
     Alert.alert(
-      'Cancel Consultation',
-      'Are you sure you want to cancel this consultation?',
+      'End Consultation',
+      'End this consultation and generate a new invite code?',
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Yes, Cancel',
-          style: 'destructive',
+          text: 'End & Generate New',
+          style: 'default',
           onPress: async () => {
-            const result = await consultationService.cancelConsultation(activeConsultation.id);
+            const userName = `${user.first_name || 'Teacher'} ${user.last_name || ''}`.trim();
+            const result = await consultationService.endConsultation(
+              activeConsultation.id,
+              user.id,
+              userName
+            );
+            
             if (result.data) {
-              setActiveConsultation(null);
-              loadConsultations();
+              setActiveConsultation(result.data);
+              Alert.alert(
+                'New Consultation Ready!',
+                'Previous consultation ended. New invite code generated automatically!',
+                [{ text: 'OK', style: 'default' }],
+                { cancelable: true }
+              );
+            } else {
+              Alert.alert(
+                'Error',
+                result.error || 'Failed to generate new consultation',
+                [{ text: 'OK', style: 'default' }],
+                { cancelable: true }
+              );
             }
+            
+            loadConsultations();
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
   const renderActiveConsultation = () => {
     if (!activeConsultation) return null;
 
-    const deepLink = `nexad://join/${activeConsultation.invite_code}`;
+    // Create deep link for QR code
+    const deepLink = `nexad://consultation/join/${activeConsultation.invite_code}`;
 
     return (
       <View style={styles.activeCard}>
@@ -167,7 +230,7 @@ export default function TeacherConsultationScreen({ navigation }: any) {
             <Text style={styles.activeTitle}>Virtual Consultation</Text>
           </View>
           <TouchableOpacity onPress={handleCancelConsultation} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="close-circle" size={24} color="#EF4444" />
+            <Ionicons name="refresh-circle" size={24} color={C.action} />
           </TouchableOpacity>
         </View>
 
